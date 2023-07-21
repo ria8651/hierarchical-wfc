@@ -1,32 +1,80 @@
 use bevy::utils::{HashMap, HashSet};
 use rand::Rng;
 
-use crate::grid_wfc::TileSet;
+use crate::grid_wfc::{AllowedNeighbors, TileSet};
 
 pub struct BasicTileset;
 
 impl TileSet for BasicTileset {
     type Tile = u32;
 
-    fn allowed_neighbors() -> HashMap<Self::Tile, [HashSet<Self::Tile>; 4]> {
-        [
-            (
-                0,
-                [
-                    [0].into(),
-                    [0, 1, 2, 3].into(),
-                    [0, 3, 6].into(),
-                    [0, 1, 4].into(),
-                ],
-            ),
-            (1, [[0].into(), [4].into(), [0].into(), [2, 3].into()]),
-            (2, [[0].into(), [5].into(), [1, 2].into(), [2, 3].into()]),
-            (3, [[0].into(), [6].into(), [1, 2].into(), [0].into()]),
-            (4, [[1, 4].into(), [4].into(), [0].into(), [5, 6].into()]),
-            (5, [[2, 5].into(), [5].into(), [4, 5].into(), [5, 6].into()]),
-            (6, [[3, 6].into(), [6].into(), [5, 4].into(), [0].into()]),
-        ]
-        .into()
+    fn allowed_neighbors() -> AllowedNeighbors<Self> {
+        #[derive(Clone, Copy, PartialEq, Eq)]
+        enum TileEdgeType {
+            Air,
+            Dirt,
+            GrassDirt,
+            DirtAir,
+            DirtLeft,
+            DirtRight,
+            DirtTop,
+            GrassDirtAir,
+        }
+        type T = TileEdgeType;
+
+        let tile_edge_types = [
+            (0, [T::Air, T::Air, T::Air, T::Air]),
+            (1, [T::Air, T::DirtLeft, T::Air, T::GrassDirt]),
+            (2, [T::Air, T::Dirt, T::GrassDirt, T::GrassDirt]),
+            (3, [T::Air, T::DirtRight, T::GrassDirt, T::Air]),
+            (4, [T::DirtLeft, T::DirtLeft, T::Air, T::Dirt]),
+            (5, [T::Dirt, T::Dirt, T::Dirt, T::Dirt]),
+            (6, [T::DirtRight, T::DirtRight, T::Dirt, T::Air]),
+            (7, [T::Air, T::Dirt, T::GrassDirt, T::DirtTop]),
+            (8, [T::DirtLeft, T::Dirt, T::DirtTop, T::Dirt]),
+            (9, [T::Dirt, T::Air, T::DirtAir, T::DirtAir]),
+            (10, [T::DirtRight, T::Dirt, T::Dirt, T::DirtTop]),
+            (11, [T::Air, T::Dirt, T::DirtTop, T::GrassDirt]),
+            (12, [T::DirtLeft, T::Air, T::Air, T::DirtAir]),
+            (13, [T::Air, T::Air, T::Air, T::GrassDirtAir]),
+            (14, [T::Air, T::Air, T::GrassDirtAir, T::GrassDirtAir]),
+            (15, [T::Air, T::Air, T::GrassDirtAir, T::Air]),
+            (16, [T::DirtRight, T::Air, T::DirtAir, T::Air]),
+        ];
+
+        // convert to allowed neighbors
+        let mut allowed_neighbors: AllowedNeighbors<Self> = HashMap::new();
+        for (tile, edges) in tile_edge_types {
+            let mut neighbors = [
+                HashSet::new(),
+                HashSet::new(),
+                HashSet::new(),
+                HashSet::new(),
+            ];
+            for (edge_index, edge) in edges.into_iter().enumerate() {
+                let direction = match edge_index {
+                    0 => 1,
+                    1 => 0,
+                    2 => 3,
+                    3 => 2,
+                    _ => unreachable!(),
+                };
+                
+                if edge == T::Air && tile != 0 {
+                    // special case for air
+                    neighbors[edge_index].insert(0);
+                } else {
+                    // add all tiles with this edge type to the neighbor set
+                    for (other_tile, other_edges) in tile_edge_types.iter() {
+                        if other_edges[direction] == edge {
+                            neighbors[edge_index].insert(*other_tile);
+                        }
+                    }
+                }
+            }
+            allowed_neighbors.insert(tile, neighbors);
+        }
+        allowed_neighbors
     }
 
     fn random_tile<R: Rng>(rng: &mut R) -> Self::Tile {
@@ -34,6 +82,6 @@ impl TileSet for BasicTileset {
     }
 
     fn all_tiles() -> HashSet<Self::Tile> {
-        [0, 1, 2, 3, 4, 5, 6].into()
+        (0..=16).collect()
     }
 }

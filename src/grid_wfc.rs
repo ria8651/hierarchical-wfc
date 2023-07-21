@@ -160,4 +160,4 @@ pub trait TileSet {
     fn all_tiles() -> HashSet<Self::Tile>;
 }
 
-type AllowedNeighbors<T> = HashMap<<T as TileSet>::Tile, [HashSet<<T as TileSet>::Tile>; 4]>;
+pub type AllowedNeighbors<T> = HashMap<<T as TileSet>::Tile, [HashSet<<T as TileSet>::Tile>; 4]>;
