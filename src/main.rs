@@ -16,18 +16,17 @@ fn setup() {
     let mut grid_wfc: GridWfc<BasicTileset> = GridWfc::new(UVec2::new(10, 10));
     grid_wfc.collapse(1);
 
-    // for y in (0..grid_wfc.grid[0].len()).rev() {
-    //     for x in 0..grid_wfc.grid.len() {
-    //         let tiles = &grid_wfc.grid[x][y];
-    //         print!("{:<22}", format!("{:?}", tiles));
-    //     }
-    //     println!();
-    // }
+    let grid = match grid_wfc.validate() {
+        Ok(grid) => grid,
+        Err(e) => {
+            error!("Error: {}", e);
+            return;
+        }
+    };
 
-    for y in (0..grid_wfc.grid[0].len()).rev() {
-        for x in 0..grid_wfc.grid.len() {
-            let tiles = &grid_wfc.grid[x][y];
-            print!("{}", tiles.iter().next().unwrap());
+    for y in (0..grid[0].len()).rev() {
+        for x in 0..grid.len() {
+            print!("{}", &grid[x][y]);
         }
         println!();
     }

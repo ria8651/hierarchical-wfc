@@ -1,3 +1,4 @@
+use anyhow::Result;
 use bevy::{
     prelude::*,
     utils::{HashMap, HashSet},
@@ -39,7 +40,6 @@ impl<T: TileSet> GridWfc<T> {
         );
 
         // update cell
-        // let tiles: HashSet<T::Tile> = [T::random_tile(&mut rng)].into();
         let tiles = [T::random_tile(&mut rng)].into();
         self.grid[start_pos.x as usize][start_pos.y as usize] = tiles;
 
@@ -81,6 +81,14 @@ impl<T: TileSet> GridWfc<T> {
                 }
             }
         }
+
+        // for y in (0..grid_wfc.grid[0].len()).rev() {
+        //     for x in 0..grid_wfc.grid.len() {
+        //         let tiles = &grid_wfc.grid[x][y];
+        //         print!("{:<22}", format!("{:?}", tiles));
+        //     }
+        //     println!();
+        // }
     }
 
     /// Returns true if the tile was updated
@@ -109,6 +117,23 @@ impl<T: TileSet> GridWfc<T> {
         }
 
         updated
+    }
+
+    /// Consumes the grid and returns the collapsed tiles
+    pub fn validate(self) -> Result<Vec<Vec<T::Tile>>> {
+        let mut result = Vec::new();
+        for x in 0..self.grid.len() {
+            let mut row = Vec::new();
+            for y in 0..self.grid[0].len() {
+                let tiles = &self.grid[x][y];
+                if tiles.len() != 1 {
+                    return Err(anyhow::anyhow!("Invalid grid"));
+                }
+                row.push(*tiles.iter().next().unwrap());
+            }
+            result.push(row);
+        }
+        Ok(result)
     }
 
     fn get_tiles(&self, pos: IVec2) -> Option<&HashSet<T::Tile>> {
