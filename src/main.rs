@@ -16,7 +16,7 @@ fn main() {
 struct TileSprite;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let mut grid_wfc: GridWfc<BasicTileset> = GridWfc::new(UVec2::new(9, 9));
+    let mut grid_wfc: GridWfc<BasicTileset> = GridWfc::new(UVec2::new(15, 15));
     grid_wfc.collapse(1);
 
     let tiles = match grid_wfc.validate() {
@@ -51,7 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // tileset
     let mut tile_handles: Vec<Handle<Image>> = Vec::new();
-    for tile in 1..=6 {
+    for tile in 1..=16 {
         tile_handles.push(asset_server.load(format!("tileset/{}.png", tile).as_str()));
     }
 
