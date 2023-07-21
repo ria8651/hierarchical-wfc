@@ -7,13 +7,13 @@ impl Voronoi {
         let mut mesh = Mesh::new(PrimitiveTopology::LineList);
         let mut rng = rand::thread_rng();
         let mut points = vec![[0.0, 0.0, 0.0]; (width * height) as usize];
-        let mut edges: Vec<u32> = vec![];
+        let mut edges: Vec<Vec<u32>> = vec![vec![]; points.len()];
 
         for i in 0..width {
             for j in 0..height {
                 points[(i + j * width) as usize] = [
-                    (i as f32 + rng.gen_range(0.0..1.0)) / (width as f32),
-                    (j as f32 + rng.gen_range(0.0..1.0)) / (height as f32),
+                    size * (i as f32 + rng.gen_range(0.0..1.0)) / (width as f32),
+                    size * (j as f32 + rng.gen_range(0.0..1.0)) / (height as f32),
                     0.0,
                 ];
             }
@@ -22,12 +22,10 @@ impl Voronoi {
         for i in 0..width {
             for j in 0..height {
                 if i + 1 < width {
-                    edges.push(i + j * width);
-                    edges.push(i + j * width + 1);
+                    edges[(i + j * width) as usize].push(i + j * width + 1);
                 }
                 if j + 1 < height {
-                    edges.push(i + j * width);
-                    edges.push(i + j * width + width);
+                    edges[(i + j * width) as usize].push(i + j * width + width);
                 }
                 if i + 1 < width && j + 1 < height {
                     let p11 = points[(i + j * width) as usize];
@@ -39,11 +37,9 @@ impl Voronoi {
                     let d2 = (p21[0] - p22[0]).powi(2) + (p21[1] - p22[1]).powi(2);
 
                     if d1 < d2 {
-                        edges.push(i + j * width);
-                        edges.push(i + j * width + width + 1);
+                        edges[(i + j * width + width) as usize].push(i + j * width + width + 1);
                     } else {
-                        edges.push(i + j * width + 1);
-                        edges.push(i + j * width + width);
+                        edges[(i + j * width + 1) as usize].push(i + j * width + width);
                     }
                 }
             }
@@ -53,7 +49,15 @@ impl Voronoi {
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0., 0.]; points.len()]);
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, points);
 
-        mesh.set_indices(Some(Indices::U32(edges)));
+        let mut edge_indices = vec![];
+        for (i, nodes) in edges.into_iter().enumerate() {
+            for node in nodes {
+                edge_indices.push(i as u32);
+                edge_indices.push(node as u32);
+            }
+        }
+
+        mesh.set_indices(Some(Indices::U32(edge_indices)));
         return mesh;
     }
 }
