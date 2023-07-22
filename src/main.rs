@@ -1,8 +1,9 @@
-use basic_tileset::BasicTileset;
 use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::ScalingMode};
+use carcassonne_tileset::CarcassonneTileset;
 use grid_wfc::GridWfc;
 
 mod basic_tileset;
+mod carcassonne_tileset;
 mod grid_wfc;
 
 fn main() {
@@ -16,8 +17,8 @@ fn main() {
 struct TileSprite;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let mut grid_wfc: GridWfc<BasicTileset> = GridWfc::new(UVec2::new(15, 15));
-    grid_wfc.collapse(1);
+    let mut grid_wfc: GridWfc<CarcassonneTileset> = GridWfc::new(UVec2::new(15, 15));
+    grid_wfc.collapse(10);
 
     let tiles = match grid_wfc.validate() {
         Ok(tiles) => tiles,
@@ -51,31 +52,34 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // tileset
     let mut tile_handles: Vec<Handle<Image>> = Vec::new();
-    for tile in 1..=16 {
-        tile_handles.push(asset_server.load(format!("tileset/{}.png", tile).as_str()));
+    for tile in 0..=17 {
+        tile_handles.push(asset_server.load(format!("carcassonne/{}.png", tile + 1).as_str()));
     }
 
     // result
     for x in 0..tiles.len() {
         for y in 0..tiles[0].len() {
-            let tile = tiles[x][y];
-            if tile > 0 {
-                let pos = Vec2::new(x as f32, y as f32);
-                commands.spawn((
-                    SpriteBundle {
-                        texture: tile_handles[tile as usize - 1].clone(),
-                        transform: Transform::from_translation(
-                            ((pos + 0.5) / tiles.len() as f32 - 0.5).extend(0.0),
-                        ),
-                        sprite: Sprite {
-                            custom_size: Some(Vec2::splat(1.0 / tiles.len() as f32)),
-                            ..default()
-                        },
+            let tile = tiles[x][y] as usize;
+            let tile_index = tile % 18;
+            let tile_rotation = tile / 18;
+            let pos = Vec2::new(x as f32, y as f32);
+            commands.spawn((
+                SpriteBundle {
+                    texture: tile_handles[tile_index].clone(),
+                    transform: Transform::from_translation(
+                        ((pos + 0.5) / tiles.len() as f32 - 0.5).extend(0.0),
+                    )
+                    .with_rotation(Quat::from_rotation_z(
+                        std::f32::consts::PI * tile_rotation as f32 / 2.0,
+                    )),
+                    sprite: Sprite {
+                        custom_size: Some(Vec2::splat(1.0 / tiles.len() as f32)),
                         ..default()
                     },
-                    TileSprite,
-                ));
-            }
+                    ..default()
+                },
+                TileSprite,
+            ));
         }
     }
 }
