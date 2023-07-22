@@ -9,3 +9,13 @@ edition = "2021"
 bevy = "0.11"
 rand = "0.8"
 anyhow = "1.0"
+
+[[bin]]
+name = "constraint-editor"
+path = "src/bin/constraint_editor.rs"
+test = false
+bench = false
+
+[lib]
+name = "wfc_lib"
+path = "src/lib.rs"
