@@ -2,19 +2,28 @@
 name = "hierarchical-wfc"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+default-run = "main"
 
 [dependencies]
 bevy = "0.11"
 rand = "0.8"
 anyhow = "1.0"
+egui_dock = "0.6.3"
+bevy-inspector-egui = "0.19.0"
+bevy_reflect = "0.11.0"
+egui-gizmo = "0.11.0"
+bevy_simple_tilemap = "0.12.0"
+
 
 [[bin]]
 name = "constraint-editor"
 path = "src/bin/constraint_editor.rs"
 test = false
 bench = false
+
+[[bin]]
+name = "main"
+path = "src/main.rs"
 
 [lib]
 name = "wfc_lib"
