@@ -44,23 +44,6 @@ fn setup(
     mut standard_materials: ResMut<Assets<ColorMaterial>>,
     mut custom_materials: ResMut<Assets<PointMaterial>>,
 ) {
-    // let mut grid_wfc: GridWfc<BasicTileset> = GridWfc::new(UVec2::new(100, 100));
-    // grid_wfc.collapse(1);
-
-    // let tiles = match grid_wfc.validate() {
-    //     Ok(tiles) => tiles,
-    //     Err(e) => {
-    //         error!("Error: {}", e);
-    //         return;
-    //     }
-    // };
-
-    // for y in (0..tiles[0].len()).rev() {
-    //     for x in 0..tiles.len() {
-    //         print!("{}", &tiles[x][y]);
-    //     }
-    //     println!();
-    // }
     let mut graph = PlanarGraph::new_voronoi(32, 32, 1.0);
 
     graph.collapse(0);
@@ -107,36 +90,6 @@ fn setup(
         transform: Transform::from_translation(Vec3::new(0.5, 0.5, 0.0)),
         ..Default::default()
     });
-
-    // tileset
-    // let mut tile_handles: Vec<Handle<Image>> = Vec::new();
-    // for tile in 1..=16 {
-    //     tile_handles.push(asset_server.load(format!("tileset/{}.png", tile).as_str()));
-    // }
-
-    // // result
-    // for x in 0..tiles.len() {
-    //     for y in 0..tiles[0].len() {
-    //         let tile = tiles[x][y];
-    //         if tile > 0 {
-    //             let pos = Vec2::new(x as f32, y as f32);
-    //             commands.spawn((
-    //                 SpriteBundle {
-    //                     texture: tile_handles[tile as usize - 1].clone(),
-    //                     transform: Transform::from_translation(
-    //                         ((pos + 0.5) / tiles.len() as f32 - 0.5).extend(0.0),
-    //                     ),
-    //                     sprite: Sprite {
-    //                         custom_size: Some(Vec2::splat(1.0 / tiles.len() as f32)),
-    //                         ..default()
-    //                     },
-    //                     ..default()
-    //                 },
-    //                 TileSprite,
-    //             ));
-    //         }
-    //     }
-    // }
 }
 
 #[derive(Component, Default)]
