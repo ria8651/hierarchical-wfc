@@ -84,6 +84,7 @@ fn setup(
             material: custom_materials.add(PointMaterial {
                 color: Color::WHITE,
             }),
+
             ..Default::default()
         },
         Wireframe,
@@ -103,7 +104,7 @@ fn setup(
 
             ..Default::default()
         },
-        transform: Transform::from_translation(Vec3::new(0.5, 0.5, 2.0)),
+        transform: Transform::from_translation(Vec3::new(0.5, 0.5, 0.0)),
         ..Default::default()
     });
 

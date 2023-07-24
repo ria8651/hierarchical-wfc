@@ -1,31 +1,24 @@
 use std::any::TypeId;
 use std::ops::{Add, Div, Mul};
+use std::time::Duration;
 
-use bevy::asset::{HandleId, ReflectAsset};
+use bevy::asset::{ChangeWatcher, HandleId, ReflectAsset};
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::ecs::system::SystemState;
 
+use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::prelude::{
-    AssetEvent, Event, EventReader, EventWriter, GlobalTransform, IVec3, IntoSystemConfigs,
-    MouseButton, Resource,
+    AssetEvent, AssetPlugin, Event, EventReader, EventWriter, GlobalTransform, IVec3,
+    IntoSystemConfigs, Local, MouseButton, PluginGroup, Resource,
 };
 use bevy::render::texture::ImageSampler;
-use bevy::render::Extract;
+use bevy::render::view::NoFrustumCulling;
 use bevy::sprite::{
-    ColorMaterial, Material2dPlugin, Sprite, SpriteBundle, SpriteSheetBundle, TextureAtlas,
-    TextureAtlasSprite,
+    Material2dPlugin, MaterialMesh2dBundle, SpriteSheetBundle, TextureAtlas, TextureAtlasSprite,
 };
-use bevy::utils::{default, HashMap};
-use bevy::winit::WinitWindows;
 use bevy::{
     math::{UVec2, Vec2},
-    prelude::{
-        AlphaMode, App, AppTypeRegistry, AssetServer, Assets, Bundle, Camera, Camera2d,
-        Camera2dBundle, Color, Commands, Component, DefaultPlugins, FromReflect, Handle, Image,
-        Input, KeyCode, Mesh, OrthographicProjection, Plugin, PostUpdate, Query, Reflect,
-        ReflectComponent, ReflectResource, Res, ResMut, Startup, Transform, Update, Vec3, With,
-        World,
-    },
+    prelude::*,
 };
 
 use bevy_inspector_egui::bevy_egui::{self, egui, EguiContext, EguiUserTextures};
@@ -36,44 +29,68 @@ use bevy_inspector_egui::bevy_inspector::{
 use bevy_inspector_egui::DefaultInspectorConfigPlugin;
 
 use bevy::reflect::TypeRegistry;
-use bevy::render::camera::{ScalingMode, Viewport};
-use bevy::window::{CursorLeft, CursorMoved, PrimaryWindow, Window};
+use bevy::render::camera::{CameraRenderGraph, ScalingMode, Viewport};
+use bevy::window::{CursorMoved, PresentMode, PrimaryWindow, Window, WindowPlugin};
 use bevy_inspector_egui::bevy_egui::EguiSet;
-use bevy_inspector_egui::egui::TextureHandle;
 use bevy_simple_tilemap::prelude::{SimpleTileMapPlugin, TileMapBundle};
 use bevy_simple_tilemap::{Tile, TileMap};
 use egui_dock::{DockArea, NodeIndex, Style, Tree};
 use egui_gizmo::GizmoMode;
+use wfc_lib::background_grid_material::BackgroundGridMaterial;
 use wfc_lib::point_material::PointMaterial;
+use wfc_lib::render_pipeline::MainPassSettings;
 
 // use bevy_mod_picking::backends::egui::EguiPointer;
 // use bevy_mod_picking::prelude::*;
 fn main() {
-    App::new()
-        .add_plugins((DefaultPlugins, Material2dPlugin::<PointMaterial>::default()))
-        .add_systems(Update, spritemap_fix)
-        .add_systems(Update, brush_system)
-        .add_event::<BrushSelectEvent>()
-        .add_plugins(SimpleTileMapPlugin)
-        // .add_plugin(bevy_framepace::FramepacePlugin) // reduces input lag
-        .add_plugins(DefaultInspectorConfigPlugin)
-        .add_plugins(bevy_egui::EguiPlugin)
-        // .add_plugins(bevy_mod_picking::plugins::DefaultPickingPlugins)
-        .insert_resource(UiState::new())
-        .add_systems(Startup, setup)
-        .add_systems(
-            PostUpdate,
-            show_ui_system
-                .before(EguiSet::ProcessOutput)
-                .before(bevy::transform::TransformSystem::TransformPropagate),
-        )
-        .add_systems(PostUpdate, set_camera_viewport.after(show_ui_system))
-        .add_systems(Update, set_gizmo_mode)
-        // .add_systems(Update, auto_add_raycast_target)
-        // .add_systems(Update, handle_pick_events)
-        .register_type::<Option<Handle<Image>>>()
-        .register_type::<AlphaMode>()
-        .run();
+    let mut app = App::new();
+    app.add_plugins((
+        DefaultPlugins
+            .set(AssetPlugin {
+                watch_for_changes: Some(ChangeWatcher {
+                    delay: Duration::from_millis(200),
+                }),
+                ..Default::default()
+            })
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    present_mode: PresentMode::Immediate,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+        Material2dPlugin::<PointMaterial>::default(),
+    ))
+    // .add_plugins(render_pipeline::RenderPlugin)
+    .add_systems(Update, (spritemap_fix, brush_system, camera_2d_system))
+    .add_event::<BrushSelectEvent>()
+    .add_plugins(SimpleTileMapPlugin)
+    .add_plugins(Material2dPlugin::<BackgroundGridMaterial>::default())
+    // .add_plugin(bevy_framepace::FramepacePlugin) // reduces input lag
+    .add_plugins(DefaultInspectorConfigPlugin)
+    .add_plugins(bevy_egui::EguiPlugin)
+    // .add_plugins(bevy_mod_picking::plugins::DefaultPickingPlugins)
+    .insert_resource(UiState::new())
+    .add_systems(Startup, setup)
+    .add_systems(
+        PostUpdate,
+        show_ui_system
+            .before(EguiSet::ProcessOutput)
+            .before(bevy::transform::TransformSystem::TransformPropagate),
+    )
+    .add_systems(PostUpdate, set_camera_viewport.after(show_ui_system))
+    .add_systems(Update, set_gizmo_mode)
+    // .add_systems(Update, auto_add_raycast_target)
+    // .add_systems(Update, handle_pick_events)
+    .register_type::<Option<Handle<Image>>>()
+    .register_type::<AlphaMode>();
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let settings = bevy_mod_debugdump::render_graph::Settings::default();
+        let dot = bevy_mod_debugdump::render_graph_dot(&mut app, &settings);
+        std::fs::write("render-graph.dot", dot).expect("Failed to write render-graph.dot");
+    }
+    app.run();
 }
 
 /*
@@ -169,15 +186,6 @@ enum InspectorSelection {
     Entities,
     Resource(TypeId, String),
     Asset(TypeId, String, HandleId),
-}
-
-#[derive(Default)]
-struct EditorTilesets {
-    unimported: Vec<UnimportedTilesetUiData>,
-}
-
-struct UnimportedTilesetUiData {
-    texture_handle: egui::TextureHandle,
 }
 
 #[derive(Resource)]
@@ -318,9 +326,7 @@ impl egui_dock::TabViewer for TabViewer<'_> {
 }
 
 #[derive(Component)]
-struct Brush {
-    tile: BrushTile,
-}
+struct Brush;
 
 #[derive(Component)]
 struct BrushTile;
@@ -332,6 +338,7 @@ struct BrushSelectEvent {
 
 fn brush_system(
     ui_state: Res<UiState>,
+    primary_window: Query<&mut Window, With<PrimaryWindow>>,
     egui_settings: Res<bevy_egui::EguiSettings>,
 
     mut brush_select_event: EventReader<BrushSelectEvent>,
@@ -340,7 +347,6 @@ fn brush_system(
     buttons: Res<Input<MouseButton>>,
     mut tile_map_q: Query<&mut TileMap>,
 
-    primary_window: Query<&mut Window, With<PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
     let Ok(window) = primary_window.get_single() else {
@@ -367,27 +373,35 @@ fn brush_system(
             transform.translation = world_space.extend(0.0).div(8.0).round().mul(8.0);
         }
     }
+    if mouse_in_viewport(window, &ui_state) {
+        for button in buttons.get_pressed() {
+            if button == &MouseButton::Left {
+                let mut tile_map: bevy::prelude::Mut<'_, TileMap> =
+                    tile_map_q.get_single_mut().unwrap();
+                tile_map.set_tile(
+                    transform.translation.div(8.0).as_ivec3(),
+                    Some(Tile {
+                        sprite_index: sprite.index as u32,
+                        ..Default::default()
+                    }),
+                )
+            } else if button == &MouseButton::Right {
+                let mut tile_map: bevy::prelude::Mut<'_, TileMap> =
+                    tile_map_q.get_single_mut().unwrap();
 
-    let buttons = buttons.get_just_released();
-    for button in buttons {
-        if button == &MouseButton::Left {
-            dbg!(sprite.index);
-            let mut tile_map: bevy::prelude::Mut<'_, TileMap> =
-                tile_map_q.get_single_mut().unwrap();
-            tile_map.set_tile(
-                transform.translation.div(8.0).as_ivec3(),
-                Some(Tile {
-                    sprite_index: sprite.index as u32,
-                    ..Default::default()
-                }),
-            )
-        } else if button == &MouseButton::Right {
-            let mut tile_map: bevy::prelude::Mut<'_, TileMap> =
-                tile_map_q.get_single_mut().unwrap();
-
-            tile_map.set_tile(transform.translation.div(8.0).as_ivec3(), None)
+                tile_map.set_tile(transform.translation.div(8.0).as_ivec3(), None)
+            }
         }
     }
+}
+
+fn mouse_in_viewport(window: &Window, ui_state: &UiState) -> bool {
+    if let Some(Vec2 { x: c_x, y: c_y }) = window.cursor_position() {
+        if ui_state.viewport_rect.contains(egui::pos2(c_x, c_y)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 fn tilemap_ui(
@@ -474,8 +488,6 @@ fn tilemap_ui(
                     + (pos.y / tile_outer_size).floor() as u32 * width;
                 *active_tile = Some(index);
                 brush_select_event.send(BrushSelectEvent { tile: index });
-                dbg!(active_tile.clone());
-                dbg!(width);
             }
         }
         if let Some(active_tile) = active_tile {
@@ -498,6 +510,97 @@ fn tilemap_ui(
                 },
             );
         }
+    }
+}
+
+#[derive(Default)]
+struct ViewportAnchor {
+    initial_world_translation: Vec3,
+    initial_cursor_position: Vec2,
+}
+
+struct CameraSystemState {
+    actual_zoom: f32,
+    target_zoom: f32,
+    anchor: Option<ViewportAnchor>,
+}
+
+impl Default for CameraSystemState {
+    fn default() -> CameraSystemState {
+        CameraSystemState {
+            actual_zoom: 1.0,
+            target_zoom: 1.0,
+            anchor: None,
+        }
+    }
+}
+
+const ZOOM_SENSITIVITY: f32 = 0.25;
+
+fn camera_2d_system(
+    ui_state: Res<UiState>,
+    primary_window: Query<&mut Window, With<PrimaryWindow>>,
+    mut state: Local<CameraSystemState>,
+    mut camera_q: Query<
+        (
+            &Camera,
+            &mut Transform,
+            &GlobalTransform,
+            &mut OrthographicProjection,
+        ),
+        With<MainCamera>,
+    >,
+    mut mouse_scroll_events: EventReader<MouseWheel>,
+    buttons: Res<Input<MouseButton>>,
+) {
+    let (camera, mut camera_transform, global_camera_transform, mut projection) =
+        camera_q.get_single_mut().unwrap();
+
+    let cursor_position = match primary_window.get_single() {
+        Ok(window) => window.cursor_position(),
+        _ => None,
+    };
+
+    if let Some(pos) = cursor_position {
+        if ui_state.viewport_rect.contains(egui::pos2(pos.x, pos.y)) {
+            for event in mouse_scroll_events.iter() {
+                let delta = match event.unit {
+                    MouseScrollUnit::Line => event.y * 20.0,
+                    MouseScrollUnit::Pixel => event.y,
+                };
+                state.target_zoom += ZOOM_SENSITIVITY * delta / 20.0
+            }
+            if buttons
+                .get_pressed()
+                .any(|button| button == &MouseButton::Middle)
+            {
+                let event_world_pos = camera
+                    .viewport_to_world_2d(global_camera_transform, pos)
+                    .unwrap();
+
+                if state.anchor.is_none() {
+                    state.anchor = Some(ViewportAnchor {
+                        initial_world_translation: camera_transform.translation,
+                        initial_cursor_position: pos,
+                    });
+                }
+                let initial_event_world_pos = camera
+                    .viewport_to_world_2d(
+                        global_camera_transform,
+                        state.anchor.as_ref().unwrap().initial_cursor_position,
+                    )
+                    .unwrap();
+
+                camera_transform.translation =
+                    state.anchor.as_ref().unwrap().initial_world_translation
+                        - (event_world_pos - initial_event_world_pos).extend(0.0);
+            }
+        }
+        if buttons.just_released(MouseButton::Middle) {
+            state.anchor = None;
+        }
+        state.actual_zoom = state.actual_zoom * 0.98 + 0.02 * state.target_zoom;
+        projection.scale = (state.actual_zoom).exp2();
     }
 }
 
@@ -614,103 +717,33 @@ fn select_asset(
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut custom_materials: ResMut<Assets<BackgroundGridMaterial>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    // let mut grid_wfc: GridWfc<BasicTileset> = GridWfc::new(UVec2::new(100, 100));
-    // grid_wfc.collapse(1);
-
-    // let tiles = match grid_wfc.validate() {
-    //     Ok(tiles) => tiles,
-    //     Err(e) => {
-    //         error!("Error: {}", e);
-    //         return;
-    //     }
-    // };
-
-    // for y in (0..tiles[0].len()).rev() {
-    //     for x in 0..tiles.len() {
-    //         print!("{}", &tiles[x][y]);
-    //     }
-    //     println!();
-    // }
-    // let mut graph = PlanarGraph::new_voronoi(32, 32, 1.0);
-
-    // graph.collapse(0);
-    // graph.validate();
-
-    // commands.spawn((
-    //     MaterialMesh2dBundle {
-    //         mesh: meshes.add(graph.mesh_edges()).into(),
-    //         material: standard_materials.add(ColorMaterial {
-    //             color: Color::hex("727272").unwrap(),
-    //             ..Default::default()
-    //         }),
-    //         ..Default::default()
-    //     },
-    //     Wireframe,
-    // ));
-
-    // commands.spawn((
-    //     MaterialMesh2dBundle {
-    //         mesh: meshes.add(graph.mesh_nodes()).into(),
-    //         material: custom_materials.add(PointMaterial {
-    //             color: Color::WHITE,
-    //         }),
-    //         ..Default::default()
-    //     },
-    //     Wireframe,
-    // ));
-
     commands.spawn((
         Camera2dBundle {
+            camera_render_graph: CameraRenderGraph::new("core_2d"),
+
             projection: OrthographicProjection {
                 scaling_mode: ScalingMode::AutoMin {
-                    min_width: 256.0,
-                    min_height: 256.0,
+                    min_width: 64.0,
+                    min_height: 64.0,
                 },
                 ..Default::default()
             },
             tonemapping: bevy::core_pipeline::tonemapping::Tonemapping::None,
             camera_2d: Camera2d {
                 clear_color: ClearColorConfig::Custom(Color::hex("2d2a2e").unwrap()),
-
                 ..Default::default()
             },
+
             transform: Transform::from_translation(Vec3::new(0.5, 0.5, 2.0)),
             ..Default::default()
         },
         MainCamera,
+        MainPassSettings {},
     ));
-
-    // tileset
-    // let mut tile_handles: Vec<Handle<Image>> = Vec::new();
-    // for tile in 1..=16 {
-    //     tile_handles.push(asset_server.load(format!("tileset/{}.png", tile).as_str()));
-    // }
-
-    // // result
-    // for x in 0..tiles.len() {
-    //     for y in 0..tiles[0].len() {
-    //         let tile = tiles[x][y];
-    //         if tile > 0 {
-    //             let pos = Vec2::new(x as f32, y as f32);
-    //             commands.spawn((
-    //                 SpriteBundle {
-    //                     texture: tile_handles[tile as usize - 1].clone(),
-    //                     transform: Transform::from_translation(
-    //                         ((pos + 0.5) / tiles.len() as f32 - 0.5).extend(0.0),
-    //                     ),
-    //                     sprite: Sprite {
-    //                         custom_size: Some(Vec2::splat(1.0 / tiles.len() as f32)),
-    //                         ..default()
-    //                     },
-    //                     ..default()
-    //                 },
-    //                 TileSprite,
-    //             ));
-    //         }
-    //     }
-    // }
 
     let texture_handle: Handle<Image> = asset_server.load("tilesets/images/cliffside.png");
     let texture_atlas =
@@ -746,47 +779,7 @@ fn setup(
     // Spawn tilemap
     commands.spawn(tilemap_bundle);
 
-    // let sprite = Sprite {
-    //     color: Color::rgb(0.1, 0.1, 0.5),
-    //     flip_x: false,
-    //     flip_y: false,
-    //     custom_size: Some(Vec2::new(100.0, 20.0)),
-    //     anchor: Default::default(),
-    //     ..Default::default()
-    // };
-    // let paddle = commands
-    //     .spawn(SpriteBundle {
-    //         sprite: sprite,
-    //         transform: Transform::from_xyz(0.0, 0.0, 0.0),
-    //         ..Default::default()
-    //     })
-    //     .id();
-
-    // sprite: SpriteSheetBundle {
-    //     sprite: TextureAtlasSprite {
-    //         anchor: bevy::sprite::Anchor::Center,
-    //         custom_size: Some(Vec2::new(32.0, 32.0)),
-    //         color: Color::RED,
-    //         index: 0,
-    //         ..Default::default()
-    //     },
-    //     texture_atlas: texture_atlas_handle,
-    //     ..Default::default()
-    // },
     commands.spawn((
-        Brush { tile: BrushTile },
-        // SpriteBundle {
-        //     sprite: Sprite {
-        //         color: Color::rgb(0.5, 0.1, 0.1),
-        //         flip_x: false,
-        //         flip_y: false,
-        //         custom_size: Some(Vec2::new(100.0, 20.0)),
-        //         anchor: Default::default(),
-        //         ..Default::default()
-        //     },
-        //     transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        //     ..Default::default()
-        // },
         SpriteSheetBundle {
             sprite: TextureAtlasSprite {
                 anchor: bevy::sprite::Anchor::Center,
@@ -798,6 +791,22 @@ fn setup(
             texture_atlas: texture_atlas_handle,
             ..Default::default()
         },
+        Brush,
+    ));
+    let mut mesh = Mesh::new(bevy::render::render_resource::PrimitiveTopology::TriangleList);
+    mesh.insert_attribute(
+        Mesh::ATTRIBUTE_POSITION,
+        vec![[-1., -1., 0.], [3., -1., 0.], [-1., 3., 0.]],
+    );
+
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: meshes.add(mesh).into(),
+            material: custom_materials.add(BackgroundGridMaterial { color: Color::RED }),
+            transform: Transform::from_translation(Vec3::NEG_Z),
+            ..Default::default()
+        },
+        NoFrustumCulling,
     ));
 }
 
