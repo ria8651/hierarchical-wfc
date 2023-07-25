@@ -199,18 +199,18 @@ impl PlanarGraph {
                 .collect::<Vec<_>>(),
         );
 
-        const pointSize: f32 = 0.0125;
+        const POINT_SIZE: f32 = 0.0125;
         mesh.insert_attribute(
             Mesh::ATTRIBUTE_POSITION,
             self.nodes
                 .iter()
                 .flat_map(|node| {
                     [
-                        node.position.extend(0.01) + pointSize * Vec3::new(0.0, 1.0, 0.0),
+                        node.position.extend(0.01) + POINT_SIZE * Vec3::new(0.0, 1.0, 0.0),
                         node.position.extend(0.01)
-                            + pointSize * Vec3::new(-0.866025403784, -0.5, 0.0),
+                            + POINT_SIZE * Vec3::new(-0.866025403784, -0.5, 0.0),
                         node.position.extend(0.01)
-                            + pointSize * Vec3::new(0.866025403784, -0.5, 0.0),
+                            + POINT_SIZE * Vec3::new(0.866025403784, -0.5, 0.0),
                     ]
                 })
                 .rev()

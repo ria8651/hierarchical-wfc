@@ -1,22 +1,21 @@
 use std::any::TypeId;
 use std::ops::{Add, Div, Mul};
-use std::time::Duration;
 
-use bevy::asset::{ChangeWatcher, HandleId, ReflectAsset};
-use bevy::core_pipeline::clear_color::ClearColorConfig;
-use bevy::ecs::component::TableStorage;
-use bevy::ecs::storage::Table;
+
+use bevy::asset::{HandleId, ReflectAsset};
+
+
+
 use bevy::ecs::system::SystemState;
 
-use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
+
 use bevy::prelude::{
-    AssetEvent, AssetPlugin, Event, EventReader, EventWriter, GlobalTransform, IVec3,
-    IntoSystemConfigs, Local, MouseButton, PluginGroup, Resource,
+    Event, EventReader, EventWriter, GlobalTransform, MouseButton, Resource,
 };
-use bevy::render::texture::ImageSampler;
-use bevy::render::view::NoFrustumCulling;
+
+
 use bevy::sprite::{
-    Material2dPlugin, MaterialMesh2dBundle, SpriteSheetBundle, TextureAtlas, TextureAtlasSprite,
+    TextureAtlas, TextureAtlasSprite,
 };
 use bevy::{
     math::{UVec2, Vec2},
@@ -25,16 +24,14 @@ use bevy::{
 
 use bevy_inspector_egui::bevy_egui::{self, egui, EguiContext, EguiUserTextures};
 use bevy_inspector_egui::bevy_inspector::hierarchy::{hierarchy_ui, SelectedEntities};
-use bevy_inspector_egui::bevy_inspector::{
-    self, ui_for_entities_shared_components, ui_for_entity_with_children,
-};
-use bevy_inspector_egui::DefaultInspectorConfigPlugin;
+
+
 
 use bevy::reflect::TypeRegistry;
-use bevy::render::camera::{CameraRenderGraph, ScalingMode, Viewport};
-use bevy::window::{CursorMoved, PresentMode, PrimaryWindow, Window, WindowPlugin};
-use bevy_inspector_egui::bevy_egui::EguiSet;
-use bevy_simple_tilemap::prelude::{SimpleTileMapPlugin, TileMapBundle};
+
+use bevy::window::{CursorMoved, PrimaryWindow, Window};
+
+use bevy_simple_tilemap::prelude::{TileMapBundle};
 use bevy_simple_tilemap::{Tile, TileMap};
 use egui_dock::{DockArea, NodeIndex, Style, Tree};
 use egui_gizmo::GizmoMode;
@@ -65,7 +62,7 @@ impl EditorState {
     pub fn new() -> Self {
         let selected_entities = SelectedEntities::default();
         let selection = InspectorSelection::Entities;
-        let mut viewport_rect = egui::Rect::NOTHING;
+        let viewport_rect = egui::Rect::NOTHING;
         let gizmo_mode = GizmoMode::Translate;
         let tile_size = 64;
         let active_tile = None;
@@ -74,7 +71,7 @@ impl EditorState {
         let mut tree: Tree<Tab> = Tree::new(vec![Box::new(EguiWindow::GameView {
             viewport_rect: viewport_rect,
         })]);
-        let [game, _inspector] = tree.split_right(
+        let [_game, _inspector] = tree.split_right(
             NodeIndex::root(),
             0.75,
             vec![Box::new(EguiWindow::Inspector {
@@ -152,7 +149,7 @@ pub enum EguiWindow<'a> {
 }
 
 impl EditorTab for EguiWindow<'_> {
-    fn update(&self, world: &mut World) {}
+    fn update(&self, _world: &mut World) {}
     fn title(&self) -> String {
         format!("self:?")
     }
@@ -183,7 +180,7 @@ impl EditorTab for EguiWindow<'_> {
                 type_registry,
             } => select_asset(ui, type_registry, world, selection),
             EguiWindow::Inspector {
-                world,
+                world: _,
                 // selected_entities,
                 // selection,
                 // viewport_rect,
@@ -224,7 +221,7 @@ impl EditorTab for EguiWindow<'_> {
         }
     }
     fn is_game(&self) -> bool {
-        matches!(&self, EguiWindow::GameView { viewport_rect })
+        matches!(&self, EguiWindow::GameView { viewport_rect: _ })
     }
 }
 
@@ -243,7 +240,7 @@ impl egui_dock::TabViewer for TabViewer<'_> {
     type Tab = Tab;
 
     fn ui(&mut self, ui: &mut egui_dock::egui::Ui, window: &mut Self::Tab) {
-        let type_registry = self.world.resource::<AppTypeRegistry>().0.clone();
+        let _type_registry = self.world.resource::<AppTypeRegistry>().0.clone();
         window.ui(ui);
     }
 
@@ -257,10 +254,10 @@ impl egui_dock::TabViewer for TabViewer<'_> {
 }
 
 fn draw_gizmo(
-    ui: &mut egui::Ui,
-    world: &mut World,
-    selected_entities: &SelectedEntities,
-    gizmo_mode: GizmoMode,
+    _ui: &mut egui::Ui,
+    _world: &mut World,
+    _selected_entities: &SelectedEntities,
+    _gizmo_mode: GizmoMode,
 ) {
     // let (cam_transform, projection) = world
     //     .query_filtered::<(&GlobalTransform, &Projection), With<MainCamera>>()

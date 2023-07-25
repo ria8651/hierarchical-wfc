@@ -1,6 +1,6 @@
 use self::background_pass::{KerrPassNode, KerrPassPlugin};
 use bevy::render::extract_component::ExtractComponent;
-use bevy::render::render_graph::{RenderGraph, SlotInfo, SlotType};
+use bevy::render::render_graph::RenderGraph;
 use bevy::{
     prelude::*,
     render::{
@@ -40,7 +40,7 @@ impl Plugin for RenderPlugin {
         sub_graph_2d.add_node("background_pass", background_node);
         sub_graph_2d.add_node_edge("main_pass", "background_pass");
         sub_graph_2d.add_node_edge("background_pass", "bloom");
-        sub_graph_2d.remove_node_edge("main_pass", "bloom");
+        sub_graph_2d.remove_node_edge("main_pass", "bloom").unwrap();
 
         // sub_graph_2d.add_node_edge("msaa_writeback", "background_pass");
         // sub_graph_2d.add_node_edge("background_pass", "main_pass");

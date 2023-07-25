@@ -1,17 +1,11 @@
 use bevy::{
-    core_pipeline::fullscreen_vertex_shader::{
-        fullscreen_shader_vertex_state, FULLSCREEN_SHADER_HANDLE,
-    },
-    pbr::MaterialPipeline,
-    prelude::{dbg, Color, Handle},
+    prelude::{Color},
     render::{
-        mesh::MeshVertexBufferLayout,
         render_resource::{
-            AsBindGroup, DepthStencilState, RenderPipelineDescriptor, ShaderRef,
-            SpecializedMeshPipelineError,
+            AsBindGroup, ShaderRef,
         },
     },
-    sprite::{ColorMaterial, Material2d, Material2dKey},
+    sprite::{Material2d},
 };
 use bevy_reflect::{TypePath, TypeUuid};
 

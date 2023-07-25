@@ -1,48 +1,24 @@
-use std::any::TypeId;
-use std::ops::{Add, Div, Mul};
+use std::fmt::{self, Debug};
 use std::time::Duration;
 
-use bevy::asset::{ChangeWatcher, HandleId, ReflectAsset};
+use bevy::asset::ChangeWatcher;
 use bevy::core_pipeline::clear_color::ClearColorConfig;
-use bevy::ecs::system::SystemState;
 
-use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
-use bevy::prelude::{
-    AssetEvent, AssetPlugin, Event, EventReader, EventWriter, GlobalTransform, IVec3,
-    IntoSystemConfigs, Local, MouseButton, PluginGroup, Resource,
-};
-use bevy::render::texture::ImageSampler;
-use bevy::render::view::NoFrustumCulling;
-use bevy::sprite::{
-    Material2dPlugin, MaterialMesh2dBundle, SpriteSheetBundle, TextureAtlas, TextureAtlasSprite,
-};
-use bevy::{
-    math::{UVec2, Vec2},
-    prelude::*,
-};
+use bevy::prelude::{AssetPlugin, PluginGroup};
 
-use bevy_inspector_egui::bevy_egui::{self, egui, EguiContext, EguiUserTextures};
-use bevy_inspector_egui::bevy_inspector::hierarchy::{hierarchy_ui, SelectedEntities};
+use bevy::prelude::*;
+use bevy::sprite::Material2dPlugin;
 
-use bevy_inspector_egui::DefaultInspectorConfigPlugin;
+use bevy_inspector_egui::bevy_egui::{self, EguiContexts};
 
-use bevy::reflect::TypeRegistry;
-use bevy::render::camera::{CameraRenderGraph, ScalingMode, Viewport};
-use bevy::window::{CursorMoved, PresentMode, PrimaryWindow, Window, WindowPlugin};
-use bevy_inspector_egui::bevy_egui::EguiSet;
-use bevy_simple_tilemap::prelude::{SimpleTileMapPlugin, TileMapBundle};
-use bevy_simple_tilemap::{Tile, TileMap};
-use egui_dock::{DockArea, NodeIndex, Style, Tree};
-use egui_gizmo::GizmoMode;
-use wfc_lib::background_grid_material::BackgroundGridMaterial;
-use wfc_lib::editor_ui::{
-    brush_system, set_gizmo_mode, show_ui_system, Brush, BrushSelectEvent, EditorState, MainCamera,
-};
+use bevy::render::camera::{CameraRenderGraph, ScalingMode};
+use bevy::window::{PresentMode, Window, WindowPlugin};
+
+use bevy_inspector_egui::egui::{self, Ui};
+use wfc_lib::editor_ui::MainCamera;
 use wfc_lib::point_material::PointMaterial;
 use wfc_lib::render_pipeline::MainPassSettings;
 
-// use bevy_mod_picking::backends::egui::EguiPointer;
-// use bevy_mod_picking::prelude::*;
 fn main() {
     let mut app = App::new();
     app.add_plugins((
@@ -63,6 +39,7 @@ fn main() {
         Material2dPlugin::<PointMaterial>::default(),
     ))
     .add_plugins(bevy_egui::EguiPlugin)
+    .add_systems(Update, (ui_system, elapsed_widget_system))
     .add_systems(Startup, setup);
     app.run();
 }
@@ -91,4 +68,45 @@ fn setup(mut commands: Commands) {
         MainCamera,
         MainPassSettings {},
     ));
+
+    commands.spawn(Widget {
+        ui: Box::new(|ui: &mut Ui| {
+            ui.label("foo");
+        }),
+    });
+    commands.spawn((
+        Widget {
+            ui: Box::new(|ui: &mut Ui| {
+                ui.label("bar");
+            }),
+        },
+        ElapsedWidget,
+    ));
 }
+
+fn ui_system(mut contexts: EguiContexts, widgets_q: Query<&Widget>) {
+    egui::Window::new("Hello").show(contexts.ctx_mut(), |ui| {
+        ui.label("world");
+
+        for Widget { ui: widget } in widgets_q.iter() {
+            widget(ui);
+        }
+    });
+}
+
+fn elapsed_widget_system(time: Res<Time>, mut widgets_q: Query<&mut Widget, With<ElapsedWidget>>) {
+    let time = time.elapsed_seconds();
+    for mut widget in widgets_q.iter_mut() {
+        widget.as_mut().ui = Box::new(move |ui: &mut Ui| {
+            ui.label(format!("Elapsed: {:.2}", time));
+        });
+    }
+}
+
+#[derive(Component)]
+struct Widget {
+    ui: Box<dyn Fn(&mut Ui) -> () + Send + Sync + 'static>,
+}
+
+#[derive(Component)]
+struct ElapsedWidget;

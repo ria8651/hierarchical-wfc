@@ -3,8 +3,8 @@ use bevy::{
     prelude::*,
     render::{
         render_resource::*,
-        renderer::{RenderContext, RenderDevice, RenderQueue},
-        view::{ExtractedView, ViewTarget},
+        renderer::{RenderDevice, RenderQueue},
+        view::{ExtractedView},
         Render, RenderApp, RenderSet,
     },
 };
@@ -93,9 +93,9 @@ fn prepare_uniforms(
 ) {
     dbg!(&world);
 
-    let elapsed = time.elapsed_seconds_f64();
+    let _elapsed = time.elapsed_seconds_f64();
 
-    for (entity, settings, view) in query.iter() {
+    for (entity, _settings, _view) in query.iter() {
         let uniforms = TraceUniforms {
             color: Vec4::splat(0.5),
         };

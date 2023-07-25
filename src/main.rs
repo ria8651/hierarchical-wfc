@@ -1,25 +1,13 @@
 use bevy::{
-    a11y::{
-        accesskit::{NodeBuilder, Role},
-        AccessibilityNode,
-    },
     core_pipeline::clear_color::ClearColorConfig,
     input::mouse::{MouseScrollUnit, MouseWheel},
-    pbr::wireframe::{Wireframe, WireframePipeline, WireframePlugin},
+    pbr::wireframe::Wireframe,
     prelude::*,
-    reflect::{erased_serde::__private::serde::__private::de, TypePath, TypeUuid},
-    render::{
-        camera::ScalingMode,
-        render_resource::{AsBindGroup, ShaderRef},
-        settings::{WgpuFeatures, WgpuSettings},
-        RenderPlugin,
-    },
-    sprite::{Material2d, Material2dPlugin, MaterialMesh2dBundle},
+    render::camera::ScalingMode,
+    sprite::{Material2dPlugin, MaterialMesh2dBundle},
 };
 
 use wfc_lib::{
-    basic_tileset::BasicTileset,
-    grid_wfc::GridWfc,
     planar_graph_wfc::{PlanarGraph, Wfc},
     point_material::PointMaterial,
 };
@@ -37,7 +25,7 @@ struct TileSprite;
 
 fn setup(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    _asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard_materials: ResMut<Assets<ColorMaterial>>,
     mut custom_materials: ResMut<Assets<PointMaterial>>,

@@ -1,15 +1,13 @@
-use std::any::TypeId;
-use std::ops::{Add, Div, Mul};
+use std::ops::Add;
 use std::time::Duration;
 
-use bevy::asset::{ChangeWatcher, HandleId, ReflectAsset};
+use bevy::asset::ChangeWatcher;
 use bevy::core_pipeline::clear_color::ClearColorConfig;
-use bevy::ecs::system::SystemState;
 
 use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::prelude::{
-    AssetEvent, AssetPlugin, Event, EventReader, EventWriter, GlobalTransform, IVec3,
-    IntoSystemConfigs, Local, MouseButton, PluginGroup, Resource,
+    AssetEvent, AssetPlugin, EventReader, GlobalTransform, IVec3, IntoSystemConfigs, Local,
+    MouseButton, PluginGroup,
 };
 use bevy::render::texture::ImageSampler;
 use bevy::render::view::NoFrustumCulling;
@@ -21,21 +19,16 @@ use bevy::{
     prelude::*,
 };
 
-use bevy_inspector_egui::bevy_egui::{self, egui, EguiContext, EguiUserTextures};
-use bevy_inspector_egui::bevy_inspector::hierarchy::{hierarchy_ui, SelectedEntities};
-use bevy_inspector_egui::bevy_inspector::{
-    self, ui_for_entities_shared_components, ui_for_entity_with_children,
-};
+use bevy_inspector_egui::bevy_egui::{self, egui};
+
 use bevy_inspector_egui::DefaultInspectorConfigPlugin;
 
-use bevy::reflect::TypeRegistry;
 use bevy::render::camera::{CameraRenderGraph, ScalingMode, Viewport};
-use bevy::window::{CursorMoved, PresentMode, PrimaryWindow, Window, WindowPlugin};
+use bevy::window::{PresentMode, PrimaryWindow, Window, WindowPlugin};
 use bevy_inspector_egui::bevy_egui::EguiSet;
 use bevy_simple_tilemap::prelude::{SimpleTileMapPlugin, TileMapBundle};
-use bevy_simple_tilemap::{Tile, TileMap};
-use egui_dock::{DockArea, NodeIndex, Style, Tree};
-use egui_gizmo::GizmoMode;
+use bevy_simple_tilemap::Tile;
+
 use wfc_lib::background_grid_material::BackgroundGridMaterial;
 use wfc_lib::editor_ui::{
     brush_system, set_gizmo_mode, show_ui_system, Brush, BrushSelectEvent, EditorState, MainCamera,

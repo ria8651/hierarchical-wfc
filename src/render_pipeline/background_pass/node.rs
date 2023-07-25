@@ -5,7 +5,7 @@ use super::{BackgroundPassUniformBuffer, KerrPassPipelineData};
 use bevy::{
     prelude::*,
     render::{
-        render_graph::{self, SlotInfo, SlotType},
+        render_graph::{self},
         render_resource::*,
         view::ViewTarget,
     },
@@ -48,7 +48,7 @@ impl render_graph::Node for KerrPassNode {
             return Ok(());
         }
 
-        let (target, uniform_buffer, main_pass_settings) =
+        let (target, uniform_buffer, _main_pass_settings) =
             match self.query.get_manual(world, view_entity) {
                 Ok(result) => result,
                 Err(_) => panic!("Camera missing component!"),
