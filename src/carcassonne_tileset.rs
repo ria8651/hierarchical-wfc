@@ -1,12 +1,16 @@
+use crate::{
+    grid_wfc::Direction,
+    tileset::{AllowedNeighbors, TileSet},
+};
 use bevy::utils::{HashMap, HashSet};
 use rand::Rng;
 
-use crate::grid_wfc::{AllowedNeighbors, TileSet};
-
+#[derive(Debug)]
 pub struct CarcassonneTileset;
 
 impl TileSet for CarcassonneTileset {
     type Tile = u32;
+    type Direction = Direction;
 
     fn allowed_neighbors() -> AllowedNeighbors<Self> {
         #[derive(Clone, Copy, PartialEq, Eq)]
@@ -39,7 +43,7 @@ impl TileSet for CarcassonneTileset {
         ];
 
         // rotate all tiles to get all possible edge types
-        let mut rotated_tile_edge_types = Vec::new();
+        let mut rotated_tile_edge_types: Vec<(u32, [TileEdgeType; 4])> = Vec::new();
         for rotation in 0..4 {
             let bleh = match rotation {
                 0 => [0, 1, 2, 3],
@@ -61,31 +65,22 @@ impl TileSet for CarcassonneTileset {
         // convert to allowed neighbors
         let mut allowed_neighbors: AllowedNeighbors<Self> = HashMap::new();
         for (tile, edges) in rotated_tile_edge_types.clone() {
-            let mut neighbors = [
-                HashSet::new(),
-                HashSet::new(),
-                HashSet::new(),
-                HashSet::new(),
-            ];
+            let mut neighbors = HashMap::new();
             for (edge_index, edge) in edges.into_iter().enumerate() {
-                let direction = match edge_index {
-                    0 => 1,
-                    1 => 0,
-                    2 => 3,
-                    3 => 2,
-                    _ => unreachable!(),
-                };
+                let direction = Direction::from(edge_index);
 
                 // add all tiles with this edge type to the neighbor set
                 for (other_tile, other_edges) in rotated_tile_edge_types.iter() {
-                    if other_edges[direction] == edge {
-                        neighbors[edge_index].insert(*other_tile);
+                    if other_edges[direction.other() as usize] == edge {
+                        neighbors
+                            .entry(direction)
+                            .or_insert(HashSet::new())
+                            .insert(*other_tile);
                     }
                 }
             }
             allowed_neighbors.insert(tile, neighbors);
         }
-        println!("{:?}", allowed_neighbors);
         allowed_neighbors
     }
 

@@ -1,15 +1,17 @@
+use crate::tileset::{AllowedNeighbors, TileSet};
 use anyhow::Result;
-use bevy::{
-    prelude::*,
-    utils::{HashMap, HashSet},
-};
+use bevy::{prelude::*, utils::HashSet};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 pub struct GridWfc<T: TileSet> {
     pub grid: Vec<Vec<HashSet<T::Tile>>>,
 }
 
-impl<T: TileSet> GridWfc<T> {
+impl<T> GridWfc<T>
+where
+    T: TileSet,
+    T::Direction: From<usize>,
+{
     pub fn new(size: UVec2) -> Self {
         let tiles = T::all_tiles();
 
@@ -106,7 +108,7 @@ impl<T: TileSet> GridWfc<T> {
 
             let mut allowed = HashSet::new();
             for tile in tiles {
-                allowed.extend(&allowed_neighbors[tile][dir_index]);
+                allowed.extend(&allowed_neighbors[tile][&T::Direction::from(dir_index)]);
             }
 
             let new_tiles = neighbor_tiles.intersection(&allowed).copied().collect();
@@ -152,12 +154,33 @@ impl<T: TileSet> GridWfc<T> {
     }
 }
 
-pub trait TileSet {
-    type Tile: Eq + std::hash::Hash + Copy + std::fmt::Debug;
-
-    fn allowed_neighbors() -> AllowedNeighbors<Self>;
-    fn random_tile<R: Rng>(rng: &mut R) -> Self::Tile;
-    fn all_tiles() -> HashSet<Self::Tile>;
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
+pub enum Direction {
+    Up = 0,
+    Down = 1,
+    Left = 2,
+    Right = 3,
 }
 
-pub type AllowedNeighbors<T> = HashMap<<T as TileSet>::Tile, [HashSet<<T as TileSet>::Tile>; 4]>;
+impl Direction {
+    pub fn other(&self) -> Self {
+        match self {
+            Self::Up => Self::Down,
+            Self::Down => Self::Up,
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
+        }
+    }
+}
+
+impl From<usize> for Direction {
+    fn from(value: usize) -> Self {
+        match value {
+            0 => Self::Up,
+            1 => Self::Down,
+            2 => Self::Left,
+            3 => Self::Right,
+            _ => panic!("Invalid direction: {}", value),
+        }
+    }
+}

@@ -1,12 +1,15 @@
+use crate::{
+    grid_wfc::Direction,
+    tileset::{AllowedNeighbors, TileSet},
+};
 use bevy::utils::{HashMap, HashSet};
 use rand::Rng;
-
-use crate::grid_wfc::{AllowedNeighbors, TileSet};
 
 pub struct BasicTileset;
 
 impl TileSet for BasicTileset {
     type Tile = u32;
+    type Direction = Direction;
 
     fn allowed_neighbors() -> AllowedNeighbors<Self> {
         #[derive(Clone, Copy, PartialEq, Eq)]
@@ -45,29 +48,30 @@ impl TileSet for BasicTileset {
         // convert to allowed neighbors
         let mut allowed_neighbors: AllowedNeighbors<Self> = HashMap::new();
         for (tile, edges) in tile_edge_types {
-            let mut neighbors = [
-                HashSet::new(),
-                HashSet::new(),
-                HashSet::new(),
-                HashSet::new(),
-            ];
+            let mut neighbors = HashMap::new();
             for (edge_index, edge) in edges.into_iter().enumerate() {
                 let direction = match edge_index {
-                    0 => 1,
-                    1 => 0,
-                    2 => 3,
-                    3 => 2,
+                    0 => Direction::Down,
+                    1 => Direction::Up,
+                    2 => Direction::Right,
+                    3 => Direction::Left,
                     _ => unreachable!(),
                 };
-                
+
                 if edge == T::Air && tile != 0 {
                     // special case for air
-                    neighbors[edge_index].insert(0);
+                    neighbors
+                        .entry(direction)
+                        .or_insert(HashSet::new())
+                        .insert(0);
                 } else {
                     // add all tiles with this edge type to the neighbor set
                     for (other_tile, other_edges) in tile_edge_types.iter() {
-                        if other_edges[direction] == edge {
-                            neighbors[edge_index].insert(*other_tile);
+                        if other_edges[direction as usize] == edge {
+                            neighbors
+                                .entry(direction)
+                                .or_insert(HashSet::new())
+                                .insert(*other_tile);
                         }
                     }
                 }

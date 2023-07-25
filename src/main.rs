@@ -1,10 +1,13 @@
 use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::ScalingMode};
 use carcassonne_tileset::CarcassonneTileset;
+// use graph_wfc::GraphWfc;
 use grid_wfc::GridWfc;
 
 mod basic_tileset;
 mod carcassonne_tileset;
+// mod graph_wfc;
 mod grid_wfc;
+mod tileset;
 
 fn main() {
     App::new()
@@ -17,8 +20,10 @@ fn main() {
 struct TileSprite;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // let graph_wfc: GraphWfc<CarcassonneTileset> = GraphWfc::new(UVec2::new(3, 3));
+
     let mut grid_wfc: GridWfc<CarcassonneTileset> = GridWfc::new(UVec2::new(15, 15));
-    grid_wfc.collapse(10);
+    grid_wfc.collapse(2);
 
     let tiles = match grid_wfc.validate() {
         Ok(tiles) => tiles,
