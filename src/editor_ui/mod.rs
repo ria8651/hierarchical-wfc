@@ -4,6 +4,8 @@ use std::time::Duration;
 
 use bevy::asset::{ChangeWatcher, HandleId, ReflectAsset};
 use bevy::core_pipeline::clear_color::ClearColorConfig;
+use bevy::ecs::component::TableStorage;
+use bevy::ecs::storage::Table;
 use bevy::ecs::system::SystemState;
 
 use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
@@ -37,56 +39,80 @@ use bevy_simple_tilemap::{Tile, TileMap};
 use egui_dock::{DockArea, NodeIndex, Style, Tree};
 use egui_gizmo::GizmoMode;
 
+pub trait EditorTab: Sync + Send {
+    fn update(&self, world: &mut World);
+    fn is_game(&self) -> bool {
+        false
+    }
+    fn ui(&mut self, ui: &mut egui_dock::egui::Ui);
+    fn title(&self) -> String;
+}
+
+type Tab = Box<dyn EditorTab>;
 #[derive(Resource)]
-pub struct UiState {
-    tree: Tree<EguiWindow>,
+pub struct EditorState {
+    tree: Tree<Tab>,
     pub viewport_rect: egui::Rect,
     pub selected_entities: SelectedEntities,
-    selection: InspectorSelection,
+    pub selection: InspectorSelection,
     pub gizmo_mode: GizmoMode,
     pub tile_map_bundle: TileMapBundle,
     pub tile_size: u32,
     pub active_tile: Option<u32>,
 }
 
-impl UiState {
+impl EditorState {
     pub fn new() -> Self {
-        let mut tree = Tree::new(vec![EguiWindow::GameView]);
-        let [game, _inspector] =
-            tree.split_right(NodeIndex::root(), 0.75, vec![EguiWindow::Inspector]);
-        let [game, _hierarchy] = tree.split_left(game, 0.2, vec![EguiWindow::Hierarchy]);
-        let [_game, _bottom] = tree.split_below(
-            game,
-            0.8,
-            vec![
-                EguiWindow::Resources,
-                EguiWindow::Assets,
-                EguiWindow::TileMap,
-            ],
+        let selected_entities = SelectedEntities::default();
+        let selection = InspectorSelection::Entities;
+        let mut viewport_rect = egui::Rect::NOTHING;
+        let gizmo_mode = GizmoMode::Translate;
+        let tile_size = 64;
+        let active_tile = None;
+        let tile_map_bundle = TileMapBundle::default();
+
+        let mut tree: Tree<Tab> = Tree::new(vec![Box::new(EguiWindow::GameView {
+            viewport_rect: viewport_rect,
+        })]);
+        let [game, _inspector] = tree.split_right(
+            NodeIndex::root(),
+            0.75,
+            vec![Box::new(EguiWindow::Inspector {
+                world: World::new(),
+            })],
         );
+        // let [game, _hierarchy] = tree.split_left(game, 0.2, vec![Box::new(EguiWindow::Hierarchy)]);
+        // let [_game, _bottom] = tree.split_below(
+        //     game,
+        //     0.8,
+        //     vec![
+        //         Box::new(EguiWindow::Resources),
+        //         Box::new(EguiWindow::Assets),
+        //     ],
+        // );
 
         Self {
             tree,
-            selected_entities: SelectedEntities::default(),
-            selection: InspectorSelection::Entities,
-            viewport_rect: egui::Rect::NOTHING,
-            gizmo_mode: GizmoMode::Translate,
-            tile_size: 64,
-            active_tile: None,
-            tile_map_bundle: TileMapBundle::default(),
+            selected_entities,
+            selection,
+            viewport_rect,
+            gizmo_mode,
+            tile_size,
+            active_tile,
+            tile_map_bundle,
         }
     }
 
     fn ui(&mut self, world: &mut World, ctx: &mut egui::Context) {
         let mut tab_viewer = TabViewer {
             world,
-            viewport_rect: &mut self.viewport_rect,
-            selected_entities: &mut self.selected_entities,
-            selection: &mut self.selection,
-            gizmo_mode: self.gizmo_mode,
-            tile_map_bundle: &self.tile_map_bundle,
-            tile_size: &mut self.tile_size,
-            active_tile: &mut self.active_tile,
+            // viewport_rect: &mut self.viewport_rect,
+            // selected_entities: &mut self.selected_entities,
+            // selection: &mut self.selection,
+            // gizmo_mode: self.gizmo_mode,
+            // tile_map_bundle: &self.tile_map_bundle,
+            // tile_size: &mut self.tile_size,
+            // active_tile: &mut self.active_tile,
         };
         DockArea::new(&mut self.tree)
             .style(Style::from_egui(ctx.style().as_ref()))
@@ -94,83 +120,139 @@ impl UiState {
     }
 }
 
-#[derive(Debug)]
-enum EguiWindow {
-    GameView,
-    Hierarchy,
-    Resources,
-    Assets,
-    Inspector,
-    TileMap,
+#[derive(Component)]
+pub enum EguiWindow<'a> {
+    GameView {
+        viewport_rect: egui::Rect,
+    },
+    Hierarchy {
+        world: &'a mut World,
+        selected_entities: &'a mut SelectedEntities,
+        selection: InspectorSelection,
+    },
+    Resources {
+        selection: &'a mut InspectorSelection,
+        type_registry: &'a mut TypeRegistry,
+    },
+    Assets {
+        world: &'a mut World,
+        selection: InspectorSelection,
+        type_registry: &'a mut TypeRegistry,
+    },
+    Inspector {
+        world: World,
+        // viewport_rect: egui::Rect,
+        // selected_entities: SelectedEntities,
+        // selection: InspectorSelection,
+        // gizmo_mode: GizmoMode,
+        // tile_map_bundle: TileMapBundle,
+        // tile_size: u32,
+        // active_tile: Option<u32>,
+    },
+}
+
+impl EditorTab for EguiWindow<'_> {
+    fn update(&self, world: &mut World) {}
+    fn title(&self) -> String {
+        format!("self:?")
+    }
+    fn ui(&mut self, ui: &mut egui_dock::egui::Ui) {
+        match self {
+            EguiWindow::GameView { mut viewport_rect } => {
+                viewport_rect = ui.clip_rect();
+
+                // draw_gizmo(ui, self.world, self.selected_entities, self.gizmo_mode);
+            }
+            EguiWindow::Hierarchy {
+                world,
+                selected_entities,
+                selection,
+            } => {
+                let selected = hierarchy_ui(world, ui, selected_entities);
+                if selected {
+                    *selection = InspectorSelection::Entities;
+                }
+            }
+            EguiWindow::Resources {
+                selection,
+                type_registry,
+            } => select_resource(ui, type_registry, selection),
+            EguiWindow::Assets {
+                world,
+                selection,
+                type_registry,
+            } => select_asset(ui, type_registry, world, selection),
+            EguiWindow::Inspector {
+                world,
+                // selected_entities,
+                // selection,
+                // viewport_rect,
+                // gizmo_mode,
+                // tile_map_bundle,
+                // tile_size,
+                // active_tile,
+            } => {
+
+            }
+            // } => match *self.selection {
+            //     InspectorSelection::Entities => match self.selected_entities.as_slice() {
+            //         &[entity] => ui_for_entity_with_children(self.world, entity, ui),
+            //         entities => ui_for_entities_shared_components(self.world, entities, ui),
+            //     },
+            //     InspectorSelection::Resource(type_id, ref name) => {
+            //         ui.label(name);
+            //         bevy_inspector::by_type_id::ui_for_resource(
+            //             self.world,
+            //             type_id,
+            //             ui,
+            //             name,
+            //             &type_registry.read(),
+            //         )
+            //     }
+            //     InspectorSelection::Asset(type_id, ref name, handle) => {
+            //         ui.label(name);
+            //         bevy_inspector::by_type_id::ui_for_asset(
+            //             self.world,
+            //             type_id,
+            //             handle,
+            //             ui,
+            //             &type_registry.read(),
+            //         );
+            //     }
+            // },
+            // EguiWindow::TileMap => tilemap_ui(self.world, ui, self.tile_size, self.active_tile),
+        }
+    }
+    fn is_game(&self) -> bool {
+        matches!(&self, EguiWindow::GameView { viewport_rect })
+    }
 }
 
 struct TabViewer<'a> {
     world: &'a mut World,
-    selected_entities: &'a mut SelectedEntities,
-    selection: &'a mut InspectorSelection,
-    viewport_rect: &'a mut egui::Rect,
-    gizmo_mode: GizmoMode,
-    tile_map_bundle: &'a TileMapBundle,
-    tile_size: &'a mut u32,
-    active_tile: &'a mut Option<u32>,
+    // selected_entities: &'a mut SelectedEntities,
+    // selection: &'a mut InspectorSelection,
+    // viewport_rect: &'a mut egui::Rect,
+    // gizmo_mode: GizmoMode,
+    // tile_map_bundle: &'a TileMapBundle,
+    // tile_size: &'a mut u32,
+    // active_tile: &'a mut Option<u32>,
 }
 
 impl egui_dock::TabViewer for TabViewer<'_> {
-    type Tab = EguiWindow;
+    type Tab = Tab;
 
     fn ui(&mut self, ui: &mut egui_dock::egui::Ui, window: &mut Self::Tab) {
         let type_registry = self.world.resource::<AppTypeRegistry>().0.clone();
-
-        match window {
-            EguiWindow::GameView => {
-                *self.viewport_rect = ui.clip_rect();
-
-                draw_gizmo(ui, self.world, self.selected_entities, self.gizmo_mode);
-            }
-            EguiWindow::Hierarchy => {
-                let selected = hierarchy_ui(self.world, ui, self.selected_entities);
-                if selected {
-                    *self.selection = InspectorSelection::Entities;
-                }
-            }
-            EguiWindow::Resources => select_resource(ui, &type_registry, self.selection),
-            EguiWindow::Assets => select_asset(ui, &type_registry, self.world, self.selection),
-            EguiWindow::Inspector => match *self.selection {
-                InspectorSelection::Entities => match self.selected_entities.as_slice() {
-                    &[entity] => ui_for_entity_with_children(self.world, entity, ui),
-                    entities => ui_for_entities_shared_components(self.world, entities, ui),
-                },
-                InspectorSelection::Resource(type_id, ref name) => {
-                    ui.label(name);
-                    bevy_inspector::by_type_id::ui_for_resource(
-                        self.world,
-                        type_id,
-                        ui,
-                        name,
-                        &type_registry.read(),
-                    )
-                }
-                InspectorSelection::Asset(type_id, ref name, handle) => {
-                    ui.label(name);
-                    bevy_inspector::by_type_id::ui_for_asset(
-                        self.world,
-                        type_id,
-                        handle,
-                        ui,
-                        &type_registry.read(),
-                    );
-                }
-            },
-            EguiWindow::TileMap => tilemap_ui(self.world, ui, self.tile_size, self.active_tile),
-        }
+        window.ui(ui);
     }
 
     fn title(&mut self, window: &mut Self::Tab) -> egui_dock::egui::WidgetText {
-        format!("{window:?}").into()
+        window.title().into()
     }
 
     fn clear_background(&self, window: &Self::Tab) -> bool {
-        !matches!(window, EguiWindow::GameView)
+        window.is_game()
     }
 }
 
@@ -292,12 +374,12 @@ pub fn show_ui_system(world: &mut World) {
     };
     let mut egui_context = egui_context.clone();
 
-    world.resource_scope::<UiState, _>(|world, mut ui_state| {
+    world.resource_scope::<EditorState, _>(|world, mut ui_state| {
         ui_state.ui(world, egui_context.get_mut())
     });
 }
 
-pub fn set_gizmo_mode(input: Res<Input<KeyCode>>, mut ui_state: ResMut<UiState>) {
+pub fn set_gizmo_mode(input: Res<Input<KeyCode>>, mut ui_state: ResMut<EditorState>) {
     for (key, mode) in [
         (KeyCode::R, GizmoMode::Rotate),
         (KeyCode::T, GizmoMode::Translate),
@@ -310,7 +392,7 @@ pub fn set_gizmo_mode(input: Res<Input<KeyCode>>, mut ui_state: ResMut<UiState>)
 }
 
 #[derive(Eq, PartialEq)]
-enum InspectorSelection {
+pub enum InspectorSelection {
     Entities,
     Resource(TypeId, String),
     Asset(TypeId, String, HandleId),
@@ -437,7 +519,7 @@ pub struct BrushSelectEvent {
 }
 
 pub fn brush_system(
-    ui_state: Res<UiState>,
+    ui_state: Res<EditorState>,
     primary_window: Query<&mut Window, With<PrimaryWindow>>,
     egui_settings: Res<bevy_egui::EguiSettings>,
 
@@ -495,7 +577,7 @@ pub fn brush_system(
     }
 }
 
-pub fn mouse_in_viewport(window: &Window, ui_state: &UiState) -> bool {
+pub fn mouse_in_viewport(window: &Window, ui_state: &EditorState) -> bool {
     if let Some(Vec2 { x: c_x, y: c_y }) = window.cursor_position() {
         if ui_state.viewport_rect.contains(egui::pos2(c_x, c_y)) {
             return true;

@@ -38,7 +38,7 @@ use egui_dock::{DockArea, NodeIndex, Style, Tree};
 use egui_gizmo::GizmoMode;
 use wfc_lib::background_grid_material::BackgroundGridMaterial;
 use wfc_lib::editor_ui::{
-    brush_system, set_gizmo_mode, show_ui_system, Brush, BrushSelectEvent, MainCamera, UiState,
+    brush_system, set_gizmo_mode, show_ui_system, Brush, BrushSelectEvent, EditorState, MainCamera,
 };
 use wfc_lib::point_material::PointMaterial;
 use wfc_lib::render_pipeline::MainPassSettings;
@@ -73,7 +73,7 @@ fn main() {
     .add_plugins(DefaultInspectorConfigPlugin)
     .add_plugins(bevy_egui::EguiPlugin)
     // .add_plugins(bevy_mod_picking::plugins::DefaultPickingPlugins)
-    .insert_resource(UiState::new())
+    .insert_resource(EditorState::new())
     .add_systems(Startup, setup)
     .add_systems(
         PostUpdate,
@@ -133,7 +133,7 @@ fn handle_pick_events(
 
 // make camera only render to view not obstructed by UI
 fn set_camera_viewport(
-    ui_state: Res<UiState>,
+    ui_state: Res<EditorState>,
     primary_window: Query<&mut Window, With<PrimaryWindow>>,
     egui_settings: Res<bevy_egui::EguiSettings>,
     mut cameras: Query<&mut Camera, With<MainCamera>>,
@@ -181,7 +181,7 @@ impl Default for CameraSystemState {
 const ZOOM_SENSITIVITY: f32 = 0.25;
 
 fn camera_2d_system(
-    ui_state: Res<UiState>,
+    ui_state: Res<EditorState>,
     primary_window: Query<&mut Window, With<PrimaryWindow>>,
     mut state: Local<CameraSystemState>,
     mut camera_q: Query<

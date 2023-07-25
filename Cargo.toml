@@ -23,6 +23,13 @@ test = false
 bench = false
 
 [[bin]]
+name = "egui-test"
+path = "src/bin/egui_test.rs"
+test = false
+bench = false
+
+
+[[bin]]
 name = "main"
 path = "src/main.rs"
 

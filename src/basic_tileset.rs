@@ -59,7 +59,7 @@ impl TileSet for BasicTileset {
                     3 => 2,
                     _ => unreachable!(),
                 };
-                
+
                 if edge == T::Air && tile != 0 {
                     // special case for air
                     neighbors[edge_index].insert(0);

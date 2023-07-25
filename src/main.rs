@@ -24,8 +24,6 @@ use wfc_lib::{
     point_material::PointMaterial,
 };
 
-use bevy_ecs_tilemap::prelude::TilemapPlugin;
-
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, Material2dPlugin::<PointMaterial>::default()))
