@@ -1,14 +1,17 @@
 use crate::tileset::{AllowedNeighbors, TileSet};
 use anyhow::Result;
-use bevy::{
-    prelude::*,
-    utils::{HashMap, HashSet},
-};
+use bevy::{prelude::*, utils::HashMap};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
+pub const TILE_U32S: usize = 4;
+
+#[derive(Deref, DerefMut, Clone, PartialEq, Eq)]
+pub struct Cell(pub [u32; TILE_U32S]);
+
 pub struct GraphWfc<T: TileSet> {
-    pub tiles: Vec<HashSet<T::Tile>>,
+    pub tiles: Vec<Cell>,
     pub neighbors: Vec<HashMap<Direction, usize>>,
+    _phantom: std::marker::PhantomData<T>,
 }
 
 impl<T: TileSet> GraphWfc<T> {
@@ -39,10 +42,14 @@ impl<T: TileSet> GraphWfc<T> {
             neighbors.push(node_neighbors);
         }
 
-        let tiles = T::all_tiles();
-        let tiles = vec![tiles; nodes_pos.len()];
+        let filled = Cell::filled(T::TILE_COUNT);
+        let tiles = vec![filled; nodes_pos.len()];
 
-        Self { tiles, neighbors }
+        Self {
+            tiles,
+            neighbors,
+            _phantom: std::marker::PhantomData,
+        }
     }
 
     pub fn collapse(&mut self, seed: u64) {
@@ -52,8 +59,7 @@ impl<T: TileSet> GraphWfc<T> {
         let start_node = rng.gen_range(0..self.tiles.len());
 
         // update cell
-        let tiles = [T::random_tile(&mut rng)].into();
-        self.tiles[start_node] = tiles;
+        self.tiles[start_node].select_random(&mut rng);
 
         let mut stack = vec![start_node];
         while let Some(index) = stack.pop() {
@@ -75,7 +81,7 @@ impl<T: TileSet> GraphWfc<T> {
                 let mut min_entropy = usize::MAX;
                 let mut min_pos = None;
                 for (index, node) in self.tiles.iter().enumerate() {
-                    let entropy = node.len();
+                    let entropy = node.count_bits();
                     if entropy > 1 && entropy < min_entropy {
                         min_entropy = entropy;
                         min_pos = Some(index);
@@ -84,13 +90,7 @@ impl<T: TileSet> GraphWfc<T> {
 
                 if let Some(pos) = min_pos {
                     // update cell
-                    let tiles = self.tiles[pos]
-                        .iter()
-                        .cloned()
-                        .collect::<Vec<<T as TileSet>::Tile>>();
-                    let length = tiles.len();
-                    self.tiles[pos] = [tiles[rng.gen_range(0..length)]].into();
-
+                    self.tiles[pos].select_random(&mut rng);
                     stack.push(pos);
                 }
             }
@@ -111,19 +111,17 @@ impl<T: TileSet> GraphWfc<T> {
         index: usize,
         neighbor_index: usize,
         neighbor_direction: &Direction,
-        allowed_neighbors: &AllowedNeighbors<T>,
+        allowed_neighbors: &AllowedNeighbors,
     ) -> bool {
         let mut updated = false;
 
-        let tiles = &self.tiles[index];
-        let neighbor_tiles = self.tiles[neighbor_index].clone();
-
-        let mut allowed = HashSet::new();
-        for tile in tiles {
-            allowed.extend(&allowed_neighbors[tile][neighbor_direction]);
+        let mut allowed = Cell::empty();
+        for tile in self.tiles[index].tile_iter() {
+            allowed = Cell::join(&allowed, &allowed_neighbors[&tile][neighbor_direction]);
         }
 
-        let new_tiles = neighbor_tiles.intersection(&allowed).copied().collect();
+        let neighbor_tiles = self.tiles[neighbor_index].clone();
+        let new_tiles = Cell::intersect(&neighbor_tiles, &allowed);
         if new_tiles != neighbor_tiles {
             updated = true;
             self.tiles[neighbor_index] = new_tiles;
@@ -133,16 +131,121 @@ impl<T: TileSet> GraphWfc<T> {
     }
 
     /// Consumes the grid and returns the collapsed tiles
-    pub fn validate(self) -> Result<Vec<T::Tile>> {
+    pub fn validate(self) -> Result<Vec<usize>> {
         let mut result = Vec::new();
         for node in 0..self.tiles.len() {
-            let tiles = &self.tiles[node];
-            if tiles.len() != 1 {
+            if let Some(tile) = self.tiles[node].collapse() {
+                result.push(tile);
+            } else {
                 return Err(anyhow::anyhow!("Invalid grid"));
             }
-            result.push(*tiles.iter().next().unwrap());
         }
         Ok(result)
+    }
+}
+
+impl Cell {
+    /// Cell fill with ones up to size
+    fn filled(size: usize) -> Self {
+        let mut result = [0; TILE_U32S];
+        for i in 0..size {
+            result[i / 32] |= 1 << (i % 32);
+        }
+        Self(result)
+    }
+
+    pub fn empty() -> Self {
+        Self([0; TILE_U32S])
+    }
+
+    pub fn add_tile(&mut self, tile: usize) {
+        self[tile / 32] |= 1 << (tile % 32);
+    }
+
+    /// Leaves a random bit set to 1 and the rest to 0
+    fn select_random<R: Rng>(&mut self, rng: &mut R) {
+        let selected = rng.gen_range(0..self.count_bits());
+        let mut count = 0;
+        for i in 0..TILE_U32S {
+            for j in 0..32 {
+                if self[i] & (1 << j) != 0 {
+                    if count != selected {
+                        self[i] &= !(1 << j);
+                    }
+                    count += 1;
+                }
+            }
+        }
+    }
+
+    /// Returns the one and only tile if there is only one
+    fn collapse(&self) -> Option<usize> {
+        if self.count_bits() == 1 {
+            Some(self.tile_iter().next().unwrap())
+        } else {
+            None
+        }
+    }
+
+    fn join(a: &Self, b: &Self) -> Self {
+        let mut result = [0; TILE_U32S];
+        for i in 0..TILE_U32S {
+            result[i] = a[i] | b[i];
+        }
+        Self(result)
+    }
+
+    fn intersect(a: &Self, b: &Self) -> Self {
+        let mut result = [0; TILE_U32S];
+        for i in 0..TILE_U32S {
+            result[i] = a[i] & b[i];
+        }
+        Self(result)
+    }
+
+    /// Counts the number of bits set to 1
+    fn count_bits(&self) -> usize {
+        let mut result = 0;
+        for i in 0..TILE_U32S {
+            result += self.0[i].count_ones() as usize;
+        }
+        result
+    }
+
+    /// Returns an iterator over all the set bits
+    pub fn tile_iter(&self) -> impl Iterator<Item = usize> + '_ {
+        (0..TILE_U32S).flat_map(move |i| {
+            (0..32).filter_map(move |j| {
+                if self[i] & (1 << j) != 0 {
+                    Some(i * 32 + j)
+                } else {
+                    None
+                }
+            })
+        })
+    }
+}
+
+impl std::fmt::Debug for Cell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // print all the bits
+        for i in 0..TILE_U32S {
+            for j in 0..32 {
+                if self[i] & (1 << j) != 0 {
+                    write!(f, "1")?;
+                } else {
+                    write!(f, "0")?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl std::fmt::Display for Cell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // print the number of bits
+        write!(f, "{}", self.count_bits())
     }
 }
 
@@ -161,6 +264,31 @@ impl Direction {
             Self::Down => Self::Up,
             Self::Left => Self::Right,
             Self::Right => Self::Left,
+        }
+    }
+
+    pub fn rotate(&self, rotation: usize) -> Self {
+        match rotation {
+            0 => *self,
+            1 => match self {
+                Self::Up => Self::Right,
+                Self::Down => Self::Left,
+                Self::Left => Self::Up,
+                Self::Right => Self::Down,
+            },
+            2 => match self {
+                Self::Up => Self::Down,
+                Self::Down => Self::Up,
+                Self::Left => Self::Right,
+                Self::Right => Self::Left,
+            },
+            3 => match self {
+                Self::Up => Self::Left,
+                Self::Down => Self::Right,
+                Self::Left => Self::Down,
+                Self::Right => Self::Up,
+            },
+            _ => panic!("Invalid rotation: {}", rotation),
         }
     }
 }

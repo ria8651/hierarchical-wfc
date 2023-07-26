@@ -1,17 +1,16 @@
 use crate::{
-    graph_wfc::Direction,
+    graph_wfc::{Cell, Direction},
     tileset::{AllowedNeighbors, TileSet},
 };
-use bevy::utils::{HashMap, HashSet};
-use rand::Rng;
+use bevy::utils::HashMap;
 
 pub struct BasicTileset;
 
 impl TileSet for BasicTileset {
-    type Tile = u32;
+    const TILE_COUNT: usize = 17;
     type Direction = Direction;
 
-    fn allowed_neighbors() -> AllowedNeighbors<Self> {
+    fn allowed_neighbors() -> AllowedNeighbors {
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum TileEdgeType {
             Air,
@@ -46,7 +45,7 @@ impl TileSet for BasicTileset {
         ];
 
         // convert to allowed neighbors
-        let mut allowed_neighbors: AllowedNeighbors<Self> = HashMap::new();
+        let mut allowed_neighbors = HashMap::new();
         for (tile, edges) in tile_edge_types {
             let mut neighbors = HashMap::new();
             for (edge_index, edge) in edges.into_iter().enumerate() {
@@ -56,16 +55,16 @@ impl TileSet for BasicTileset {
                     // special case for air
                     neighbors
                         .entry(direction)
-                        .or_insert(HashSet::new())
-                        .insert(0);
+                        .or_insert(Cell::empty())
+                        .add_tile(0);
                 } else {
                     // add all tiles with this edge type to the neighbor set
                     for (other_tile, other_edges) in tile_edge_types.iter() {
                         if other_edges[direction.other() as usize] == edge {
                             neighbors
                                 .entry(direction)
-                                .or_insert(HashSet::new())
-                                .insert(*other_tile);
+                                .or_insert(Cell::empty())
+                                .add_tile(*other_tile);
                         }
                     }
                 }
@@ -73,14 +72,6 @@ impl TileSet for BasicTileset {
             allowed_neighbors.insert(tile, neighbors);
         }
         allowed_neighbors
-    }
-
-    fn random_tile<R: Rng>(rng: &mut R) -> Self::Tile {
-        rng.gen_range(0..=16)
-    }
-
-    fn all_tiles() -> HashSet<Self::Tile> {
-        (0..=16).collect()
     }
 
     fn get_tile_paths() -> Vec<String> {

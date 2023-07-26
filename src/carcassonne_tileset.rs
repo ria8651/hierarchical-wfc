@@ -1,20 +1,17 @@
 use crate::{
-    graph_wfc::Direction,
+    graph_wfc::{Cell, Direction},
     tileset::{AllowedNeighbors, TileSet},
 };
-use bevy::utils::{HashMap, HashSet};
-use rand::Rng;
-
-const NUM_TILES: u32 = 30;
+use bevy::utils::HashMap;
 
 #[derive(Debug)]
 pub struct CarcassonneTileset;
 
 impl TileSet for CarcassonneTileset {
-    type Tile = u32;
+    const TILE_COUNT: usize = 120;
     type Direction = Direction;
 
-    fn allowed_neighbors() -> AllowedNeighbors<Self> {
+    fn allowed_neighbors() -> AllowedNeighbors {
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum TileEdgeType {
             Grass,
@@ -58,27 +55,21 @@ impl TileSet for CarcassonneTileset {
         ];
 
         // rotate all tiles to get all possible edge types
-        let mut rotated_tile_edge_types: Vec<(u32, [TileEdgeType; 4])> = Vec::new();
+        let mut rotated_tile_edge_types = Vec::new();
         for rotation in 0..4 {
-            let bleh = match rotation {
-                0 => [0, 1, 2, 3],
-                1 => [2, 3, 1, 0],
-                2 => [1, 0, 3, 2],
-                3 => [3, 2, 0, 1],
-                _ => unreachable!(),
-            };
-
             for (tile, edges) in tile_edge_types.iter() {
                 let mut rotated_edges = [T::Grass, T::Grass, T::Grass, T::Grass];
                 for (edge_index, edge) in edges.iter().enumerate() {
-                    rotated_edges[bleh[edge_index]] = *edge;
+                    let direction = Direction::from(edge_index);
+                    rotated_edges[direction.rotate(rotation) as usize] = *edge;
                 }
-                rotated_tile_edge_types.push((NUM_TILES * rotation + *tile, rotated_edges));
+                rotated_tile_edge_types
+                    .push((Self::TILE_COUNT / 4 * rotation + *tile, rotated_edges));
             }
         }
 
         // convert to allowed neighbors
-        let mut allowed_neighbors: AllowedNeighbors<Self> = HashMap::new();
+        let mut allowed_neighbors = HashMap::new();
         for (tile, edges) in rotated_tile_edge_types.clone() {
             let mut neighbors = HashMap::new();
             for (edge_index, edge) in edges.into_iter().enumerate() {
@@ -89,27 +80,20 @@ impl TileSet for CarcassonneTileset {
                     if other_edges[direction.other() as usize] == edge {
                         neighbors
                             .entry(direction)
-                            .or_insert(HashSet::new())
-                            .insert(*other_tile);
+                            .or_insert(Cell::empty())
+                            .add_tile(*other_tile);
                     }
                 }
             }
             allowed_neighbors.insert(tile, neighbors);
         }
+        // println!("{:?}", allowed_neighbors);
         allowed_neighbors
-    }
-
-    fn random_tile<R: Rng>(rng: &mut R) -> Self::Tile {
-        rng.gen_range(0..NUM_TILES * 4)
-    }
-
-    fn all_tiles() -> HashSet<Self::Tile> {
-        (0..NUM_TILES * 4).collect()
     }
 
     fn get_tile_paths() -> Vec<String> {
         let mut paths = Vec::new();
-        for tile in 0..NUM_TILES {
+        for tile in 0..Self::TILE_COUNT / 4 {
             paths.push(format!("carcassonne/{}.png", tile));
         }
         paths

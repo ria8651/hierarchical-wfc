@@ -1,16 +1,13 @@
-use crate::graph_wfc::Direction;
-use bevy::utils::{HashMap, HashSet};
-use rand::Rng;
+use crate::graph_wfc::{Cell, Direction};
+use bevy::utils::HashMap;
 
 pub trait TileSet {
-    type Tile: Eq + std::hash::Hash + Copy + std::fmt::Debug;
     type Direction: Eq + std::hash::Hash + Copy + std::fmt::Debug;
 
-    fn allowed_neighbors() -> AllowedNeighbors<Self>;
-    fn random_tile<R: Rng>(rng: &mut R) -> Self::Tile;
-    fn all_tiles() -> HashSet<Self::Tile>;
+    const TILE_COUNT: usize;
+
+    fn allowed_neighbors() -> AllowedNeighbors;
     fn get_tile_paths() -> Vec<String>;
 }
 
-pub type AllowedNeighbors<T> =
-    HashMap<<T as TileSet>::Tile, HashMap<Direction, HashSet<<T as TileSet>::Tile>>>;
+pub type AllowedNeighbors = HashMap<usize, HashMap<Direction, Cell>>;

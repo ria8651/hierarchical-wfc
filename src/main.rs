@@ -30,6 +30,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     graph_wfc.collapse(0);
     drop(collapse_span);
 
+    // for y in (0..size.y as usize).rev() {
+    //     for x in 0..size.x as usize {
+    //         print!("[{:?}]", graph_wfc.tiles[x * size.y as usize + y]);
+    //     }
+    //     println!();
+    // }
+
     // for now uses the assumed known ordering of tiles
     let nodes = match graph_wfc.validate() {
         Ok(nodes) => nodes,
@@ -73,9 +80,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         for y in 0..tiles[0].len() {
             let mut tile_index = tiles[x][y] as usize;
             let mut tile_rotation = 0;
-            if 1 == 1 {
-                tile_rotation = tile_index / 30;
-                tile_index = tile_index % 30;
+            if 1 == 1 { // type equality check?
+                tile_rotation = tile_index / (UseTileSet::TILE_COUNT / 4);
+                tile_index = tile_index % (UseTileSet::TILE_COUNT / 4);
             }
             let pos = Vec2::new(x as f32, y as f32);
             commands.spawn((
@@ -85,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ((pos + 0.5) / tiles.len() as f32 - 0.5).extend(0.0),
                     )
                     .with_rotation(Quat::from_rotation_z(
-                        std::f32::consts::PI * tile_rotation as f32 / 2.0,
+                        -std::f32::consts::PI * tile_rotation as f32 / 2.0,
                     )),
                     sprite: Sprite {
                         custom_size: Some(Vec2::splat(1.0 / tiles.len() as f32)),
