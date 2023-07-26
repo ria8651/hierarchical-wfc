@@ -1,12 +1,11 @@
 use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::ScalingMode};
 use carcassonne_tileset::CarcassonneTileset;
-// use graph_wfc::GraphWfc;
-use grid_wfc::GridWfc;
+use graph_wfc::GraphWfc;
+use tileset::TileSet;
 
 mod basic_tileset;
 mod carcassonne_tileset;
-// mod graph_wfc;
-mod grid_wfc;
+mod graph_wfc;
 mod tileset;
 
 fn main() {
@@ -19,23 +18,40 @@ fn main() {
 #[derive(Component)]
 struct TileSprite;
 
+type UseTileSet = CarcassonneTileset;
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // let graph_wfc: GraphWfc<CarcassonneTileset> = GraphWfc::new(UVec2::new(3, 3));
+    let size = UVec2::new(15, 15);
+    let mut graph_wfc: GraphWfc<UseTileSet> = GraphWfc::new(size);
+    graph_wfc.collapse(0);
 
-    let mut grid_wfc: GridWfc<CarcassonneTileset> = GridWfc::new(UVec2::new(15, 15));
-    grid_wfc.collapse(2);
+    // for y in (0..size.y as usize).rev() {
+    //     for x in 0..size.x as usize {
+    //         print!("{:?}", graph_wfc.nodes[x * size.y as usize + y].tiles);
+    //     }
+    //     println!();
+    // }
 
-    let tiles = match grid_wfc.validate() {
-        Ok(tiles) => tiles,
+    // for now uses the assumed known ordering of tiles
+    let nodes = match graph_wfc.validate() {
+        Ok(nodes) => nodes,
         Err(e) => {
             error!("Error: {}", e);
             return;
         }
     };
+    let mut tiles = Vec::new();
+    for x in 0..size.x as usize {
+        let mut row = Vec::new();
+        for y in 0..size.y as usize {
+            row.push(nodes[x * size.y as usize + y]);
+        }
+        tiles.push(row);
+    }
 
-    // for y in (0..tiles[0].len()).rev() {
-    //     for x in 0..tiles.len() {
-    //         print!("{}", &tiles[x][y]);
+    // for y in (0..size.y as usize).rev() {
+    //     for x in 0..size.x as usize {
+    //         print!("{:?}", tiles[x][y]);
     //     }
     //     println!();
     // }
@@ -57,16 +73,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // tileset
     let mut tile_handles: Vec<Handle<Image>> = Vec::new();
-    for tile in 0..=17 {
-        tile_handles.push(asset_server.load(format!("carcassonne/{}.png", tile + 1).as_str()));
+    for tile in UseTileSet::get_tile_paths() {
+        tile_handles.push(asset_server.load(tile));
     }
 
     // result
     for x in 0..tiles.len() {
         for y in 0..tiles[0].len() {
-            let tile = tiles[x][y] as usize;
-            let tile_index = tile % 18;
-            let tile_rotation = tile / 18;
+            let mut tile_index = tiles[x][y] as usize;
+            let mut tile_rotation = 0;
+            if 1 == 1 {
+                tile_rotation = tile_index / 30;
+                tile_index = tile_index % 30;
+                println!("{} {}", tile_index, tile_rotation);
+            }
             let pos = Vec2::new(x as f32, y as f32);
             commands.spawn((
                 SpriteBundle {

@@ -1,5 +1,5 @@
 use crate::{
-    grid_wfc::Direction,
+    graph_wfc::Direction,
     tileset::{AllowedNeighbors, TileSet},
 };
 use bevy::utils::{HashMap, HashSet};
@@ -50,13 +50,7 @@ impl TileSet for BasicTileset {
         for (tile, edges) in tile_edge_types {
             let mut neighbors = HashMap::new();
             for (edge_index, edge) in edges.into_iter().enumerate() {
-                let direction = match edge_index {
-                    0 => Direction::Down,
-                    1 => Direction::Up,
-                    2 => Direction::Right,
-                    3 => Direction::Left,
-                    _ => unreachable!(),
-                };
+                let direction = Direction::from(edge_index);
 
                 if edge == T::Air && tile != 0 {
                     // special case for air
@@ -67,7 +61,7 @@ impl TileSet for BasicTileset {
                 } else {
                     // add all tiles with this edge type to the neighbor set
                     for (other_tile, other_edges) in tile_edge_types.iter() {
-                        if other_edges[direction as usize] == edge {
+                        if other_edges[direction.other() as usize] == edge {
                             neighbors
                                 .entry(direction)
                                 .or_insert(HashSet::new())
@@ -82,10 +76,18 @@ impl TileSet for BasicTileset {
     }
 
     fn random_tile<R: Rng>(rng: &mut R) -> Self::Tile {
-        rng.gen_range(0..7)
+        rng.gen_range(0..=16)
     }
 
     fn all_tiles() -> HashSet<Self::Tile> {
         (0..=16).collect()
+    }
+
+    fn get_tile_paths() -> Vec<String> {
+        let mut paths = Vec::new();
+        for tile in 0..=16 {
+            paths.push(format!("tileset/{}.png", tile));
+        }
+        paths
     }
 }

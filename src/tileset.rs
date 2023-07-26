@@ -1,3 +1,4 @@
+use crate::graph_wfc::Direction;
 use bevy::utils::{HashMap, HashSet};
 use rand::Rng;
 
@@ -8,9 +9,8 @@ pub trait TileSet {
     fn allowed_neighbors() -> AllowedNeighbors<Self>;
     fn random_tile<R: Rng>(rng: &mut R) -> Self::Tile;
     fn all_tiles() -> HashSet<Self::Tile>;
+    fn get_tile_paths() -> Vec<String>;
 }
 
-pub type AllowedNeighbors<T> = HashMap<
-    <T as TileSet>::Tile,
-    HashMap<<T as TileSet>::Direction, HashSet<<T as TileSet>::Tile>>,
->;
+pub type AllowedNeighbors<T> =
+    HashMap<<T as TileSet>::Tile, HashMap<Direction, HashSet<<T as TileSet>::Tile>>>;

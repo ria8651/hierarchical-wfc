@@ -1,29 +1,17 @@
-use crate::tileset::{AllowedNeighbors, TileSet};
+use crate::tileset::AllowedNeighbors;
 use anyhow::Result;
 use bevy::{prelude::*, utils::HashSet};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
-pub struct GridWfc<T: TileSet> {
-    pub grid: Vec<Vec<HashSet<T::Tile>>>,
+pub struct GridWfc {
+    pub grid: Vec<Vec<u128>>,
 }
 
-impl<T> GridWfc<T>
-where
-    T: TileSet,
-    T::Direction: From<usize>,
-{
+impl GridWfc {
     pub fn new(size: UVec2) -> Self {
-        let tiles = T::all_tiles();
-
-        let mut grid = Vec::new();
-        for _ in 0..size.x {
-            let mut row = Vec::new();
-            for _ in 0..size.y {
-                row.push(tiles.clone());
-            }
-            grid.push(row);
+        Self {
+            grid: vec![vec![0; size.y as usize]; size.x as usize],
         }
-        Self { grid }
     }
 
     pub fn collapse(&mut self, seed: u64) {
@@ -151,36 +139,5 @@ where
             && pos.x < self.grid.len() as i32
             && pos.y >= 0
             && pos.y < self.grid[0].len() as i32
-    }
-}
-
-#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
-pub enum Direction {
-    Up = 0,
-    Down = 1,
-    Left = 2,
-    Right = 3,
-}
-
-impl Direction {
-    pub fn other(&self) -> Self {
-        match self {
-            Self::Up => Self::Down,
-            Self::Down => Self::Up,
-            Self::Left => Self::Right,
-            Self::Right => Self::Left,
-        }
-    }
-}
-
-impl From<usize> for Direction {
-    fn from(value: usize) -> Self {
-        match value {
-            0 => Self::Up,
-            1 => Self::Down,
-            2 => Self::Left,
-            3 => Self::Right,
-            _ => panic!("Invalid direction: {}", value),
-        }
     }
 }
