@@ -21,16 +21,14 @@ struct TileSprite;
 type UseTileSet = CarcassonneTileset;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let size = UVec2::new(15, 15);
+    let initialize_span = info_span!("initialize_wfc", name = "initialize_wfc").entered();
+    let size = UVec2::new(100, 100);
     let mut graph_wfc: GraphWfc<UseTileSet> = GraphWfc::new(size);
-    graph_wfc.collapse(0);
+    drop(initialize_span);
 
-    // for y in (0..size.y as usize).rev() {
-    //     for x in 0..size.x as usize {
-    //         print!("{:?}", graph_wfc.nodes[x * size.y as usize + y].tiles);
-    //     }
-    //     println!();
-    // }
+    let collapse_span = info_span!("collapse_wfc", name = "collapse_wfc").entered();
+    graph_wfc.collapse(0);
+    drop(collapse_span);
 
     // for now uses the assumed known ordering of tiles
     let nodes = match graph_wfc.validate() {
@@ -48,13 +46,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         }
         tiles.push(row);
     }
-
-    // for y in (0..size.y as usize).rev() {
-    //     for x in 0..size.x as usize {
-    //         print!("{:?}", tiles[x][y]);
-    //     }
-    //     println!();
-    // }
 
     // camera
     commands.spawn(Camera2dBundle {
@@ -85,7 +76,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             if 1 == 1 {
                 tile_rotation = tile_index / 30;
                 tile_index = tile_index % 30;
-                println!("{} {}", tile_index, tile_rotation);
             }
             let pos = Vec2::new(x as f32, y as f32);
             commands.spawn((

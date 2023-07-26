@@ -6,20 +6,13 @@ use bevy::{
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
-#[derive(Debug)]
-pub struct WfcNode<T: TileSet> {
-    pub tiles: HashSet<T::Tile>,
-    pub neighbors: HashMap<Direction, usize>,
-}
-
 pub struct GraphWfc<T: TileSet> {
-    pub nodes: Vec<WfcNode<T>>,
+    pub tiles: Vec<HashSet<T::Tile>>,
+    pub neighbors: Vec<HashMap<Direction, usize>>,
 }
 
 impl<T: TileSet> GraphWfc<T> {
     pub fn new(size: UVec2) -> Self {
-        let tiles = T::all_tiles();
-
         let mut nodes_pos = Vec::new();
         for x in 0..size.x {
             for y in 0..size.y {
@@ -34,37 +27,37 @@ impl<T: TileSet> GraphWfc<T> {
             (Direction::Right, IVec2::new(1, 0)),
         ];
 
-        let mut nodes = Vec::new();
+        let mut neighbors = Vec::new();
         for pos in nodes_pos.iter() {
-            let mut neighbors = HashMap::new();
+            let mut node_neighbors = HashMap::new();
             for (dir, dir_vec) in directions.iter() {
                 let neighbor_pos = *pos + *dir_vec;
                 if let Some(neighbor_index) = nodes_pos.iter().position(|p| p == &neighbor_pos) {
-                    neighbors.insert(*dir, neighbor_index);
+                    node_neighbors.insert(*dir, neighbor_index);
                 }
             }
-            nodes.push(WfcNode {
-                tiles: tiles.clone(),
-                neighbors,
-            });
+            neighbors.push(node_neighbors);
         }
 
-        Self { nodes }
+        let tiles = T::all_tiles();
+        let tiles = vec![tiles; nodes_pos.len()];
+
+        Self { tiles, neighbors }
     }
 
     pub fn collapse(&mut self, seed: u64) {
         let mut rng = StdRng::seed_from_u64(seed);
         let allowed_neighbors = T::allowed_neighbors();
 
-        let start_node = rng.gen_range(0..self.nodes.len());
+        let start_node = rng.gen_range(0..self.tiles.len());
 
         // update cell
         let tiles = [T::random_tile(&mut rng)].into();
-        self.nodes[start_node].tiles = tiles;
+        self.tiles[start_node] = tiles;
 
         let mut stack = vec![start_node];
         while let Some(index) = stack.pop() {
-            let neighbors = self.nodes[index].neighbors.clone();
+            let neighbors = self.neighbors[index].clone();
             for (neighbor_direction, neighbor_index) in neighbors.into_iter() {
                 // propagate changes
                 if self.propagate(
@@ -81,8 +74,8 @@ impl<T: TileSet> GraphWfc<T> {
                 // find next cell to update
                 let mut min_entropy = usize::MAX;
                 let mut min_pos = None;
-                for (index, node) in self.nodes.iter().enumerate() {
-                    let entropy = node.tiles.len();
+                for (index, node) in self.tiles.iter().enumerate() {
+                    let entropy = node.len();
                     if entropy > 1 && entropy < min_entropy {
                         min_entropy = entropy;
                         min_pos = Some(index);
@@ -91,13 +84,12 @@ impl<T: TileSet> GraphWfc<T> {
 
                 if let Some(pos) = min_pos {
                     // update cell
-                    let tiles = self.nodes[pos]
-                        .tiles
+                    let tiles = self.tiles[pos]
                         .iter()
                         .cloned()
                         .collect::<Vec<<T as TileSet>::Tile>>();
                     let length = tiles.len();
-                    self.nodes[pos].tiles = [tiles[rng.gen_range(0..length)]].into();
+                    self.tiles[pos] = [tiles[rng.gen_range(0..length)]].into();
 
                     stack.push(pos);
                 }
@@ -123,8 +115,8 @@ impl<T: TileSet> GraphWfc<T> {
     ) -> bool {
         let mut updated = false;
 
-        let tiles = &self.nodes[index].tiles;
-        let neighbor_tiles = self.nodes[neighbor_index].tiles.clone();
+        let tiles = &self.tiles[index];
+        let neighbor_tiles = self.tiles[neighbor_index].clone();
 
         let mut allowed = HashSet::new();
         for tile in tiles {
@@ -134,7 +126,7 @@ impl<T: TileSet> GraphWfc<T> {
         let new_tiles = neighbor_tiles.intersection(&allowed).copied().collect();
         if new_tiles != neighbor_tiles {
             updated = true;
-            self.nodes[neighbor_index].tiles = new_tiles;
+            self.tiles[neighbor_index] = new_tiles;
         }
 
         updated
@@ -143,8 +135,8 @@ impl<T: TileSet> GraphWfc<T> {
     /// Consumes the grid and returns the collapsed tiles
     pub fn validate(self) -> Result<Vec<T::Tile>> {
         let mut result = Vec::new();
-        for node in 0..self.nodes.len() {
-            let tiles = &self.nodes[node].tiles;
+        for node in 0..self.tiles.len() {
+            let tiles = &self.tiles[node];
             if tiles.len() != 1 {
                 return Err(anyhow::anyhow!("Invalid grid"));
             }

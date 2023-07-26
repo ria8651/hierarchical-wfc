@@ -96,7 +96,6 @@ impl TileSet for CarcassonneTileset {
             }
             allowed_neighbors.insert(tile, neighbors);
         }
-        println!("{:?}", allowed_neighbors);
         allowed_neighbors
     }
 
