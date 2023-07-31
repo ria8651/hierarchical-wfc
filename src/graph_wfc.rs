@@ -1,20 +1,33 @@
-use crate::tileset::{AllowedNeighbors, TileSet};
+use crate::tileset::TileSet;
 use anyhow::Result;
-use bevy::{prelude::*, utils::HashMap};
+use bevy::prelude::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 pub const TILE_U32S: usize = 4;
 
-#[derive(Deref, DerefMut, Clone, PartialEq, Eq)]
+#[derive(Deref, DerefMut, Clone, Copy, PartialEq, Eq)]
 pub struct Cell(pub [u32; TILE_U32S]);
 
-pub struct GraphWfc<T: TileSet> {
+#[derive(Clone, Copy)]
+pub struct Neighbor {
+    pub direction: usize,
+    pub index: usize,
+}
+
+pub struct GraphWfc<T: TileSet>
+where
+    [(); T::DIRECTIONS]:,
+{
     pub tiles: Vec<Cell>,
-    pub neighbors: Vec<HashMap<Direction, usize>>,
+    pub neighbors: Vec<Vec<Neighbor>>,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: TileSet> GraphWfc<T> {
+impl<T: TileSet> GraphWfc<T>
+where
+    [(); T::DIRECTIONS]:,
+    [(); T::TILE_COUNT]:,
+{
     pub fn new(size: UVec2) -> Self {
         let mut nodes_pos = Vec::new();
         for x in 0..size.x {
@@ -24,20 +37,29 @@ impl<T: TileSet> GraphWfc<T> {
         }
 
         let directions = [
-            (Direction::Up, IVec2::new(0, 1)),
-            (Direction::Down, IVec2::new(0, -1)),
-            (Direction::Left, IVec2::new(-1, 0)),
-            (Direction::Right, IVec2::new(1, 0)),
+            IVec2::new(0, 1),
+            IVec2::new(0, -1),
+            IVec2::new(-1, 0),
+            IVec2::new(1, 0),
         ];
 
         let mut neighbors = Vec::new();
         for pos in nodes_pos.iter() {
-            let mut node_neighbors = HashMap::new();
-            for (dir, dir_vec) in directions.iter() {
+            let mut node_neighbors = Vec::new();
+            for (i, dir_vec) in directions.iter().enumerate() {
                 let neighbor_pos = *pos + *dir_vec;
-                if let Some(neighbor_index) = nodes_pos.iter().position(|p| p == &neighbor_pos) {
-                    node_neighbors.insert(*dir, neighbor_index);
+                if neighbor_pos.cmpge(size.as_ivec2()).any() {
+                    continue;
                 }
+                if neighbor_pos.cmplt(IVec2::ZERO).any() {
+                    continue;
+                }
+
+                let neighbor_index = (neighbor_pos.x * size.y as i32 + neighbor_pos.y) as usize;
+                node_neighbors.push(Neighbor {
+                    direction: i,
+                    index: neighbor_index,
+                });
             }
             neighbors.push(node_neighbors);
         }
@@ -63,16 +85,11 @@ impl<T: TileSet> GraphWfc<T> {
 
         let mut stack = vec![start_node];
         while let Some(index) = stack.pop() {
-            let neighbors = self.neighbors[index].clone();
-            for (neighbor_direction, neighbor_index) in neighbors.into_iter() {
+            for i in 0..self.neighbors[index].len() {
                 // propagate changes
-                if self.propagate(
-                    index,
-                    neighbor_index,
-                    &neighbor_direction,
-                    &allowed_neighbors,
-                ) {
-                    stack.push(neighbor_index);
+                let neighbor = self.neighbors[index][i];
+                if self.propagate(index, neighbor, &allowed_neighbors) {
+                    stack.push(neighbor.index);
                 }
             }
 
@@ -109,22 +126,21 @@ impl<T: TileSet> GraphWfc<T> {
     pub fn propagate(
         &mut self,
         index: usize,
-        neighbor_index: usize,
-        neighbor_direction: &Direction,
-        allowed_neighbors: &AllowedNeighbors,
+        neighbor: Neighbor,
+        allowed_neighbors: &[[Cell; T::DIRECTIONS]; T::TILE_COUNT],
     ) -> bool {
         let mut updated = false;
 
         let mut allowed = Cell::empty();
         for tile in self.tiles[index].tile_iter() {
-            allowed = Cell::join(&allowed, &allowed_neighbors[&tile][neighbor_direction]);
+            allowed = Cell::join(&allowed, &allowed_neighbors[tile][neighbor.direction]);
         }
 
-        let neighbor_tiles = self.tiles[neighbor_index].clone();
+        let neighbor_tiles = self.tiles[neighbor.index].clone();
         let new_tiles = Cell::intersect(&neighbor_tiles, &allowed);
         if new_tiles != neighbor_tiles {
             updated = true;
-            self.tiles[neighbor_index] = new_tiles;
+            self.tiles[neighbor.index] = new_tiles;
         }
 
         updated

@@ -1,13 +1,9 @@
-use crate::graph_wfc::{Cell, Direction};
-use bevy::utils::HashMap;
+use crate::graph_wfc::Cell;
 
 pub trait TileSet {
-    type Direction: Eq + std::hash::Hash + Copy + std::fmt::Debug;
-
     const TILE_COUNT: usize;
+    const DIRECTIONS: usize;
 
-    fn allowed_neighbors() -> AllowedNeighbors;
+    fn allowed_neighbors() -> [[Cell; Self::DIRECTIONS]; Self::TILE_COUNT];
     fn get_tile_paths() -> Vec<String>;
 }
-
-pub type AllowedNeighbors = HashMap<usize, HashMap<Direction, Cell>>;
