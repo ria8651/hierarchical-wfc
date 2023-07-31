@@ -1,15 +1,15 @@
 use crate::{
-    graph_wfc::{Cell, Direction},
     tileset::TileSet,
+    wfc::{Cell, Direction},
 };
 
-pub struct BasicTileset;
+pub struct BasicTileset {
+    allowed_neighbors: [[Cell; Self::DIRECTIONS]; Self::TILE_COUNT],
+}
 
-impl TileSet for BasicTileset {
-    const TILE_COUNT: usize = 17;
-    const DIRECTIONS: usize = 4;
-
-    fn allowed_neighbors() -> [[Cell; Self::DIRECTIONS]; Self::TILE_COUNT] {
+#[allow(dead_code)]
+impl BasicTileset {
+    pub fn new() -> Self {
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum TileEdgeType {
             Air,
@@ -62,10 +62,20 @@ impl TileSet for BasicTileset {
                 }
             }
         }
-        allowed_neighbors
+
+        Self { allowed_neighbors }
+    }
+}
+
+impl TileSet for BasicTileset {
+    const TILE_COUNT: usize = 17;
+    const DIRECTIONS: usize = 4;
+
+    fn get_constraints(&self) -> &[[Cell; Self::DIRECTIONS]; Self::TILE_COUNT] {
+        &self.allowed_neighbors
     }
 
-    fn get_tile_paths() -> Vec<String> {
+    fn get_tile_paths(&self) -> Vec<String> {
         let mut paths = Vec::new();
         for tile in 0..=16 {
             paths.push(format!("tileset/{}.png", tile));

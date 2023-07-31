@@ -3,13 +3,13 @@
 
 use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::ScalingMode};
 use carcassonne_tileset::CarcassonneTileset;
-use graph_wfc::GraphWfc;
 use tileset::TileSet;
+use wfc::GraphWfc;
 
 mod basic_tileset;
 mod carcassonne_tileset;
-mod graph_wfc;
 mod tileset;
+mod wfc;
 
 fn main() {
     App::new()
@@ -21,16 +21,18 @@ fn main() {
 #[derive(Component)]
 struct TileSprite;
 
-type UseTileSet = CarcassonneTileset;
-
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let tileset_span = info_span!("create_tileset", name = "create_tileset").entered();
+    let tileset = CarcassonneTileset::new();
+    drop(tileset_span);
+
     let initialize_span = info_span!("initialize_wfc", name = "initialize_wfc").entered();
     let size = UVec2::new(100, 100);
-    let mut graph_wfc: GraphWfc<UseTileSet> = GraphWfc::new(size);
+    let mut graph_wfc = GraphWfc::new(size);
     drop(initialize_span);
 
     let collapse_span = info_span!("collapse_wfc", name = "collapse_wfc").entered();
-    graph_wfc.collapse(0);
+    graph_wfc.collapse(&tileset, 0);
     drop(collapse_span);
 
     // for y in (0..size.y as usize).rev() {
@@ -74,7 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // tileset
     let mut tile_handles: Vec<Handle<Image>> = Vec::new();
-    for tile in UseTileSet::get_tile_paths() {
+    for tile in tileset.get_tile_paths() {
         tile_handles.push(asset_server.load(tile));
     }
 
@@ -83,9 +85,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         for y in 0..tiles[0].len() {
             let mut tile_index = tiles[x][y] as usize;
             let mut tile_rotation = 0;
-            if 1 == 1 { // type equality check?
-                tile_rotation = tile_index / (UseTileSet::TILE_COUNT / 4);
-                tile_index = tile_index % (UseTileSet::TILE_COUNT / 4);
+            if tileset.tile_count() > 100 {
+                tile_rotation = tile_index / (tileset.tile_count() / 4);
+                tile_index = tile_index % (tileset.tile_count() / 4);
             }
             let pos = Vec2::new(x as f32, y as f32);
             commands.spawn((

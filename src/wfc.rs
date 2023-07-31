@@ -20,7 +20,7 @@ where
 {
     pub tiles: Vec<Cell>,
     pub neighbors: Vec<Vec<Neighbor>>,
-    _phantom: std::marker::PhantomData<T>,
+    _phantom: std::marker::PhantomData<T>, // bug in experimental generic_const_exprs feature requires this
 }
 
 impl<T: TileSet> GraphWfc<T>
@@ -74,10 +74,8 @@ where
         }
     }
 
-    pub fn collapse(&mut self, seed: u64) {
+    pub fn collapse(&mut self, tile_set: &T, seed: u64) {
         let mut rng = StdRng::seed_from_u64(seed);
-        let allowed_neighbors = T::allowed_neighbors();
-
         let start_node = rng.gen_range(0..self.tiles.len());
 
         // update cell
@@ -88,7 +86,7 @@ where
             for i in 0..self.neighbors[index].len() {
                 // propagate changes
                 let neighbor = self.neighbors[index][i];
-                if self.propagate(index, neighbor, &allowed_neighbors) {
+                if self.propagate(index, neighbor, tile_set.get_constraints()) {
                     stack.push(neighbor.index);
                 }
             }
