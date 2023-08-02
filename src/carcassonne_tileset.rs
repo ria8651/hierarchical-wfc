@@ -5,14 +5,24 @@ use crate::{
     wfc::Direction,
 };
 
-#[derive(Debug)]
-pub struct CarcassonneTileset {
-    constraints: [[Cell; Self::DIRECTIONS]; Self::TILE_COUNT],
-}
+#[derive(Debug, Default)]
+pub struct CarcassonneTileset;
 
-#[allow(dead_code)]
-impl CarcassonneTileset {
-    pub fn new() -> Self {
+impl TileSet for CarcassonneTileset {
+    type GraphSettings = GridGraphSettings;
+
+    // const TILE_COUNT: usize = 120;
+    // const DIRECTIONS: usize = 4;
+
+    fn tile_count(&self) -> usize {
+        120
+    }
+
+    fn directions(&self) -> usize {
+        4
+    }
+
+    fn get_constraints(&self) -> Vec<Vec<Cell>> {
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum TileEdgeType {
             Grass,
@@ -56,58 +66,51 @@ impl CarcassonneTileset {
         ];
 
         // rotate all tiles to get all possible edge types
-        let mut rotated_tile_edge_types = [[T::Grass; Self::DIRECTIONS]; Self::TILE_COUNT];
+        let mut rotated_tile_edge_types = Vec::with_capacity(self.tile_count());
         for rotation in 0..4 {
-            for (tile, edges) in tile_edge_types.iter().enumerate() {
-                let mut rotated_edges = [T::Grass, T::Grass, T::Grass, T::Grass];
+            for edges in tile_edge_types.iter() {
+                let mut rotated_edges = vec![T::Grass; self.directions()];
                 for (edge_index, edge) in edges.iter().enumerate() {
                     let direction = Direction::from(edge_index);
                     rotated_edges[direction.rotate(rotation) as usize] = *edge;
                 }
-                rotated_tile_edge_types[Self::TILE_COUNT / 4 * rotation + tile] = rotated_edges;
+                rotated_tile_edge_types.push(rotated_edges);
             }
         }
 
         // convert to allowed neighbors
-        let mut allowed_neighbors = [[Cell::empty(); Self::DIRECTIONS]; Self::TILE_COUNT];
-        for (tile, edges) in rotated_tile_edge_types.iter().enumerate() {
+        let mut allowed_neighbors = Vec::with_capacity(self.tile_count());
+        for edges in rotated_tile_edge_types.iter() {
+            let mut allowed_neighbors_for_tile = Vec::with_capacity(self.directions());
             for (edge_index, edge) in edges.into_iter().enumerate() {
                 let direction = Direction::from(edge_index);
+                let mut cell = Cell::empty();
 
                 // add all tiles with this edge type to the neighbor set
                 for (other_tile, other_edges) in rotated_tile_edge_types.iter().enumerate() {
                     if other_edges[direction.other() as usize] == *edge {
-                        allowed_neighbors[tile][edge_index].add_tile(other_tile);
+                        cell.add_tile(other_tile);
                     }
                 }
+
+                allowed_neighbors_for_tile.push(cell);
             }
+            allowed_neighbors.push(allowed_neighbors_for_tile);
         }
 
-        Self {
-            constraints: allowed_neighbors,
-        }
-    }
-}
-
-impl TileSet for CarcassonneTileset {
-    type GraphSettings = GridGraphSettings;
-
-    const TILE_COUNT: usize = 120;
-    const DIRECTIONS: usize = 4;
-
-    fn get_constraints(&self) -> &[[Cell; Self::DIRECTIONS]; Self::TILE_COUNT] {
-        &self.constraints
+        allowed_neighbors
     }
 
     fn get_tile_paths(&self) -> Vec<String> {
         let mut paths = Vec::new();
-        for tile in 0..Self::TILE_COUNT / 4 {
+        for tile in 0..self.tile_count() / 4 {
             paths.push(format!("carcassonne/{}.png", tile));
         }
         paths
     }
 
     fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Cell> {
-        graph_grid::create::<Self>(settings)
+        let cell = Cell::filled(self.tile_count());
+        graph_grid::create(settings, cell)
     }
 }

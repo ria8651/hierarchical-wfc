@@ -36,70 +36,89 @@ enum TileSetUi {
     BasicTileset(GridGraphSettings),
 }
 
+#[derive(Component)]
+struct TileSprite;
+
 fn ui(
+    mut commands: Commands,
     mut contexts: EguiContexts,
     mut ui_state: ResMut<UiState>,
+    mut tile_sprites: Query<Entity, With<TileSprite>>,
     type_registry: Res<AppTypeRegistry>,
-    _asset_server: Res<AssetServer>,
+    asset_server: Res<AssetServer>,
 ) {
     egui::Window::new("Hello").show(contexts.ctx_mut(), |ui| {
         ui_for_value(ui_state.as_mut(), ui, &type_registry.read());
 
         if ui.button("Generate").clicked() {
-            let graph = match &ui_state.picked_tileset {
-                TileSetUi::BasicTileset(settings) => {
-                    let tileset = BasicTileset::new();
-                    let mut graph_wfc = GraphWfc::new();
-                    let mut graph = tileset.create_graph(&settings);
-                    graph_wfc.collapse(&mut graph, &tileset, 0);
-                    graph
-                }
-                TileSetUi::Carcassonne(settings) => {
-                    let tileset = CarcassonneTileset::new();
-                    let mut graph_wfc = GraphWfc::new();
-                    let mut graph = tileset.create_graph(&settings);
-                    graph_wfc.collapse(&mut graph, &tileset, 0);
-                    graph
+            let tileset = match &ui_state.picked_tileset {
+                TileSetUi::BasicTileset(_) => Box::new(BasicTileset::default())
+                    as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
+                TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset::default())
+                    as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
+            };
+            let settings = match &ui_state.picked_tileset {
+                TileSetUi::BasicTileset(settings) => settings,
+                TileSetUi::Carcassonne(settings) => settings,
+            };
+            let mut graph = tileset.create_graph(settings);
+            let constraints = tileset.get_constraints();
+            GraphWfc::collapse(&mut graph, &constraints, 0);
+
+            // for y in (0..settings.height as usize).rev() {
+            //     for x in 0..settings.width as usize {
+            //         print!("[{:?}]", graph.tiles[x * settings.height as usize + y]);
+            //     }
+            //     println!();
+            // }
+
+            let result = match graph.validate() {
+                Ok(graph) => graph,
+                Err(e) => {
+                    println!("{}", e);
+                    return;
                 }
             };
-            let result = graph.validate();
-            println!("{:?}", result);
+            // println!("Result: {:?}", result);
 
-            // // tileset
-            // let mut tile_handles: Vec<Handle<Image>> = Vec::new();
-            // for tile in tileset.get_tile_paths() {
-            //     tile_handles.push(asset_server.load(tile));
-            // }
+            // cleanup
+            for entity in tile_sprites.iter_mut() {
+                commands.entity(entity).despawn();
+            }
 
-            // // result
-            // for x in 0..tiles.len() {
-            //     for y in 0..tiles[0].len() {
-            //         let mut tile_index = tiles[x][y] as usize;
-            //         let mut tile_rotation = 0;
-            //         if tileset.tile_count() > 100 {
-            //             tile_rotation = tile_index / (tileset.tile_count() / 4);
-            //             tile_index = tile_index % (tileset.tile_count() / 4);
-            //         }
-            //         let pos = Vec2::new(x as f32, y as f32);
-            //         commands.spawn((
-            //             SpriteBundle {
-            //                 texture: tile_handles[tile_index].clone(),
-            //                 transform: Transform::from_translation(
-            //                     ((pos + 0.5) / tiles.len() as f32 - 0.5).extend(0.0),
-            //                 )
-            //                 .with_rotation(Quat::from_rotation_z(
-            //                     -std::f32::consts::PI * tile_rotation as f32 / 2.0,
-            //                 )),
-            //                 sprite: Sprite {
-            //                     custom_size: Some(Vec2::splat(1.0 / tiles.len() as f32)),
-            //                     ..default()
-            //                 },
-            //                 ..default()
-            //             },
-            //             TileSprite,
-            //         ));
-            //     }
-            // }
+            // tileset
+            let mut tile_handles: Vec<Handle<Image>> = Vec::new();
+            for tile in tileset.get_tile_paths() {
+                tile_handles.push(asset_server.load(tile));
+            }
+
+            // result
+            for i in 0..result.tiles.len() {
+                let mut tile_index = result.tiles[i] as usize;
+                let mut tile_rotation = 0;
+                if tileset.tile_count() > 100 {
+                    tile_rotation = tile_index / (tileset.tile_count() / 4);
+                    tile_index = tile_index % (tileset.tile_count() / 4);
+                }
+                let pos = Vec2::new((i / settings.height) as f32, (i % settings.height) as f32);
+                commands.spawn((
+                    SpriteBundle {
+                        texture: tile_handles[tile_index].clone(),
+                        transform: Transform::from_translation(
+                            ((pos + 0.5) / settings.width as f32 - 0.5).extend(0.0),
+                        )
+                        .with_rotation(Quat::from_rotation_z(
+                            -std::f32::consts::PI * tile_rotation as f32 / 2.0,
+                        )),
+                        sprite: Sprite {
+                            custom_size: Some(Vec2::splat(1.0 / settings.width as f32)),
+                            ..default()
+                        },
+                        ..default()
+                    },
+                    TileSprite,
+                ));
+            }
         }
     });
 }

@@ -1,25 +1,10 @@
-use crate::{
-    graph::{Cell, Graph, Neighbor},
-    tileset::TileSet,
-};
+use crate::graph::{Cell, Graph, Neighbor};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
-pub struct GraphWfc<T: TileSet> {
-    _phantom: std::marker::PhantomData<T>,
-}
+pub struct GraphWfc;
 
-impl<T: TileSet> GraphWfc<T>
-where
-    [(); T::DIRECTIONS]:,
-    [(); T::TILE_COUNT]:,
-{
-    pub fn new() -> Self {
-        Self {
-            _phantom: std::marker::PhantomData,
-        }
-    }
-
-    pub fn collapse(&mut self, graph: &mut Graph<Cell>, tile_set: &T, seed: u64) {
+impl GraphWfc {
+    pub fn collapse(graph: &mut Graph<Cell>, constraints: &Vec<Vec<Cell>>, seed: u64) {
         let mut rng = StdRng::seed_from_u64(seed);
         let start_node = rng.gen_range(0..graph.tiles.len());
 
@@ -31,7 +16,7 @@ where
             for i in 0..graph.neighbors[index].len() {
                 // propagate changes
                 let neighbor = graph.neighbors[index][i];
-                if self.propagate(graph, index, neighbor, tile_set.get_constraints()) {
+                if GraphWfc::propagate(graph, index, neighbor, &constraints) {
                     stack.push(neighbor.index);
                 }
             }
@@ -67,11 +52,10 @@ where
 
     /// Returns true if the tile was updated
     pub fn propagate(
-        &mut self,
         graph: &mut Graph<Cell>,
         index: usize,
         neighbor: Neighbor,
-        allowed_neighbors: &[[Cell; T::DIRECTIONS]; T::TILE_COUNT],
+        allowed_neighbors: &Vec<Vec<Cell>>,
     ) -> bool {
         let mut updated = false;
 

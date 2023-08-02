@@ -5,13 +5,24 @@ use crate::{
     wfc::Direction,
 };
 
-pub struct BasicTileset {
-    allowed_neighbors: [[Cell; Self::DIRECTIONS]; Self::TILE_COUNT],
-}
+#[derive(Default)]
+pub struct BasicTileset;
 
-#[allow(dead_code)]
-impl BasicTileset {
-    pub fn new() -> Self {
+impl TileSet for BasicTileset {
+    type GraphSettings = GridGraphSettings;
+
+    // const TILE_COUNT: usize = 17;
+    // const DIRECTIONS: usize = 4;
+
+    fn tile_count(&self) -> usize {
+        17
+    }
+
+    fn directions(&self) -> usize {
+        4
+    }
+
+    fn get_constraints(&self) -> Vec<Vec<Cell>> {
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum TileEdgeType {
             Air,
@@ -46,37 +57,31 @@ impl BasicTileset {
         ];
 
         // convert to allowed neighbors
-        let mut allowed_neighbors = [[Cell::empty(); Self::DIRECTIONS]; Self::TILE_COUNT];
+        let mut allowed_neighbors = Vec::with_capacity(self.tile_count());
         for (tile, edges) in tile_edge_types.iter().enumerate() {
+            let mut allowed_neighbors_for_tile = Vec::with_capacity(self.directions());
             for (edge_index, edge) in edges.into_iter().enumerate() {
                 let direction = Direction::from(edge_index);
+                let mut cell = Cell::empty();
 
                 if *edge == T::Air && tile != 0 {
                     // special case for air
-                    allowed_neighbors[tile][edge_index].add_tile(0);
+                    cell.add_tile(0);
                 } else {
                     // add all tiles with this edge type to the neighbor set
                     for (other_tile, other_edges) in tile_edge_types.iter().enumerate() {
                         if other_edges[direction.other() as usize] == *edge {
-                            allowed_neighbors[tile][edge_index].add_tile(other_tile);
+                            cell.add_tile(other_tile);
                         }
                     }
                 }
+
+                allowed_neighbors_for_tile.push(cell);
             }
+            allowed_neighbors.push(allowed_neighbors_for_tile);
         }
 
-        Self { allowed_neighbors }
-    }
-}
-
-impl TileSet for BasicTileset {
-    type GraphSettings = GridGraphSettings;
-
-    const TILE_COUNT: usize = 17;
-    const DIRECTIONS: usize = 4;
-
-    fn get_constraints(&self) -> &[[Cell; Self::DIRECTIONS]; Self::TILE_COUNT] {
-        &self.allowed_neighbors
+        allowed_neighbors
     }
 
     fn get_tile_paths(&self) -> Vec<String> {
@@ -88,6 +93,7 @@ impl TileSet for BasicTileset {
     }
 
     fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Cell> {
-        graph_grid::create::<Self>(settings)
+        let cell = Cell::filled(self.tile_count());
+        graph_grid::create(settings, cell)
     }
 }

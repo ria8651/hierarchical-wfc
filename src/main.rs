@@ -20,9 +20,6 @@ fn main() {
         .run();
 }
 
-#[derive(Component)]
-struct TileSprite;
-
 fn setup(mut commands: Commands) {
     // let tileset_span = info_span!("create_tileset", name = "create_tileset").entered();
     // let tileset = CarcassonneTileset::new();

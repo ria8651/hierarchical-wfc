@@ -1,7 +1,4 @@
-use crate::{
-    graph::{Cell, Graph, Neighbor},
-    tileset::TileSet,
-};
+use crate::graph::{Graph, Neighbor};
 use bevy::prelude::*;
 
 #[derive(Reflect)]
@@ -22,7 +19,7 @@ impl Default for GridGraphSettings {
     }
 }
 
-pub fn create<T: TileSet>(settings: &GridGraphSettings) -> Graph<Cell> {
+pub fn create<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> Graph<F> {
     let size = IVec2::new(settings.width as i32, settings.height as i32);
 
     let mut nodes_pos = Vec::new();
@@ -66,8 +63,7 @@ pub fn create<T: TileSet>(settings: &GridGraphSettings) -> Graph<Cell> {
         neighbors.push(node_neighbors);
     }
 
-    let filled = Cell::filled(T::TILE_COUNT);
-    let tiles = vec![filled; nodes_pos.len()];
+    let tiles = vec![fill_with; nodes_pos.len()];
 
     Graph { tiles, neighbors }
 }
