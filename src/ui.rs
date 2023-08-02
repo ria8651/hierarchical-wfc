@@ -9,6 +9,7 @@ use bevy_inspector_egui::{
     reflect_inspector::ui_for_value,
     DefaultInspectorConfigPlugin,
 };
+use rand::{rngs::StdRng, SeedableRng};
 
 pub struct UiPlugin;
 
@@ -27,6 +28,7 @@ impl Plugin for UiPlugin {
 #[derive(Resource, Reflect, Default)]
 struct UiState {
     seed: u64,
+    random_seed: bool,
     picked_tileset: TileSetUi,
 }
 
@@ -63,7 +65,12 @@ fn ui(
             };
             let mut graph = tileset.create_graph(settings);
             let constraints = tileset.get_constraints();
-            GraphWfc::collapse(&mut graph, &constraints, 0);
+            let mut rng = if !ui_state.random_seed {
+                StdRng::seed_from_u64(ui_state.seed)
+            } else {
+                StdRng::from_entropy()
+            };
+            GraphWfc::collapse(&mut graph, &constraints, &mut rng);
 
             // for y in (0..settings.height as usize).rev() {
             //     for x in 0..settings.width as usize {

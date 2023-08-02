@@ -1,15 +1,14 @@
 use crate::graph::{Cell, Graph, Neighbor};
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::Rng;
 
 pub struct GraphWfc;
 
 impl GraphWfc {
-    pub fn collapse(graph: &mut Graph<Cell>, constraints: &Vec<Vec<Cell>>, seed: u64) {
-        let mut rng = StdRng::seed_from_u64(seed);
+    pub fn collapse<R: Rng>(graph: &mut Graph<Cell>, constraints: &Vec<Vec<Cell>>, rng: &mut R) {
         let start_node = rng.gen_range(0..graph.tiles.len());
 
         // update cell
-        graph.tiles[start_node].select_random(&mut rng);
+        graph.tiles[start_node].select_random(rng);
 
         let mut stack = vec![start_node];
         while let Some(index) = stack.pop() {
@@ -35,7 +34,7 @@ impl GraphWfc {
 
                 if let Some(pos) = min_pos {
                     // update cell
-                    graph.tiles[pos].select_random(&mut rng);
+                    graph.tiles[pos].select_random(rng);
                     stack.push(pos);
                 }
             }
