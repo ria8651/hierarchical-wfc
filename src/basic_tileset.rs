@@ -1,6 +1,8 @@
 use crate::{
+    graph::{Cell, Graph},
+    graph_grid::{self, GridGraphSettings},
     tileset::TileSet,
-    wfc::{Cell, Direction},
+    wfc::Direction,
 };
 
 pub struct BasicTileset {
@@ -68,6 +70,8 @@ impl BasicTileset {
 }
 
 impl TileSet for BasicTileset {
+    type GraphSettings = GridGraphSettings;
+
     const TILE_COUNT: usize = 17;
     const DIRECTIONS: usize = 4;
 
@@ -81,5 +85,9 @@ impl TileSet for BasicTileset {
             paths.push(format!("tileset/{}.png", tile));
         }
         paths
+    }
+
+    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Cell> {
+        graph_grid::create::<Self>(settings)
     }
 }

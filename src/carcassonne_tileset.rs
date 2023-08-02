@@ -1,6 +1,8 @@
 use crate::{
+    graph::{Cell, Graph},
+    graph_grid::{self, GridGraphSettings},
     tileset::TileSet,
-    wfc::{Cell, Direction},
+    wfc::Direction,
 };
 
 #[derive(Debug)]
@@ -88,6 +90,8 @@ impl CarcassonneTileset {
 }
 
 impl TileSet for CarcassonneTileset {
+    type GraphSettings = GridGraphSettings;
+
     const TILE_COUNT: usize = 120;
     const DIRECTIONS: usize = 4;
 
@@ -101,5 +105,9 @@ impl TileSet for CarcassonneTileset {
             paths.push(format!("carcassonne/{}.png", tile));
         }
         paths
+    }
+
+    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Cell> {
+        graph_grid::create::<Self>(settings)
     }
 }
