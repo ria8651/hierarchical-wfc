@@ -4,11 +4,16 @@ use rand::Rng;
 pub struct GraphWfc;
 
 impl GraphWfc {
-    pub fn collapse<R: Rng>(graph: &mut Graph<Cell>, constraints: &Vec<Vec<Cell>>, rng: &mut R) {
+    pub fn collapse<R: Rng>(
+        graph: &mut Graph<Cell>,
+        constraints: &Vec<Vec<Cell>>,
+        weights: &Vec<u32>,
+        rng: &mut R,
+    ) {
         let start_node = rng.gen_range(0..graph.tiles.len());
 
         // update cell
-        graph.tiles[start_node].select_random(rng);
+        graph.tiles[start_node].select_random(rng, weights);
 
         let mut stack = vec![start_node];
         while let Some(index) = stack.pop() {
@@ -34,7 +39,7 @@ impl GraphWfc {
 
                 if let Some(pos) = min_pos {
                     // update cell
-                    graph.tiles[pos].select_random(rng);
+                    graph.tiles[pos].select_random(rng, weights);
                     stack.push(pos);
                 }
             }

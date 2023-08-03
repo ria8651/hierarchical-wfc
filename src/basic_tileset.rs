@@ -84,6 +84,14 @@ impl TileSet for BasicTileset {
         allowed_neighbors
     }
 
+    fn get_weights(&self) -> Vec<u32> {
+        let mut weights = Vec::new();
+        for _ in 0..self.tile_count() {
+            weights.push(100);
+        }
+        weights
+    }
+
     fn get_tile_paths(&self) -> Vec<String> {
         let mut paths = Vec::new();
         for tile in 0..=16 {

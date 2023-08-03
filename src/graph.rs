@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bevy::prelude::*;
-use rand::Rng;
+use rand::{distributions::WeightedIndex, Rng, prelude::Distribution};
 
 pub const TILE_U32S: usize = 4;
 
@@ -56,19 +56,20 @@ impl Cell {
     }
 
     /// Leaves a random bit set to 1 and the rest to 0
-    pub fn select_random<R: Rng>(&mut self, rng: &mut R) {
-        let selected = rng.gen_range(0..self.count_bits());
-        let mut count = 0;
+    pub fn select_random<R: Rng>(&mut self, rng: &mut R, weights: &Vec<u32>) {
+        let mut weighted_rng = WeightedIndex::new(weights).unwrap();
         for i in 0..TILE_U32S {
             for j in 0..32 {
-                if self[i] & (1 << j) != 0 {
-                    if count != selected {
-                        self[i] &= !(1 << j);
-                    }
-                    count += 1;
+                let index = i * 32 + j;
+                if self[i] & (1 << j) == 0 && index < weights.len() {
+                    weighted_rng.update_weights(&[(index, &0)]).unwrap();
                 }
             }
         }
+        
+        let selected = weighted_rng.sample(rng);
+        self.0 = [0; TILE_U32S];
+        self.add_tile(selected);
     }
 
     /// Returns the one and only tile if there is only one
