@@ -21,43 +21,6 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    // let tileset_span = info_span!("create_tileset", name = "create_tileset").entered();
-    // let tileset = CarcassonneTileset::new();
-    // drop(tileset_span);
-
-    // let initialize_span = info_span!("initialize_wfc", name = "initialize_wfc").entered();
-    // let size = UVec2::new(100, 100);
-    // let mut graph_wfc = GraphWfc::new();
-    // drop(initialize_span);
-
-    // let collapse_span = info_span!("collapse_wfc", name = "collapse_wfc").entered();
-    // graph_wfc.collapse(&tileset, 0);
-    // drop(collapse_span);
-
-    // // for y in (0..size.y as usize).rev() {
-    // //     for x in 0..size.x as usize {
-    // //         print!("[{:?}]", graph_wfc.tiles[x * size.y as usize + y]);
-    // //     }
-    // //     println!();
-    // // }
-
-    // // for now uses the assumed known ordering of tiles
-    // let nodes = match graph_wfc.validate() {
-    //     Ok(nodes) => nodes,
-    //     Err(e) => {
-    //         error!("Error: {}", e);
-    //         return;
-    //     }
-    // };
-    // let mut tiles = Vec::new();
-    // for x in 0..size.x as usize {
-    //     let mut row = Vec::new();
-    //     for y in 0..size.y as usize {
-    //         row.push(nodes[x * size.y as usize + y]);
-    //     }
-    //     tiles.push(row);
-    // }
-
     // camera
     commands.spawn(Camera2dBundle {
         projection: OrthographicProjection {
