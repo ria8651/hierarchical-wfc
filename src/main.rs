@@ -1,16 +1,10 @@
-use bevy::{
-    core_pipeline::clear_color::ClearColorConfig,
-    input::mouse::{MouseScrollUnit, MouseWheel},
-    pbr::wireframe::Wireframe,
-    prelude::*,
-    render::camera::ScalingMode,
-    sprite::{Material2dPlugin, MaterialMesh2dBundle},
-};
+use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::ScalingMode};
+use carcassonne_tileset::CarcassonneTileset;
+use grid_wfc::GridWfc;
 
-use wfc_lib::{
-    planar_graph_wfc::{PlanarGraph, Wfc},
-    point_material::PointMaterial,
-};
+mod basic_tileset;
+mod carcassonne_tileset;
+mod grid_wfc;
 
 fn main() {
     App::new()
@@ -23,14 +17,9 @@ fn main() {
 #[derive(Component)]
 struct TileSprite;
 
-fn setup(
-    mut commands: Commands,
-    _asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut standard_materials: ResMut<Assets<ColorMaterial>>,
-    mut custom_materials: ResMut<Assets<PointMaterial>>,
-) {
-    let mut graph = PlanarGraph::new_voronoi(32, 32, 1.0);
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let mut grid_wfc: GridWfc<CarcassonneTileset> = GridWfc::new(UVec2::new(15, 15));
+    grid_wfc.collapse(10);
 
     graph.collapse(0);
     graph.validate();
@@ -78,31 +67,36 @@ fn setup(
     });
 }
 
-#[derive(Component, Default)]
-struct ScrollingList {
-    position: f32,
-}
+    // tileset
+    let mut tile_handles: Vec<Handle<Image>> = Vec::new();
+    for tile in 0..=17 {
+        tile_handles.push(asset_server.load(format!("carcassonne/{}.png", tile + 1).as_str()));
+    }
 
-fn mouse_scroll(
-    mut mouse_wheel_events: EventReader<MouseWheel>,
-    mut query_list: Query<(&mut ScrollingList, &mut Style, &Parent, &Node)>,
-    query_node: Query<&Node>,
-) {
-    for mouse_wheel_event in mouse_wheel_events.iter() {
-        for (mut scrolling_list, mut style, parent, list_node) in &mut query_list {
-            let items_height = list_node.size().y;
-            let container_height = query_node.get(parent.get()).unwrap().size().y;
-
-            let max_scroll = (items_height - container_height).max(0.);
-
-            let dy = match mouse_wheel_event.unit {
-                MouseScrollUnit::Line => mouse_wheel_event.y * 20.,
-                MouseScrollUnit::Pixel => mouse_wheel_event.y,
-            };
-
-            scrolling_list.position += dy;
-            scrolling_list.position = scrolling_list.position.clamp(-max_scroll, 0.);
-            style.top = Val::Px(scrolling_list.position);
+    // result
+    for x in 0..tiles.len() {
+        for y in 0..tiles[0].len() {
+            let tile = tiles[x][y] as usize;
+            let tile_index = tile % 18;
+            let tile_rotation = tile / 18;
+            let pos = Vec2::new(x as f32, y as f32);
+            commands.spawn((
+                SpriteBundle {
+                    texture: tile_handles[tile_index].clone(),
+                    transform: Transform::from_translation(
+                        ((pos + 0.5) / tiles.len() as f32 - 0.5).extend(0.0),
+                    )
+                    .with_rotation(Quat::from_rotation_z(
+                        std::f32::consts::PI * tile_rotation as f32 / 2.0,
+                    )),
+                    sprite: Sprite {
+                        custom_size: Some(Vec2::splat(1.0 / tiles.len() as f32)),
+                        ..default()
+                    },
+                    ..default()
+                },
+                TileSprite,
+            ));
         }
     }
 }
