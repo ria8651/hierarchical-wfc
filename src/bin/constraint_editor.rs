@@ -242,7 +242,6 @@ fn camera_2d_system(
 
 fn setup(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut custom_materials: ResMut<Assets<BackgroundGridMaterial>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,

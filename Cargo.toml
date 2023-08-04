@@ -28,6 +28,13 @@ path = "src/bin/egui_test.rs"
 test = false
 bench = false
 
+[[bin]]
+name = "3d"
+path = "src/bin/3d.rs"
+test = false
+bench = false
+
+
 
 [[bin]]
 name = "main"

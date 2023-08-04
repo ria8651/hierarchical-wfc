@@ -13,12 +13,12 @@
   "nodes": [
     {
       "mesh": 0,
-      "name": "p_tall"
+      "name": "w_short_window"
     }
   ],
   "meshes": [
     {
-      "name": "Cube.015",
+      "name": "Cube.013",
       "primitives": [
         {
           "attributes": {
@@ -35,60 +35,60 @@
     {
       "bufferView": 0,
       "componentType": 5126,
-      "count": 20,
-      "max": [0.5, 5, 0.5],
-      "min": [-0.5, 0, -0.5],
+      "count": 196,
+      "max": [1.5, 4, 0.5],
+      "min": [-1.5, 0, -0.5],
       "type": "VEC3"
     },
     {
       "bufferView": 1,
       "componentType": 5126,
-      "count": 20,
+      "count": 196,
       "type": "VEC2"
     },
     {
       "bufferView": 2,
       "componentType": 5126,
-      "count": 20,
+      "count": 196,
       "type": "VEC3"
     },
     {
       "bufferView": 3,
       "componentType": 5123,
-      "count": 30,
+      "count": 402,
       "type": "SCALAR"
     }
   ],
   "bufferViews": [
     {
       "buffer": 0,
-      "byteLength": 240,
+      "byteLength": 2352,
       "byteOffset": 0,
       "target": 34962
     },
     {
       "buffer": 0,
-      "byteLength": 160,
-      "byteOffset": 240,
+      "byteLength": 1568,
+      "byteOffset": 2352,
       "target": 34962
     },
     {
       "buffer": 0,
-      "byteLength": 240,
-      "byteOffset": 400,
+      "byteLength": 2352,
+      "byteOffset": 3920,
       "target": 34962
     },
     {
       "buffer": 0,
-      "byteLength": 60,
-      "byteOffset": 640,
+      "byteLength": 804,
+      "byteOffset": 6272,
       "target": 34963
     }
   ],
   "buffers": [
     {
-      "byteLength": 700,
-      "uri": "p-tall.bin"
+      "byteLength": 7076,
+      "uri": "w-short-window.bin"
     }
   ]
 }
