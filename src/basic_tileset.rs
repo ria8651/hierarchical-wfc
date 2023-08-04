@@ -1,14 +1,28 @@
-use bevy::utils::{HashMap, HashSet};
-use rand::Rng;
+use crate::{
+    graph::{Cell, Graph},
+    graph_grid::{self, GridGraphSettings},
+    tileset::TileSet,
+    wfc::Direction,
+};
 
-use crate::grid_wfc::{AllowedNeighbors, TileSet};
-
+#[derive(Default)]
 pub struct BasicTileset;
 
 impl TileSet for BasicTileset {
-    type Tile = u32;
+    type GraphSettings = GridGraphSettings;
 
-    fn allowed_neighbors() -> AllowedNeighbors<Self> {
+    // const TILE_COUNT: usize = 17;
+    // const DIRECTIONS: usize = 4;
+
+    fn tile_count(&self) -> usize {
+        17
+    }
+
+    fn directions(&self) -> usize {
+        4
+    }
+
+    fn get_constraints(&self) -> Vec<Vec<Cell>> {
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum TileEdgeType {
             Air,
@@ -23,65 +37,71 @@ impl TileSet for BasicTileset {
         type T = TileEdgeType;
 
         let tile_edge_types = [
-            (0, [T::Air, T::Air, T::Air, T::Air]),
-            (1, [T::Air, T::DirtLeft, T::Air, T::GrassDirt]),
-            (2, [T::Air, T::Dirt, T::GrassDirt, T::GrassDirt]),
-            (3, [T::Air, T::DirtRight, T::GrassDirt, T::Air]),
-            (4, [T::DirtLeft, T::DirtLeft, T::Air, T::Dirt]),
-            (5, [T::Dirt, T::Dirt, T::Dirt, T::Dirt]),
-            (6, [T::DirtRight, T::DirtRight, T::Dirt, T::Air]),
-            (7, [T::Air, T::Dirt, T::GrassDirt, T::DirtTop]),
-            (8, [T::DirtLeft, T::Dirt, T::DirtTop, T::Dirt]),
-            (9, [T::Dirt, T::Air, T::DirtAir, T::DirtAir]),
-            (10, [T::DirtRight, T::Dirt, T::Dirt, T::DirtTop]),
-            (11, [T::Air, T::Dirt, T::DirtTop, T::GrassDirt]),
-            (12, [T::DirtLeft, T::Air, T::Air, T::DirtAir]),
-            (13, [T::Air, T::Air, T::Air, T::GrassDirtAir]),
-            (14, [T::Air, T::Air, T::GrassDirtAir, T::GrassDirtAir]),
-            (15, [T::Air, T::Air, T::GrassDirtAir, T::Air]),
-            (16, [T::DirtRight, T::Air, T::DirtAir, T::Air]),
+            [T::Air, T::Air, T::Air, T::Air],
+            [T::Air, T::DirtLeft, T::Air, T::GrassDirt],
+            [T::Air, T::Dirt, T::GrassDirt, T::GrassDirt],
+            [T::Air, T::DirtRight, T::GrassDirt, T::Air],
+            [T::DirtLeft, T::DirtLeft, T::Air, T::Dirt],
+            [T::Dirt, T::Dirt, T::Dirt, T::Dirt],
+            [T::DirtRight, T::DirtRight, T::Dirt, T::Air],
+            [T::Air, T::Dirt, T::GrassDirt, T::DirtTop],
+            [T::DirtLeft, T::Dirt, T::DirtTop, T::Dirt],
+            [T::Dirt, T::Air, T::DirtAir, T::DirtAir],
+            [T::DirtRight, T::Dirt, T::Dirt, T::DirtTop],
+            [T::Air, T::Dirt, T::DirtTop, T::GrassDirt],
+            [T::DirtLeft, T::Air, T::Air, T::DirtAir],
+            [T::Air, T::Air, T::Air, T::GrassDirtAir],
+            [T::Air, T::Air, T::GrassDirtAir, T::GrassDirtAir],
+            [T::Air, T::Air, T::GrassDirtAir, T::Air],
+            [T::DirtRight, T::Air, T::DirtAir, T::Air],
         ];
 
         // convert to allowed neighbors
-        let mut allowed_neighbors: AllowedNeighbors<Self> = HashMap::new();
-        for (tile, edges) in tile_edge_types {
-            let mut neighbors = [
-                HashSet::new(),
-                HashSet::new(),
-                HashSet::new(),
-                HashSet::new(),
-            ];
+        let mut allowed_neighbors = Vec::with_capacity(self.tile_count());
+        for (tile, edges) in tile_edge_types.iter().enumerate() {
+            let mut allowed_neighbors_for_tile = Vec::with_capacity(self.directions());
             for (edge_index, edge) in edges.into_iter().enumerate() {
-                let direction = match edge_index {
-                    0 => 1,
-                    1 => 0,
-                    2 => 3,
-                    3 => 2,
-                    _ => unreachable!(),
-                };
-                
-                if edge == T::Air && tile != 0 {
+                let direction = Direction::from(edge_index);
+                let mut cell = Cell::empty();
+
+                if *edge == T::Air && tile != 0 {
                     // special case for air
-                    neighbors[edge_index].insert(0);
+                    cell.add_tile(0);
                 } else {
                     // add all tiles with this edge type to the neighbor set
-                    for (other_tile, other_edges) in tile_edge_types.iter() {
-                        if other_edges[direction] == edge {
-                            neighbors[edge_index].insert(*other_tile);
+                    for (other_tile, other_edges) in tile_edge_types.iter().enumerate() {
+                        if other_edges[direction.other() as usize] == *edge {
+                            cell.add_tile(other_tile);
                         }
                     }
                 }
+
+                allowed_neighbors_for_tile.push(cell);
             }
-            allowed_neighbors.insert(tile, neighbors);
+            allowed_neighbors.push(allowed_neighbors_for_tile);
         }
+
         allowed_neighbors
     }
 
-    fn random_tile<R: Rng>(rng: &mut R) -> Self::Tile {
-        rng.gen_range(0..7)
+    fn get_weights(&self) -> Vec<u32> {
+        let mut weights = Vec::new();
+        for _ in 0..self.tile_count() {
+            weights.push(100);
+        }
+        weights
     }
 
-    fn all_tiles() -> HashSet<Self::Tile> {
-        (0..=16).collect()
+    fn get_tile_paths(&self) -> Vec<String> {
+        let mut paths = Vec::new();
+        for tile in 0..=16 {
+            paths.push(format!("tileset/{}.png", tile));
+        }
+        paths
+    }
+
+    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Cell> {
+        let cell = Cell::filled(self.tile_count());
+        graph_grid::create(settings, cell)
     }
 }
