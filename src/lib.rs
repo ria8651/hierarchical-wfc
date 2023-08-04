@@ -1,9 +1,6 @@
-pub mod background_grid_material;
-pub mod basic_tileset;
-pub mod editor_ui;
-pub mod generate_grid;
-pub mod grid_wfc;
+pub mod castle_tilset;
+pub mod graph;
+pub mod graph_grid;
 pub mod pan_orbit_cam;
-pub mod planar_graph_wfc;
-pub mod point_material;
-pub mod render_pipeline;
+pub mod tileset;
+pub mod wfc;

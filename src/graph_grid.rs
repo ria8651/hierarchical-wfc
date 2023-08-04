@@ -29,7 +29,7 @@ pub fn create<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> Graph<F> 
         }
     }
 
-    let directions = [
+    let arc_types = [
         IVec2::new(0, 1),
         IVec2::new(0, -1),
         IVec2::new(-1, 0),
@@ -39,8 +39,8 @@ pub fn create<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> Graph<F> 
     let mut neighbors = Vec::new();
     for pos in nodes_pos.iter() {
         let mut node_neighbors = Vec::new();
-        for (i, dir_vec) in directions.iter().enumerate() {
-            let mut neighbor_pos = *pos + *dir_vec;
+        for (i, arc_t_vec) in arc_types.iter().enumerate() {
+            let mut neighbor_pos = *pos + *arc_t_vec;
             if neighbor_pos.cmpge(size).any() && !settings.periodic {
                 continue;
             }
@@ -56,7 +56,7 @@ pub fn create<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> Graph<F> 
 
             let neighbor_index = (neighbor_pos.x * size.y + neighbor_pos.y) as usize;
             node_neighbors.push(Neighbor {
-                direction: i,
+                arc_type: i,
                 index: neighbor_index,
             });
         }

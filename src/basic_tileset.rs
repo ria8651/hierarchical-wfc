@@ -1,5 +1,5 @@
 use crate::{
-    graph::{Cell, Graph},
+    graph::{Graph, Superposition},
     graph_grid::{self, GridGraphSettings},
     tileset::TileSet,
     wfc::Direction,
@@ -18,11 +18,11 @@ impl TileSet for BasicTileset {
         17
     }
 
-    fn directions(&self) -> usize {
+    fn arc_types(&self) -> usize {
         4
     }
 
-    fn get_constraints(&self) -> Vec<Vec<Cell>> {
+    fn get_constraints(&self) -> Vec<Vec<Superposition>> {
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum TileEdgeType {
             Air,
@@ -59,10 +59,10 @@ impl TileSet for BasicTileset {
         // convert to allowed neighbors
         let mut allowed_neighbors = Vec::with_capacity(self.tile_count());
         for (tile, edges) in tile_edge_types.iter().enumerate() {
-            let mut allowed_neighbors_for_tile = Vec::with_capacity(self.directions());
+            let mut allowed_neighbors_for_tile = Vec::with_capacity(self.arc_types());
             for (edge_index, edge) in edges.into_iter().enumerate() {
                 let direction = Direction::from(edge_index);
-                let mut cell = Cell::empty();
+                let mut cell = Superposition::empty();
 
                 if *edge == T::Air && tile != 0 {
                     // special case for air
@@ -100,8 +100,8 @@ impl TileSet for BasicTileset {
         paths
     }
 
-    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Cell> {
-        let cell = Cell::filled(self.tile_count());
+    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Superposition> {
+        let cell = Superposition::filled(self.tile_count());
         graph_grid::create(settings, cell)
     }
 }

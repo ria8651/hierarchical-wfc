@@ -1,5 +1,5 @@
 use crate::{
-    graph::{Cell, Graph},
+    graph::{Graph, Superposition},
     graph_grid::{self, GridGraphSettings},
     tileset::TileSet,
     wfc::Direction,
@@ -18,11 +18,11 @@ impl TileSet for CarcassonneTileset {
         120
     }
 
-    fn directions(&self) -> usize {
+    fn arc_types(&self) -> usize {
         4
     }
 
-    fn get_constraints(&self) -> Vec<Vec<Cell>> {
+    fn get_constraints(&self) -> Vec<Vec<Superposition>> {
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum TileEdgeType {
             Grass,
@@ -69,7 +69,7 @@ impl TileSet for CarcassonneTileset {
         let mut rotated_tile_edge_types = Vec::with_capacity(self.tile_count());
         for rotation in 0..4 {
             for edges in tile_edge_types.iter() {
-                let mut rotated_edges = vec![T::Grass; self.directions()];
+                let mut rotated_edges = vec![T::Grass; self.arc_types()];
                 for (edge_index, edge) in edges.iter().enumerate() {
                     let direction = Direction::from(edge_index);
                     rotated_edges[direction.rotate(rotation) as usize] = *edge;
@@ -81,10 +81,10 @@ impl TileSet for CarcassonneTileset {
         // convert to allowed neighbors
         let mut allowed_neighbors = Vec::with_capacity(self.tile_count());
         for edges in rotated_tile_edge_types.iter() {
-            let mut allowed_neighbors_for_tile = Vec::with_capacity(self.directions());
+            let mut allowed_neighbors_for_tile = Vec::with_capacity(self.arc_types());
             for (edge_index, edge) in edges.into_iter().enumerate() {
                 let direction = Direction::from(edge_index);
-                let mut cell = Cell::empty();
+                let mut cell = Superposition::empty();
 
                 // add all tiles with this edge type to the neighbor set
                 for (other_tile, other_edges) in rotated_tile_edge_types.iter().enumerate() {
@@ -117,8 +117,8 @@ impl TileSet for CarcassonneTileset {
         paths
     }
 
-    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Cell> {
-        let cell = Cell::filled(self.tile_count());
+    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Superposition> {
+        let cell = Superposition::filled(self.tile_count());
         graph_grid::create(settings, cell)
     }
 }

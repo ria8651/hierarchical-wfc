@@ -1,6 +1,5 @@
 // Adapted from https://bevy-cheatbook.github.io/cookbook/pan-orbit-camera.html
 
-use bevy::core_pipeline::bloom::BloomSettings;
 use bevy::core_pipeline::contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings;
 use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin};
 use bevy::input::mouse::{MouseMotion, MouseWheel};
@@ -9,7 +8,6 @@ use bevy::pbr::{
     ScreenSpaceAmbientOcclusionSettings,
 };
 use bevy::prelude::*;
-use bevy::render::view::ColorGrading;
 use bevy::window::{PrimaryWindow, Window};
 
 pub struct PanOrbitCameraPlugin;

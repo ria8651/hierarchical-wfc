@@ -1,12 +1,12 @@
-use crate::graph::{Cell, Graph, Neighbor};
+use crate::graph::{Graph, Neighbor, Superposition};
 use rand::Rng;
 
 pub struct GraphWfc;
 
 impl GraphWfc {
     pub fn collapse<R: Rng>(
-        graph: &mut Graph<Cell>,
-        constraints: &Vec<Vec<Cell>>,
+        graph: &mut Graph<Superposition>,
+        constraints: &Vec<Vec<Superposition>>,
         weights: &Vec<u32>,
         rng: &mut R,
     ) {
@@ -39,37 +39,34 @@ impl GraphWfc {
 
                 if let Some(pos) = min_pos {
                     // update cell
+                    println!("\nSelecting!");
+                    dbg!(weights);
+                    dbg!(graph.tiles[pos]);
+
                     graph.tiles[pos].select_random(rng, weights);
+                    dbg!(graph.tiles[pos]);
                     stack.push(pos);
                 }
             }
         }
-
-        // for y in (0..grid_wfc.grid[0].len()).rev() {
-        //     for x in 0..grid_wfc.grid.len() {
-        //         let tiles = &grid_wfc.grid[x][y];
-        //         print!("{:<22}", format!("{:?}", tiles));
-        //     }
-        //     println!();
-        // }
     }
 
     /// Returns true if the tile was updated
     pub fn propagate(
-        graph: &mut Graph<Cell>,
+        graph: &mut Graph<Superposition>,
         index: usize,
         neighbor: Neighbor,
-        allowed_neighbors: &Vec<Vec<Cell>>,
+        allowed_neighbors: &Vec<Vec<Superposition>>,
     ) -> bool {
         let mut updated = false;
 
-        let mut allowed = Cell::empty();
+        let mut allowed = Superposition::empty();
         for tile in graph.tiles[index].tile_iter() {
-            allowed = Cell::join(&allowed, &allowed_neighbors[tile][neighbor.direction]);
+            allowed = Superposition::join(&allowed, &allowed_neighbors[tile][neighbor.arc_type]);
         }
 
         let neighbor_tiles = graph.tiles[neighbor.index].clone();
-        let new_tiles = Cell::intersect(&neighbor_tiles, &allowed);
+        let new_tiles = Superposition::intersect(&neighbor_tiles, &allowed);
         if new_tiles != neighbor_tiles {
             updated = true;
             graph.tiles[neighbor.index] = new_tiles;
