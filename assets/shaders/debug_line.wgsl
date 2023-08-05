@@ -21,6 +21,7 @@ struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) uv: vec2<f32>,
     @location(1) color: vec3<f32>,
+    @location(2) distance: f32,
 };
 
 @vertex
@@ -57,6 +58,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     ) + ss_tangent; //+ 0.05 * tangent_a;
     out.uv = vertex.uv;
     out.color = vertex.color.xyz;
+    out.distance = sqrt(dot((vertex.position - origin), (vertex.position - origin)));
     return out;
 }
 
@@ -64,15 +66,24 @@ struct FragmentInput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) uv: vec2<f32>,
     @location(1) color: vec3<f32>,
+    @location(2) distance: f32,
 };
 
 @fragment
 fn fragment(input: FragmentInput) -> @location(0) vec4<f32> {
+    let fade_start = 50.0;
+    let fade_range = 20.0;
+
+
+    let mix_distance = min(1.0, max(0.0, (input.distance - fade_start) / fade_range));
     let dash_frequency = 5.0;
     let dash_velocity = 0.25;
 
     let color = input.color;
     let mix_dashes = select(0.0, 1.0, fract(dash_velocity * dash_frequency * globals.time - dash_frequency * input.uv.x) > 0.5);
     let mix_radial = select(0.0, 1.0, 0.5 - abs(input.uv.y - 0.5) > 0.25);
-    return  vec4<f32>(color, mix_dashes * mix_radial) ; //material.color;
+    let mix_close = mix_dashes * mix_radial;
+    let mix_far = 1.0;
+
+    return  vec4<f32>(color, mix(mix_close, mix_far, mix_distance)) ; //material.color;
 }

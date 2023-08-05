@@ -141,8 +141,8 @@ fn ui(
                         }
 
                         // result
-                        for i in 0..result.tiles.len() {
-                            let mut tile_index = result.tiles[i] as usize;
+                        for i in 0..result.nodes.len() {
+                            let mut tile_index = result.nodes[i] as usize;
                             let mut tile_rotation = 0;
                             if tileset.tile_count() > 100 {
                                 tile_rotation = tile_index / (tileset.tile_count() / 4);

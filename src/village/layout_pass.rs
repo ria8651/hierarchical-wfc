@@ -155,7 +155,6 @@ impl TileSet for LayoutTileset {
                 }
             }
         }
-        type D = Direction;
 
         #[derive(Clone, Copy, PartialEq, Eq, Debug, Display)]
         enum Edge {
@@ -173,6 +172,8 @@ impl TileSet for LayoutTileset {
             SideD,
 
             Center,
+            CenterU,
+            CenterD,
 
             SpaceF,
             SpaceB,
@@ -191,33 +192,37 @@ impl TileSet for LayoutTileset {
                     Self::CornerF => vec![E::SpaceB],
                     Self::CornerL => vec![E::CornerR, E::SideR],
                     Self::CornerR => vec![E::CornerL, E::SideL],
-                    Self::CornerU => vec![E::CornerD],
-                    Self::CornerD => vec![E::CornerU],
+                    Self::CornerU => vec![E::CornerD, E::SpaceD, E::Air],
+                    Self::CornerD => vec![E::CornerU, E::CenterU, E::SideU],
 
                     Self::SideF => vec![E::SpaceB],
                     Self::SideB => vec![E::Center],
                     Self::SideL => vec![E::SideR, E::CornerR],
                     Self::SideR => vec![E::SideL, E::CornerL],
-                    Self::SideU => vec![E::SideD],
-                    Self::SideD => vec![E::SideU],
+                    Self::SideU => vec![E::SideD, E::SpaceD, E::Air, E::CornerD],
+                    Self::SideD => vec![E::SideU, E::CenterU],
 
-                    Self::Center => vec![
-                        E::Center,
-                        E::SideB,
-                        // E::SideU,
-                        // E::SideD,
-                        // E::CornerU,
-                        // E::CornerD,
-                    ],
+                    Self::Center => vec![E::Center, E::SideB],
+                    Self::CenterU => vec![E::CenterD, E::SpaceD, E::Air, E::CornerD, E::SideD],
+                    Self::CenterD => vec![E::CenterU],
 
                     Self::SpaceF => vec![E::Air],
                     Self::SpaceB => vec![E::CornerF, E::SideF],
                     Self::SpaceR => vec![E::SpaceL, E::Air],
                     Self::SpaceL => vec![E::SpaceR, E::Air],
-                    Self::SpaceU => vec![E::SpaceD],
-                    Self::SpaceD => vec![E::SpaceU],
+                    Self::SpaceU => vec![E::SpaceD, E::Air],
+                    Self::SpaceD => vec![E::SpaceU, E::CornerU, E::SideU, E::CenterU],
 
-                    Self::Air => vec![E::SpaceL, E::SpaceR, E::SpaceF, E::Air],
+                    Self::Air => vec![
+                        E::SpaceL,
+                        E::SpaceR,
+                        E::SpaceF,
+                        E::Air,
+                        E::CenterU,
+                        E::SideU,
+                        E::CornerU,
+                        E::SpaceU,
+                    ],
                 }
             }
         }
@@ -235,8 +240,8 @@ impl TileSet for LayoutTileset {
             [
                 E::Center,
                 E::Center,
-                E::Center,
-                E::Center,
+                E::CenterU,
+                E::CenterD,
                 E::Center,
                 E::Center,
             ],
@@ -251,6 +256,7 @@ impl TileSet for LayoutTileset {
             [E::Air, E::Air, E::Air, E::Air, E::Air, E::Air],
         ];
 
+        // Permute the edges
         fn rotate_y<T: Copy>(edges: [T; 6]) -> [T; 6] {
             return [
                 edges[4], //  x <-  z       z
@@ -316,24 +322,24 @@ impl TileSet for LayoutTileset {
 
         assert_eq!(self.tile_count(), allowed_neighbors.len());
 
-        for (tile, directions) in allowed_neighbors.iter().enumerate() {
-            let edges = rotated_tile_edge_types[tile];
-            println!(
-                "{}: {} {} {} {}",
-                tile, edges[0], edges[1], edges[2], edges[3]
-            );
-            for allowed in directions.iter() {
-                println!(
-                    "\t[{}]",
-                    allowed
-                        .tile_iter()
-                        .map(|t| format!("{}", t))
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                )
-            }
-            println!("");
-        }
+        // for (tile, directions) in allowed_neighbors.iter().enumerate() {
+        //     let edges = rotated_tile_edge_types[tile];
+        //     println!(
+        //         "{}: {} {} {} {}",
+        //         tile, edges[0], edges[1], edges[2], edges[3]
+        //     );
+        //     for allowed in directions.iter() {
+        //         println!(
+        //             "\t[{}]",
+        //             allowed
+        //                 .tile_iter()
+        //                 .map(|t| format!("{}", t))
+        //                 .collect::<Vec<String>>()
+        //                 .join(", ")
+        //         )
+        //     }
+        //     println!("");
+        // }
 
         // dbg!(&allowed_neighbors
         //     .iter()

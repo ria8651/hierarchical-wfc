@@ -91,7 +91,6 @@ impl TileSet for CastleTileset {
             Superposition::single(open_space),
         ]);
 
-        dbg!(&allowed);
         return allowed;
     }
 

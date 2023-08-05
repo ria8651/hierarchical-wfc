@@ -58,7 +58,7 @@ pub fn create<F: Clone>(settings: &LayoutGraphSettings, fill_with: F) -> Graph<F
             for x in 0..x_size {
                 let mut current_neighbours = Vec::new();
                 let pos = ivec3(x, y, z);
-                println!("{}: {}", idx, pos);
+                // println!("{}: {}", idx, pos);
                 idx += 1;
                 for (arc_type, delta) in DIRECTIONS.into_iter().enumerate() {
                     let n_pos = pos + delta;
@@ -68,7 +68,7 @@ pub fn create<F: Clone>(settings: &LayoutGraphSettings, fill_with: F) -> Graph<F
                         let (i, j, k) = (n_pos.x as usize, n_pos.y as usize, n_pos.z as usize);
                         let index = i + j * settings.x_size + k * settings.x_size * settings.y_size;
 
-                        println!("\t{}: {}", index, n_pos);
+                        // println!("\t{}: {}", index, n_pos);
                         current_neighbours.push(Neighbor {
                             arc_type,
                             index: index,
@@ -83,7 +83,7 @@ pub fn create<F: Clone>(settings: &LayoutGraphSettings, fill_with: F) -> Graph<F
     let tiles = vec![fill_with; (x_size * y_size * z_size) as usize];
 
     Graph {
-        tiles,
+        nodes: tiles,
         neighbors,
         order: Vec::new(),
     }
