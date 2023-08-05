@@ -1,5 +1,5 @@
 use crate::graph::{Graph, Neighbor};
-use bevy::math::ivec3;
+use bevy::math::{ivec3, vec3};
 use bevy::prelude::*;
 
 #[derive(Reflect)]
@@ -11,11 +11,26 @@ pub struct LayoutGraphSettings {
     pub periodic: bool,
 }
 
+impl LayoutGraphSettings {
+    pub fn posf32_from_index(&self, index: usize) -> Vec3 {
+        let (i, j, k) = (
+            index.rem_euclid(self.x_size),
+            index.div_euclid(self.x_size).rem_euclid(self.y_size),
+            index.div_euclid(self.x_size * self.y_size),
+        );
+        vec3(
+            (i as f32) * 2.0 + 1.0,
+            (j as f32) * 3.0 + 1.5,
+            (k as f32) * 2.0 + 1.0,
+        )
+    }
+}
+
 impl Default for LayoutGraphSettings {
     fn default() -> Self {
         Self {
             x_size: 10,
-            y_size: 2,
+            y_size: 1,
             z_size: 10,
             periodic: false,
         }
@@ -24,10 +39,10 @@ impl Default for LayoutGraphSettings {
 
 const DIRECTIONS: [IVec3; 6] = [
     IVec3 { x: 1, y: 0, z: 0 },
-    IVec3 { x: 0, y: 1, z: 0 },
-    IVec3 { x: 0, y: 0, z: 1 },
     IVec3 { x: -1, y: 0, z: 0 },
+    IVec3 { x: 0, y: 1, z: 0 },
     IVec3 { x: 0, y: -1, z: 0 },
+    IVec3 { x: 0, y: 0, z: 1 },
     IVec3 { x: 0, y: 0, z: -1 },
 ];
 
@@ -45,7 +60,7 @@ pub fn create<F: Clone>(settings: &LayoutGraphSettings, fill_with: F) -> Graph<F
                 let pos = ivec3(x, y, z);
                 println!("{}: {}", idx, pos);
                 idx += 1;
-                for delta in DIRECTIONS {
+                for (arc_type, delta) in DIRECTIONS.into_iter().enumerate() {
                     let n_pos = pos + delta;
                     if n_pos.cmpge(IVec3::ZERO).all()
                         && n_pos.cmplt(ivec3(x_size, y_size, z_size)).all()
@@ -55,7 +70,7 @@ pub fn create<F: Clone>(settings: &LayoutGraphSettings, fill_with: F) -> Graph<F
 
                         println!("\t{}: {}", index, n_pos);
                         current_neighbours.push(Neighbor {
-                            arc_type: (delta.y + 1) as usize,
+                            arc_type,
                             index: index,
                         });
                     }
@@ -67,5 +82,9 @@ pub fn create<F: Clone>(settings: &LayoutGraphSettings, fill_with: F) -> Graph<F
     }
     let tiles = vec![fill_with; (x_size * y_size * z_size) as usize];
 
-    Graph { tiles, neighbors }
+    Graph {
+        tiles,
+        neighbors,
+        order: Vec::new(),
+    }
 }

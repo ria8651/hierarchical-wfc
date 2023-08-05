@@ -65,5 +65,9 @@ pub fn create<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> Graph<F> 
 
     let tiles = vec![fill_with; nodes_pos.len()];
 
-    Graph { tiles, neighbors }
+    Graph {
+        tiles,
+        neighbors,
+        order: Vec::new(),
+    }
 }

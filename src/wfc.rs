@@ -39,12 +39,13 @@ impl GraphWfc {
 
                 if let Some(pos) = min_pos {
                     // update cell
-                    println!("\nSelecting!");
-                    dbg!(weights);
-                    dbg!(graph.tiles[pos]);
+                    // println!("\nSelecting!");
+                    // dbg!(weights);
+                    // dbg!(graph.tiles[pos]);
 
                     graph.tiles[pos].select_random(rng, weights);
-                    dbg!(graph.tiles[pos]);
+                    graph.order.push(pos);
+                    // dbg!(graph.tiles[pos]);
                     stack.push(pos);
                 }
             }
@@ -70,6 +71,9 @@ impl GraphWfc {
         if new_tiles != neighbor_tiles {
             updated = true;
             graph.tiles[neighbor.index] = new_tiles;
+        }
+        if new_tiles.count_bits() == 1 {
+            graph.order.push(neighbor.index)
         }
 
         updated

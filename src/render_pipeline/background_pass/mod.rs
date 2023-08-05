@@ -4,7 +4,7 @@ use bevy::{
     render::{
         render_resource::*,
         renderer::{RenderDevice, RenderQueue},
-        view::{ExtractedView},
+        view::ExtractedView,
         Render, RenderApp, RenderSet,
     },
 };
@@ -91,8 +91,6 @@ fn prepare_uniforms(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
-    dbg!(&world);
-
     let _elapsed = time.elapsed_seconds_f64();
 
     for (entity, _settings, _view) in query.iter() {
@@ -110,7 +108,6 @@ fn prepare_uniforms(
 
 impl FromWorld for KerrPassPipelineData {
     fn from_world(render_world: &mut World) -> Self {
-        dbg!(&render_world);
         let asset_server = render_world.get_resource::<AssetServer>().unwrap();
 
         let bind_group_layout = render_world

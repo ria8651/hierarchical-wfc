@@ -7,6 +7,7 @@ pub const TILE_U32S: usize = 4;
 #[derive(Debug)]
 pub struct Graph<C> {
     pub tiles: Vec<C>,
+    pub order: Vec<usize>,
     pub neighbors: Vec<Vec<Neighbor>>,
 }
 
@@ -15,12 +16,14 @@ impl Graph<Superposition> {
     pub fn validate(self) -> Result<Graph<usize>> {
         let mut result = Graph {
             tiles: Vec::new(),
+            order: self.order,
             neighbors: self.neighbors,
         };
         for node in 0..self.tiles.len() {
             if let Some(tile) = self.tiles[node].collapse() {
                 result.tiles.push(tile);
             } else {
+                result.tiles.push(404);
                 return Err(anyhow::anyhow!("Invalid grid"));
             }
         }
