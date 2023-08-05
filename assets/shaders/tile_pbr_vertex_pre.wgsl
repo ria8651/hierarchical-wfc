@@ -4,6 +4,25 @@
 #import bevy_pbr::morph
 #import bevy_pbr::mesh_bindings mesh
 
+@group(1) @binding(0)
+var<uniform> material: TilePbrMaterial;
+
+struct TilePbrMaterial {
+    base_color: vec4<f32>,
+    emissive: vec4<f32>,
+    perceptual_roughness: f32,
+    metallic: f32,
+    reflectance: f32,
+    // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
+    flags: u32,
+    alpha_cutoff: f32,
+    parallax_depth_scale: f32,
+    max_parallax_layer_count: f32,
+    max_relief_mapping_search_steps: u32,
+    order_cut_off: u32,
+};
+
+
 // Most of these attributes are not used in the default prepass fragment shader, but they are still needed so we can
 // pass them to custom prepass shaders like pbr_prepass.wgsl.
 struct Vertex {
@@ -80,7 +99,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var model = mesh.model;
 #endif // SKINNED
 
-        if (vertex.order > 5u){
+        if (vertex.order > material.order_cut_off){
             out.clip_position = vec4<f32>(2.0);
         return out;
     }

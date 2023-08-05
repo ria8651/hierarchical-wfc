@@ -3,8 +3,7 @@ use std::time::Duration;
 
 use bevy::asset::ChangeWatcher;
 
-use bevy::math::{vec2, vec3, vec4};
-use bevy::prelude::shape::Cube;
+use bevy::math::{vec3, vec4};
 use bevy::prelude::*;
 use bevy::prelude::{AssetPlugin, PluginGroup};
 use bevy::render::mesh::{
@@ -346,10 +345,15 @@ fn create_village(
         ..Default::default()
     });
 
+    let mut ordering: Vec<usize> = vec![0; result.nodes.len()];
+    for (order, index) in result.order.iter().enumerate() {
+        ordering[*index] = order;
+    }
+
     for (index, tile) in result.nodes.iter().enumerate() {
         let position = settings.posf32_from_index(index);
         let transform = Transform::from_translation(position);
-        let order = result.order[*tile] as u32;
+        let order = ordering[index] as u32;
         match tile {
             0..=3 => corner_mesh_builder.add_mesh(&full_box, transform, order),
             4..=7 => side_mesh_builder.add_mesh(&full_box, transform, order),
@@ -532,6 +536,7 @@ fn load_village_system(
     mut tiles: Query<&mut Visibility, With<VillageTile>>,
     result: Option<Res<VillageResult>>,
     time: Res<Time>,
+    mut tile_materials: ResMut<Assets<TilePbrMaterial>>,
     mut progress: ResMut<VillageLoadProgress>,
 ) {
     if let Some(result) = result {
@@ -559,6 +564,9 @@ fn load_village_system(
         //         }
         //     }
         // }
+        for (_handle, material) in tile_materials.iter_mut() {
+            material.order_cut_off = progress.current as u32;
+        }
 
         if progress.playing {
             if progress.progress > 1.0 {
@@ -577,10 +585,10 @@ fn ui_system(
     mut settings_resource: ResMut<GraphSettings>,
     mut commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
-    tile_materials: ResMut<Assets<TilePbrMaterial>>,
     line_materials: ResMut<Assets<DebugLineMaterial>>,
     mut existing_tiles: Query<Entity, With<VillageTile>>,
     mut existing_debug_arcs: Query<Entity, With<DebugArcs>>,
+    mut tile_materials: ResMut<Assets<TilePbrMaterial>>,
 ) {
     egui::Window::new("WFC Controls").show(contexts.ctx_mut(), |ui| {
         let settings = settings_resource.as_mut();

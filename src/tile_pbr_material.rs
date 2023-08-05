@@ -23,7 +23,7 @@ use bevy::{
 #[derive(AsBindGroup, Reflect, Debug, Clone, TypeUuid)]
 #[uuid = "e65799f2-923e-4548-8879-be574f9db988"]
 #[bind_group_data(StandardMaterialKey)]
-#[uniform(0, StandardMaterialUniform)]
+#[uniform(0, TilePbrMaterialUniform)]
 #[reflect(Default, Debug)]
 pub struct TilePbrMaterial {
     /// The color of the surface of the material before lighting.
@@ -314,6 +314,8 @@ pub struct TilePbrMaterial {
     ///
     /// Default is `16.0`.
     pub max_parallax_layer_count: f32,
+
+    pub order_cut_off: u32,
 }
 
 impl Default for TilePbrMaterial {
@@ -347,6 +349,7 @@ impl Default for TilePbrMaterial {
             parallax_depth_scale: 0.1,
             max_parallax_layer_count: 16.0,
             parallax_mapping_method: ParallaxMappingMethod::Occlusion,
+            order_cut_off: 0u32,
         }
     }
 }
@@ -376,7 +379,7 @@ impl From<Handle<Image>> for TilePbrMaterial {
 
 /// The GPU representation of the uniform data of a [`StandardMaterial`].
 #[derive(Clone, Default, ShaderType)]
-pub struct StandardMaterialUniform {
+pub struct TilePbrMaterialUniform {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between.
     pub base_color: Vec4,
@@ -406,10 +409,11 @@ pub struct StandardMaterialUniform {
     /// Using [`ParallaxMappingMethod::Relief`], how many additional
     /// steps to use at most to find the depth value.
     pub max_relief_mapping_search_steps: u32,
+    pub order_cut_off: u32,
 }
 
-impl AsBindGroupShaderType<StandardMaterialUniform> for TilePbrMaterial {
-    fn as_bind_group_shader_type(&self, images: &RenderAssets<Image>) -> StandardMaterialUniform {
+impl AsBindGroupShaderType<TilePbrMaterialUniform> for TilePbrMaterial {
+    fn as_bind_group_shader_type(&self, images: &RenderAssets<Image>) -> TilePbrMaterialUniform {
         let mut flags = StandardMaterialFlags::NONE;
         if self.base_color_texture.is_some() {
             flags |= StandardMaterialFlags::BASE_COLOR_TEXTURE;
@@ -467,7 +471,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for TilePbrMaterial {
             AlphaMode::Multiply => flags |= StandardMaterialFlags::ALPHA_MODE_MULTIPLY,
         };
 
-        StandardMaterialUniform {
+        TilePbrMaterialUniform {
             base_color: self.base_color.as_linear_rgba_f32().into(),
             emissive: self.emissive.as_linear_rgba_f32().into(),
             roughness: self.perceptual_roughness,
@@ -480,6 +484,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for TilePbrMaterial {
             max_relief_mapping_search_steps: parallax_mapping_method_max_steps(
                 self.parallax_mapping_method,
             ),
+            order_cut_off: self.order_cut_off,
         }
     }
 }
