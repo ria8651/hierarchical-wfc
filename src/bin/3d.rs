@@ -3,15 +3,22 @@ use std::time::Duration;
 
 use bevy::asset::ChangeWatcher;
 
-use bevy::math::vec3;
+use bevy::math::{vec2, vec3, vec4};
+use bevy::prelude::shape::Cube;
 use bevy::prelude::*;
 use bevy::prelude::{AssetPlugin, PluginGroup};
-use bevy::render::render_resource::{AddressMode, FilterMode, SamplerDescriptor};
+use bevy::render::mesh::{MeshVertexAttribute, MeshVertexAttributeId};
+use bevy::render::primitives::Sphere;
+use bevy::render::render_resource::{AddressMode, FilterMode, SamplerDescriptor, VertexFormat};
 use bevy_mod_debugdump;
 use hierarchical_wfc::castle_tilset::CastleTileset;
+use hierarchical_wfc::debug_line::DebugLineMaterial;
+use hierarchical_wfc::graph::Neighbor;
 use hierarchical_wfc::graph_grid::GridGraphSettings;
 use hierarchical_wfc::pan_orbit_cam::PanOrbitCameraPlugin;
 use hierarchical_wfc::tileset::TileSet;
+use hierarchical_wfc::village::layout_graph::{self, LayoutGraphSettings};
+use hierarchical_wfc::village::layout_pass::LayoutTileset;
 use hierarchical_wfc::wfc::GraphWfc;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -38,6 +45,7 @@ fn main() {
             }),
         PanOrbitCameraPlugin,
     ))
+    .add_plugins(MaterialPlugin::<DebugLineMaterial>::default())
     // .set(WindowPlugin {
     //     primary_window: Some(Window {
     //         present_mode: PresentMode::Immediate,
@@ -61,67 +69,9 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut line_materials: ResMut<Assets<DebugLineMaterial>>,
     mut ambient_light: ResMut<AmbientLight>,
 ) {
-    let wall_full_scene: Handle<Scene> = asset_server.load("gltf/castle/w-short-full.gltf#Scene0");
-    let wall_slit_scene: Handle<Scene> = asset_server.load("gltf/castle/w-short-slit.gltf#Scene0");
-    let wall_window_scene: Handle<Scene> =
-        asset_server.load("gltf/castle/w-short-window.gltf#Scene0");
-
-    let pillar_scene: Handle<Scene> = asset_server.load("gltf/castle/p-short.gltf#Scene0");
-    let mut rng = rand::thread_rng();
-
-    // for i in 0..5 {
-    //     for j in 0..5 {
-    //         commands.spawn(SceneBundle {
-    //             scene: pillar_scene.clone(),
-    //             transform: Transform::from_translation(vec3(i as f32 * 4.0, 0.0, j as f32 * 4.0)),
-    //             ..default()
-    //         });
-    //         let wall = rng.gen_range(0..4);
-
-    //         let wall_scene = match wall {
-    //             1 => Some(wall_full_scene.clone()),
-    //             2 => Some(wall_slit_scene.clone()),
-    //             3 => Some(wall_window_scene.clone()),
-    //             _ => None,
-    //         };
-
-    //         if let Some(wall_scene) = wall_scene {
-    //             if i < 4 {
-    //                 commands.spawn(SceneBundle {
-    //                     scene: wall_scene.clone(),
-    //                     transform: Transform::IDENTITY.with_translation(vec3(
-    //                         i as f32 * 4.0 + 2.0,
-    //                         0.0,
-    //                         j as f32 * 4.0,
-    //                     )),
-    //                     ..default()
-    //                 });
-    //             }
-    //             if j < 4 {
-    //                 commands.spawn(SceneBundle {
-    //                     scene: wall_scene.clone(),
-
-    //                     transform: Transform::IDENTITY
-    //                         .with_rotation(Quat::from_rotation_y(0.5 * PI))
-    //                         .with_translation(vec3(i as f32 * 4.0, 0.0, j as f32 * 4.0 + 2.0)),
-    //                     ..default()
-    //                 });
-    //             }
-    //         }
-    //         // commands.spawn(SceneBundle {
-    //         //     scene: wall_scene.clone(),
-    //         //     transform: Transform::from_translation(vec3(
-    //         //         i as f32 * 4.0,
-    //         //         0.0,
-    //         //         j as f32 * 4.0 + 2.0,
-    //         //     )),
-    //         //     ..default()
-    //         // });
-    //     }
-    // }
-
     let ground_texture = asset_server.load("textures/checker.png");
 
     let mut ground_mesh =
@@ -172,6 +122,19 @@ fn setup(
     ambient_light.color = Color::rgb(0.5, 0.75, 1.0);
     ambient_light.brightness = 0.6;
 
+    // create_castle(commands, asset_server);
+    create_village(commands, asset_server, meshes, materials, line_materials);
+}
+
+fn create_castle(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let wall_full_scene: Handle<Scene> = asset_server.load("gltf/castle/w-short-full.gltf#Scene0");
+    let wall_slit_scene: Handle<Scene> = asset_server.load("gltf/castle/w-short-slit.gltf#Scene0");
+    let wall_window_scene: Handle<Scene> =
+        asset_server.load("gltf/castle/w-short-window.gltf#Scene0");
+
+    let pillar_scene: Handle<Scene> = asset_server.load("gltf/castle/p-short.gltf#Scene0");
+    let mut rng = rand::thread_rng();
+
     let settings = GridGraphSettings {
         width: 32,
         height: 32,
@@ -192,13 +155,6 @@ fn setup(
     GraphWfc::collapse(&mut graph, &constraints, &tileset.get_weights(), &mut rng);
     collapse_span.exit();
 
-    // for y in (0..settings.height as usize).rev() {
-    //     for x in 0..settings.width as usize {
-    //         print!("[{:?}]", graph.tiles[x * settings.height as usize + y]);
-    //     }
-    //     println!();
-    // }
-
     let render_span = info_span!("wfc_render").entered();
     let result = match graph.validate() {
         Ok(graph) => graph,
@@ -209,25 +165,10 @@ fn setup(
         }
     };
 
-    // // cleanup
-    // for entity in tile_sprites.iter_mut() {
-    //     commands.entity(entity).despawn();
-    // }
-
-    // tileset
-    // let mut tile_handles: Vec<Handle<Image>> = Vec::new();
-    // for tile in tileset.get_tile_paths() {
-    //     tile_handles.push(asset_server.load(tile));
-    // }
-
     // result
     for i in 0..result.tiles.len() {
         let mut tile_index = result.tiles[i] as usize;
-        // let mut tile_rotation = 0;
-        // if tileset.tile_count() > 100 {
-        //     tile_rotation = tile_index / (tileset.tile_count() / 4);
-        //     tile_index = tile_index % (tileset.tile_count() / 4);
-        // }
+
         let pos = IVec3::new(
             (i / settings.height) as i32,
             0i32,
@@ -303,61 +244,125 @@ fn setup(
         }
 
         dbg!(tile_index);
-        // commands.spawn((
-        //     SpriteBundle {
-        //         texture: tile_handles[tile_index].clone(),
-        //         transform: Transform::from_translation(
-        //             ((pos + 0.5) / settings.width as f32 - 0.5).extend(0.0),
-        //         )
-        //         .with_rotation(Quat::from_rotation_z(
-        //             -std::f32::consts::PI * tile_rotation as f32 / 2.0,
-        //         )),
-        //         sprite: Sprite {
-        //             custom_size: Some(Vec2::splat(1.0 / settings.width as f32)),
-        //             ..default()
-        //         },
-        //         ..default()
-        //     },
-        //     TileSprite,
-        // ));
+    }
+}
+
+fn create_village(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut line_materials: ResMut<Assets<DebugLineMaterial>>,
+) {
+    let settings = LayoutGraphSettings {
+        periodic: false,
+        x_size: 10,
+        y_size: 3,
+        z_size: 10,
+    };
+
+    let tileset = LayoutTileset::default();
+    let mut graph = tileset.create_graph(&settings);
+    let constraints = tileset.get_constraints();
+    let mut rng = StdRng::from_entropy();
+    GraphWfc::collapse(&mut graph, &constraints, &tileset.get_weights(), &mut rng);
+    let result = match graph.validate() {
+        Ok(graph) => graph,
+        Err(e) => {
+            println!("Failed to generate!");
+            println!("{}", e);
+            return;
+        }
+    };
+
+    fn posf32_from_index(index: usize, settings: &LayoutGraphSettings) -> Vec3 {
+        let (i, j, k) = (
+            index.rem_euclid(settings.x_size),
+            index
+                .div_euclid(settings.x_size)
+                .rem_euclid(settings.y_size),
+            index.div_euclid(settings.x_size * settings.y_size),
+        );
+        vec3(
+            (i as f32) * 2.0 + 1.0,
+            (j as f32) * 3.0 + 1.5,
+            (k as f32) * 2.0 + 1.0,
+        )
     }
 
-    // commands.spawn(PointLightBundle {
-    //     point_light: PointLight {
-    //         intensity: 1500.0,
-    //         shadows_enabled: true,
-    //         ..default()
-    //     },
-    //     transform: Transform::from_xyz(4.0, 8.0, 4.0),
-    //     ..default()
-    // });
-    // camera
-    // commands.spawn(Camera3dBundle {
-    //     transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-    //     ..default()
-    // });
+    for (index, tile) in result.tiles.into_iter().enumerate() {
+        let position = posf32_from_index(index, &settings);
+        commands.spawn(match tile {
+            1 => PbrBundle {
+                material: materials.add(StandardMaterial {
+                    base_color: Color::rgb(0.8, 0.8, 0.8),
+                    ..Default::default()
+                }),
+                mesh: meshes.add(shape::Box::new(1.9, 2.9, 1.9).into()),
+                transform: Transform::from_translation(position),
+                ..Default::default()
+            },
+            _ => PbrBundle {
+                material: materials.add(StandardMaterial {
+                    base_color: Color::rgb(0.2, 0.2, 0.8),
+                    ..Default::default()
+                }),
+                mesh: meshes.add(shape::Cube::new(0.2).into()),
+                transform: Transform::from_translation(position),
+                ..Default::default()
+            },
+        });
+    }
+    dbg!(&result
+        .neighbors
+        .iter()
+        .map(|n| n.iter().map(|n| &n.index).collect::<Vec<_>>())
+        .enumerate()
+        .collect::<Vec<_>>());
 
-    // commands.spawn((
-    //     Camera2dBundle {
-    //         camera_render_graph: CameraRenderGraph::new("core_2d"),
+    let mut arc_vertex_positions = Vec::new();
+    let mut arc_vertex_normals = Vec::new();
+    let mut arc_vertex_uvs = Vec::new();
+    let mut arc_vertex_colors = Vec::new();
 
-    //         projection: OrthographicProjection {
-    //             scaling_mode: ScalingMode::AutoMin {
-    //                 min_width: 64.0,
-    //                 min_height: 64.0,
-    //             },
-    //             ..Default::default()
-    //         },
-    //         tonemapping: bevy::core_pipeline::tonemapping::Tonemapping::None,
-    //         camera_2d: Camera2d {
-    //             clear_color: ClearColorConfig::Custom(Color::hex("2d2a2e").unwrap()),
-    //             ..Default::default()
-    //         },
+    for (u, neighbours) in result.neighbors.into_iter().enumerate() {
+        for Neighbor { index: v, arc_type } in neighbours {
+            let color = match arc_type {
+                0 => vec4(1.0, 0.1, 0.1, 1.0),
+                1 => vec4(0.1, 1.0, 0.1, 1.0),
+                _ => vec4(0.1, 0.1, 1.1, 1.0),
+            };
 
-    //         transform: Transform::from_translation(Vec3::new(0.5, 0.5, 2.0)),
-    //         ..Default::default()
-    //     },
-    //     MainCamera,
-    //     MainPassSettings {},
-    // ));
+            let u = posf32_from_index(u, &settings);
+            let v = posf32_from_index(v, &settings);
+            let normal = (u - v).normalize();
+
+            arc_vertex_positions.extend([u, v, u, v, v, u]);
+            arc_vertex_normals.extend([Vec3::ZERO, Vec3::ZERO, normal, Vec3::ZERO, normal, normal]);
+
+            arc_vertex_uvs.extend([
+                Vec2::ZERO,
+                (v - u).length() * Vec2::X,
+                Vec2::Y,
+                (v - u).length() * Vec2::X,
+                (v - u).length() * Vec2::X + Vec2::Y,
+                Vec2::Y,
+            ]);
+
+            arc_vertex_colors.extend([color; 6])
+        }
+    }
+
+    let mut edges = Mesh::new(bevy::render::render_resource::PrimitiveTopology::TriangleList);
+    edges.insert_attribute(Mesh::ATTRIBUTE_POSITION, arc_vertex_positions);
+    edges.insert_attribute(Mesh::ATTRIBUTE_NORMAL, arc_vertex_normals);
+    edges.insert_attribute(Mesh::ATTRIBUTE_UV_0, arc_vertex_uvs);
+    edges.insert_attribute(Mesh::ATTRIBUTE_COLOR, arc_vertex_colors);
+    commands.spawn(MaterialMeshBundle {
+        mesh: meshes.add(edges),
+        material: line_materials.add(DebugLineMaterial {
+            color: Color::rgb(1.0, 0.0, 1.0),
+        }),
+        ..Default::default()
+    });
 }
