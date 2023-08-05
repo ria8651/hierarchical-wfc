@@ -1,15 +1,13 @@
 use strum_macros::Display;
 
-use super::layout_graph::LayoutGraphSettings;
 use super::{
     super::{
         graph::{Graph, Superposition},
         tileset::TileSet,
     },
     layout_graph,
+    layout_graph::LayoutGraphSettings,
 };
-use std::convert::TryInto;
-use std::fmt::format;
 
 #[derive(Debug, Default)]
 pub struct LayoutTileset;
@@ -364,7 +362,7 @@ impl TileSet for LayoutTileset {
     }
 
     fn get_tile_paths(&self) -> Vec<String> {
-        let mut paths: Vec<String> = Vec::new();
+        let paths: Vec<String> = Vec::new();
 
         paths
     }

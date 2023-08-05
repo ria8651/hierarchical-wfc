@@ -8,9 +8,8 @@ use bevy::{
         mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
         render_asset::RenderAssets,
         render_resource::{
-            AsBindGroup, AsBindGroupShaderType, Face, RawVertexBufferLayout,
-            RenderPipelineDescriptor, ShaderRef, ShaderType, SpecializedMeshPipelineError,
-            TextureFormat, VertexFormat,
+            AsBindGroup, AsBindGroupShaderType, Face, RenderPipelineDescriptor, ShaderRef,
+            ShaderType, SpecializedMeshPipelineError, TextureFormat, VertexFormat,
         },
     },
 };

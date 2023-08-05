@@ -1,6 +1,8 @@
 use crate::graph::{Graph, Neighbor};
-use bevy::math::{ivec3, vec3};
-use bevy::prelude::*;
+use bevy::{
+    math::{ivec3, vec3},
+    prelude::*,
+};
 
 #[derive(Reflect)]
 #[reflect(Default)]
@@ -52,14 +54,11 @@ pub fn create<F: Clone>(settings: &LayoutGraphSettings, fill_with: F) -> Graph<F
     let y_size = settings.y_size as i32;
     let z_size = settings.z_size as i32;
 
-    let mut idx = 0;
     for z in 0..z_size {
         for y in 0..y_size {
             for x in 0..x_size {
                 let mut current_neighbours = Vec::new();
                 let pos = ivec3(x, y, z);
-                // println!("{}: {}", idx, pos);
-                idx += 1;
                 for (arc_type, delta) in DIRECTIONS.into_iter().enumerate() {
                     let n_pos = pos + delta;
                     if n_pos.cmpge(IVec3::ZERO).all()
@@ -68,7 +67,6 @@ pub fn create<F: Clone>(settings: &LayoutGraphSettings, fill_with: F) -> Graph<F
                         let (i, j, k) = (n_pos.x as usize, n_pos.y as usize, n_pos.z as usize);
                         let index = i + j * settings.x_size + k * settings.x_size * settings.y_size;
 
-                        // println!("\t{}: {}", index, n_pos);
                         current_neighbours.push(Neighbor {
                             arc_type,
                             index: index,

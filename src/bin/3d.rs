@@ -1,31 +1,32 @@
-use std::f32::consts::PI;
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
 use bevy::asset::ChangeWatcher;
 
-use bevy::math::{vec3, vec4};
-use bevy::prelude::*;
-use bevy::prelude::{AssetPlugin, PluginGroup};
-use bevy::render::mesh::{
-    Indices, MeshVertexAttribute, MeshVertexAttributeId, VertexAttributeValues,
+use bevy::{
+    math::{vec3, vec4},
+    prelude::{AssetPlugin, PluginGroup, *},
+    render::mesh::{Indices, MeshVertexAttribute, VertexAttributeValues},
 };
-use bevy::render::primitives::Sphere;
+
 use bevy::render::render_resource::{AddressMode, FilterMode, SamplerDescriptor, VertexFormat};
-use bevy::time::Stopwatch;
+
 use bevy_inspector_egui::{bevy_egui, egui};
 use bevy_mod_debugdump;
-use hierarchical_wfc::castle_tilset::CastleTileset;
-use hierarchical_wfc::debug_line::DebugLineMaterial;
-use hierarchical_wfc::graph::{Graph, Neighbor};
-use hierarchical_wfc::graph_grid::GridGraphSettings;
-use hierarchical_wfc::pan_orbit_cam::PanOrbitCameraPlugin;
-use hierarchical_wfc::tile_pbr_material::TilePbrMaterial;
-use hierarchical_wfc::tileset::TileSet;
-use hierarchical_wfc::village::layout_graph::{self, LayoutGraphSettings};
-use hierarchical_wfc::village::layout_pass::LayoutTileset;
-use hierarchical_wfc::wfc::GraphWfc;
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use bevy_rapier3d::prelude::{
+    Collider, ComputedColliderShape, NoUserData, RapierPhysicsPlugin, RigidBody,
+};
+use hierarchical_wfc::{
+    castle_tilset::CastleTileset,
+    debug_line::DebugLineMaterial,
+    graph::{Graph, Neighbor},
+    graph_grid::GridGraphSettings,
+    pan_orbit_cam::PanOrbitCameraPlugin,
+    tile_pbr_material::TilePbrMaterial,
+    tileset::TileSet,
+    village::{layout_graph::LayoutGraphSettings, layout_pass::LayoutTileset},
+    wfc::GraphWfc,
+};
+use rand::{rngs::StdRng, SeedableRng};
 fn main() {
     let mut app = App::new();
     app.add_plugins((
@@ -47,6 +48,7 @@ fn main() {
                 },
             }),
         PanOrbitCameraPlugin,
+        RapierPhysicsPlugin::<NoUserData>::default(),
     ))
     .add_plugins(MaterialPlugin::<DebugLineMaterial>::default())
     .add_plugins(MaterialPlugin::<TilePbrMaterial>::default())
@@ -99,19 +101,23 @@ fn setup(
     );
 
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(ground_mesh),
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(ground_mesh),
 
-        // shape::Quad::from_size(100f32).into()),
-        transform: Transform::from_translation(vec3(0.5, 0.0, 0.5)),
-        material: standard_materials.add(StandardMaterial {
-            // base_color: Color::rgb(0.3, 0.5, 0.3),`
-            base_color_texture: Some(ground_texture),
-            perceptual_roughness: 1.0,
-            ..Default::default()
-        }),
-        ..default()
-    });
+            // shape::Quad::from_size(100f32).into()),
+            transform: Transform::from_translation(vec3(0.5, 0.0, 0.5)),
+            material: standard_materials.add(StandardMaterial {
+                // base_color: Color::rgb(0.3, 0.5, 0.3),`
+                base_color_texture: Some(ground_texture),
+                perceptual_roughness: 1.0,
+                ..Default::default()
+            }),
+            ..default()
+        },
+        RigidBody::Fixed,
+        Collider::halfspace(Vec3::Y).unwrap(),
+    ));
 
     // light
     commands.spawn((DirectionalLightBundle {
@@ -144,7 +150,7 @@ fn create_castle(mut commands: Commands, asset_server: Res<AssetServer>) {
         asset_server.load("gltf/castle/w-short-window.gltf#Scene0");
 
     let pillar_scene: Handle<Scene> = asset_server.load("gltf/castle/p-short.gltf#Scene0");
-    let mut rng = rand::thread_rng();
+    let _rng = rand::thread_rng();
 
     let settings = GridGraphSettings {
         width: 32,
@@ -166,7 +172,7 @@ fn create_castle(mut commands: Commands, asset_server: Res<AssetServer>) {
     GraphWfc::collapse(&mut graph, &constraints, &tileset.get_weights(), &mut rng);
     collapse_span.exit();
 
-    let render_span = info_span!("wfc_render").entered();
+    let _render_span = info_span!("wfc_render").entered();
     let result = match graph.validate() {
         Ok(graph) => graph,
         Err(e) => {
@@ -178,7 +184,7 @@ fn create_castle(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // result
     for i in 0..result.nodes.len() {
-        let mut tile_index = result.nodes[i] as usize;
+        let tile_index = result.nodes[i] as usize;
 
         let pos = IVec3::new(
             (i / settings.height) as i32,
@@ -374,8 +380,15 @@ fn create_village(
         (missing_material, missing_mesh_builder),
     ] {
         let mesh = mesh_builder.build_mesh();
+
         commands.spawn((
             VillageTile,
+            RigidBody::Fixed,
+            if mesh.count_vertices() > 0 {
+                Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh).unwrap()
+            } else {
+                Collider::ball(0.0)
+            },
             MaterialMeshBundle {
                 material: material.clone(),
                 mesh: meshes.add(mesh),
@@ -384,12 +397,6 @@ fn create_village(
             },
         ));
     }
-
-    // if let Some(bundle) = bundle {
-    //     let mut entity = commands.spawn(bundle);
-    //     entity.insert(VillageTile);
-    //     tiles.push(entity.id());
-    // }
 
     commands.insert_resource(VillageResult { graph: result });
 }
@@ -424,7 +431,6 @@ impl MeshBuilder {
                     .map(|p| transform * Vec3::from_array(*p))
                     .map(|p| p.to_array()),
             );
-            self.offset += positions.len() as u32;
             self.order
                 .extend(std::iter::repeat(order).take(positions.len()))
         }
@@ -440,6 +446,7 @@ impl MeshBuilder {
         if let Some(Indices::U32(indices)) = mesh.indices() {
             self.indices.extend(indices.iter().map(|i| i + self.offset));
         }
+        self.offset += mesh.count_vertices() as u32;
     }
     fn build_mesh(self) -> Mesh {
         const ATTRIBUTE_TILE_ORDER: MeshVertexAttribute =
@@ -533,7 +540,7 @@ impl Default for VillageLoadProgress {
 }
 
 fn load_village_system(
-    mut tiles: Query<&mut Visibility, With<VillageTile>>,
+    _tiles: Query<&mut Visibility, With<VillageTile>>,
     result: Option<Res<VillageResult>>,
     time: Res<Time>,
     mut tile_materials: ResMut<Assets<TilePbrMaterial>>,
@@ -588,7 +595,7 @@ fn ui_system(
     line_materials: ResMut<Assets<DebugLineMaterial>>,
     mut existing_tiles: Query<Entity, With<VillageTile>>,
     mut existing_debug_arcs: Query<Entity, With<DebugArcs>>,
-    mut tile_materials: ResMut<Assets<TilePbrMaterial>>,
+    tile_materials: ResMut<Assets<TilePbrMaterial>>,
 ) {
     egui::Window::new("WFC Controls").show(contexts.ctx_mut(), |ui| {
         let settings = settings_resource.as_mut();

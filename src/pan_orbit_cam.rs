@@ -1,14 +1,21 @@
 // Adapted from https://bevy-cheatbook.github.io/cookbook/pan-orbit-camera.html
 
-use bevy::core_pipeline::contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings;
-use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin};
-use bevy::input::mouse::{MouseMotion, MouseWheel};
-use bevy::pbr::{
-    ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionQualityLevel,
-    ScreenSpaceAmbientOcclusionSettings,
+use std::time::{Duration, Instant};
+
+use bevy::{
+    core_pipeline::{
+        contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings,
+        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+    },
+    input::mouse::{MouseMotion, MouseWheel},
+    pbr::{
+        ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionQualityLevel,
+        ScreenSpaceAmbientOcclusionSettings,
+    },
+    prelude::*,
+    window::{PrimaryWindow, Window},
 };
-use bevy::prelude::*;
-use bevy::window::{PrimaryWindow, Window};
+use bevy_rapier3d::prelude::{RapierContext, Real};
 
 pub struct PanOrbitCameraPlugin;
 
@@ -39,6 +46,12 @@ impl Default for PanOrbitCamera {
         }
     }
 }
+struct DoubleClickTime(Instant);
+impl Default for DoubleClickTime {
+    fn default() -> Self {
+        Self { 0: Instant::now() }
+    }
+}
 
 /// Pan the camera with middle mouse click, zoom with scroll wheel, orbit with right mouse click.
 fn pan_orbit_camera(
@@ -46,7 +59,15 @@ fn pan_orbit_camera(
     mut ev_motion: EventReader<MouseMotion>,
     mut ev_scroll: EventReader<MouseWheel>,
     input_mouse: Res<Input<MouseButton>>,
-    mut query: Query<(&mut PanOrbitCamera, &mut Transform, &Projection)>,
+    mut double_click_time: Local<DoubleClickTime>,
+    mut query: Query<(
+        &mut PanOrbitCamera,
+        &mut Transform,
+        &Projection,
+        &Camera,
+        &GlobalTransform,
+    )>,
+    rapier_context: Res<RapierContext>,
 ) {
     // change input mapping for orbit and panning here
     let orbit_button = MouseButton::Right;
@@ -74,7 +95,7 @@ fn pan_orbit_camera(
         orbit_button_changed = true;
     }
 
-    for (mut pan_orbit, mut transform, projection) in query.iter_mut() {
+    for (mut pan_orbit, mut transform, projection, camera, global_transform) in query.iter_mut() {
         if orbit_button_changed {
             // only check for upside down when orbiting started or ended this frame
             // if the camera is "upside" down, panning horizontally would be inverted, so invert the input to make it correct
@@ -83,6 +104,36 @@ fn pan_orbit_camera(
         }
 
         let mut any = false;
+
+        if input_mouse.just_pressed(MouseButton::Left) {
+            let now = Instant::now();
+
+            if now.duration_since(double_click_time.0) < Duration::from_millis(250) {
+                dbg!("Double clicked!");
+                if let Some(cursor_pos) = primary_window.get_single().unwrap().cursor_position() {
+                    dbg!(&cursor_pos);
+
+                    if let Some(view_ray) = camera.viewport_to_world(global_transform, cursor_pos) {
+                        dbg!(&view_ray);
+                        if let Some(hit) = rapier_context.cast_ray(
+                            view_ray.origin,
+                            view_ray.direction,
+                            Real::MAX,
+                            false,
+                            bevy_rapier3d::prelude::QueryFilter::only_fixed(),
+                        ) {
+                            dbg!(&hit);
+                            dbg!(&pan_orbit.focus);
+                            pan_orbit.focus = view_ray.origin + view_ray.direction * hit.1;
+                            any = true;
+                        }
+                    }
+                }
+            } else {
+                *double_click_time = DoubleClickTime(Instant::now());
+            }
+        }
+
         if rotation_move.length_squared() > 0.0 {
             any = true;
             let window = get_primary_window_size(&primary_window);
