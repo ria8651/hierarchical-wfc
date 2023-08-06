@@ -1,4 +1,4 @@
-use bevy::{asset::ChangeWatcher, tasks::TaskPool, utils::petgraph::Graph};
+use bevy::{asset::ChangeWatcher, tasks::TaskPool};
 use std::{sync::Arc, time::Duration};
 
 use bevy::{
@@ -326,7 +326,6 @@ impl VillageWaveFunctionCollapse {
         commands: &mut Commands,
         meshes: &mut ResMut<Assets<Mesh>>,
         tile_materials: &mut ResMut<Assets<TilePbrMaterial>>,
-        line_materials: &mut ResMut<Assets<DebugLineMaterial>>,
         result: Arc<WfcGraph<usize>>,
         mesh_data: (Mesh, Mesh, Option<Collider>),
     ) {
@@ -335,7 +334,7 @@ impl VillageWaveFunctionCollapse {
             ..Default::default()
         });
 
-        let mut entity_commands = commands.spawn((
+        let mut physics_mesh_commands = commands.spawn((
             VillageTile,
             MaterialMeshBundle {
                 material: material.clone(),
@@ -345,10 +344,10 @@ impl VillageWaveFunctionCollapse {
             },
         ));
         if let Some(collider) = mesh_data.2 {
-            entity_commands.insert((RigidBody::Fixed, collider));
+            physics_mesh_commands.insert((RigidBody::Fixed, collider));
         }
 
-        let mut entity_commands = commands.spawn((
+        commands.spawn((
             VillageTile,
             MaterialMeshBundle {
                 material: material.clone(),
@@ -419,11 +418,8 @@ fn ui_system(
     mut debug_arcs: Query<&mut Visibility, With<DebugArcs>>,
     mut settings_resource: ResMut<GraphSettings>,
     mut commands: Commands,
-    meshes: ResMut<Assets<Mesh>>,
-    line_materials: ResMut<Assets<DebugLineMaterial>>,
     mut existing_tiles: Query<Entity, With<VillageTile>>,
     mut existing_debug_arcs: Query<Entity, With<DebugArcs>>,
-    tile_materials: ResMut<Assets<TilePbrMaterial>>,
     mut q_cameras: Query<(
         &mut SwitchingCameraController,
         &mut Projection,
@@ -529,11 +525,6 @@ enum GraphSettings {
 #[derive(Resource)]
 struct WfcPassPool {
     pool: &'static AsyncComputeTaskPool,
-}
-
-#[derive(Component)]
-struct WfcPass {
-    generate: Box<dyn Fn() -> () + 'static + Sync + Send>,
 }
 
 #[derive(Default)]
@@ -659,7 +650,6 @@ fn wfc_passes_system(
                                     &mut commands,
                                     &mut meshes,
                                     &mut tile_materials,
-                                    &mut line_materials,
                                     result,
                                     debug_meshes,
                                 );
