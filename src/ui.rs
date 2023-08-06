@@ -1,7 +1,7 @@
 use crate::{
     basic_tileset::BasicTileset,
     carcassonne_tileset::CarcassonneTileset,
-    wfc::{graph_grid::GridGraphSettings, GraphWfc, TileSet},
+    wfc::{graph_grid::GridGraphSettings, TileSet, WaveFunctionCollapse},
 };
 use bevy::prelude::*;
 use bevy_inspector_egui::{
@@ -110,7 +110,12 @@ fn ui(
                         setup_constraints_span.exit();
 
                         let collapse_span = info_span!("wfc_collapse").entered();
-                        GraphWfc::collapse(&mut graph, &constraints, &ui_state.weights, &mut rng);
+                        WaveFunctionCollapse::collapse(
+                            &mut graph,
+                            &constraints,
+                            &ui_state.weights,
+                            &mut rng,
+                        );
                         collapse_span.exit();
 
                         // for y in (0..settings.height as usize).rev() {

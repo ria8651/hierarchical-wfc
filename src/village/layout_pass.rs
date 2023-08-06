@@ -2,7 +2,7 @@ use strum_macros::Display;
 
 use crate::{
     village::LayoutGraphSettings,
-    wfc::{Graph, Superposition, TileSet},
+    wfc::{Superposition, TileSet, WfcGraph},
 };
 
 use super::layout_graph;
@@ -229,7 +229,7 @@ impl TileSet for LayoutTileset {
         paths
     }
 
-    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Superposition> {
+    fn create_graph(&self, settings: &Self::GraphSettings) -> WfcGraph<Superposition> {
         let cell = Superposition::filled(self.tile_count());
         layout_graph::create_layout_graph(settings, cell)
     }

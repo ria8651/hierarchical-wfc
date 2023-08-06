@@ -1,11 +1,11 @@
-use super::{Graph, Neighbour, Superposition};
+use super::{Neighbour, Superposition, WfcGraph};
 use rand::Rng;
 
-pub struct GraphWfc;
+pub struct WaveFunctionCollapse;
 
-impl GraphWfc {
+impl WaveFunctionCollapse {
     pub fn collapse<R: Rng>(
-        graph: &mut Graph<Superposition>,
+        graph: &mut WfcGraph<Superposition>,
         constraints: &Vec<Vec<Superposition>>,
         weights: &Vec<u32>,
         rng: &mut R,
@@ -19,7 +19,7 @@ impl GraphWfc {
             // propagate changes for node from stack
             for i in 0..graph.neighbors[index].len() {
                 let neighbor = graph.neighbors[index][i];
-                if GraphWfc::propagate(graph, index, neighbor, &constraints) {
+                if WaveFunctionCollapse::propagate(graph, index, neighbor, &constraints) {
                     stack.push(neighbor.index);
                 }
             }
@@ -61,7 +61,7 @@ impl GraphWfc {
 
     /// Returns true if the tile was updated
     pub fn propagate(
-        graph: &mut Graph<Superposition>,
+        graph: &mut WfcGraph<Superposition>,
         index: usize,
         neighbour: Neighbour,
         allowed_neighbors: &Vec<Vec<Superposition>>,

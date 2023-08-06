@@ -2075,6 +2075,7 @@ dependencies = [
  "bevy_mod_debugdump",
  "bevy_rapier3d",
  "bevy_reflect",
+ "futures-lite",
  "rand",
  "strum",
  "strum_macros",

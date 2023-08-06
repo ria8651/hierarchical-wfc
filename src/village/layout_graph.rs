@@ -1,10 +1,10 @@
-use crate::wfc::{Graph, Neighbour};
+use crate::wfc::{Neighbour, WfcGraph};
 use bevy::{
     math::{ivec3, vec3},
     prelude::*,
 };
 
-#[derive(Reflect)]
+#[derive(Reflect, Clone, Copy)]
 #[reflect(Default)]
 pub struct LayoutGraphSettings {
     pub x_size: usize,
@@ -48,7 +48,7 @@ const DIRECTIONS: [IVec3; 6] = [
     IVec3 { x: 0, y: 0, z: -1 },
 ];
 
-pub fn create_layout_graph<F: Clone>(settings: &LayoutGraphSettings, fill_with: F) -> Graph<F> {
+pub fn create_layout_graph<F: Clone>(settings: &LayoutGraphSettings, fill_with: F) -> WfcGraph<F> {
     let mut neighbors: Vec<Vec<Neighbour>> = Vec::new();
     let x_size = settings.x_size as i32;
     let y_size = settings.y_size as i32;
@@ -80,7 +80,7 @@ pub fn create_layout_graph<F: Clone>(settings: &LayoutGraphSettings, fill_with: 
     }
     let tiles = vec![fill_with; (x_size * y_size * z_size) as usize];
 
-    Graph {
+    WfcGraph {
         nodes: tiles,
         neighbors,
         order: Vec::new(),

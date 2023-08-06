@@ -2,17 +2,17 @@ use anyhow::Result;
 
 use super::{Neighbour, Superposition};
 
-#[derive(Debug)]
-pub struct Graph<C> {
+#[derive(Debug, Clone)]
+pub struct WfcGraph<C> {
     pub nodes: Vec<C>,
     pub order: Vec<usize>,
     pub neighbors: Vec<Vec<Neighbour>>,
 }
 
-impl Graph<Superposition> {
+impl WfcGraph<Superposition> {
     /// Consumes the graph and returns the collapsed tiles
-    pub fn validate(self) -> Result<Graph<usize>> {
-        let mut result = Graph {
+    pub fn validate(self) -> Result<WfcGraph<usize>> {
+        let mut result = WfcGraph {
             nodes: Vec::new(),
             order: self.order,
             neighbors: self.neighbors,

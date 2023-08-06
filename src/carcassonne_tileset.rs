@@ -1,6 +1,6 @@
 use crate::wfc::{
     graph_grid::{create_grid_graph, GridGraphSettings},
-    Direction, Graph, Superposition, TileSet,
+    Direction, Superposition, TileSet, WfcGraph,
 };
 
 #[derive(Debug, Default)]
@@ -115,7 +115,7 @@ impl TileSet for CarcassonneTileset {
         paths
     }
 
-    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Superposition> {
+    fn create_graph(&self, settings: &Self::GraphSettings) -> WfcGraph<Superposition> {
         let cell = Superposition::filled(self.tile_count());
         create_grid_graph(settings, cell)
     }

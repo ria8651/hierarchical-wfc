@@ -1,6 +1,6 @@
 use super::wfc::{
     graph_grid::{self, GridGraphSettings},
-    Graph, Superposition, TileSet,
+    Superposition, TileSet, WfcGraph,
 };
 
 #[derive(Debug, Default)]
@@ -107,7 +107,7 @@ impl TileSet for CastleTileset {
         paths
     }
 
-    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Superposition> {
+    fn create_graph(&self, settings: &Self::GraphSettings) -> WfcGraph<Superposition> {
         let cell = Superposition::filled(self.tile_count());
         graph_grid::create_grid_graph(settings, cell)
     }

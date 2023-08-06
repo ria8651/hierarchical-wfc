@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::{Graph, Neighbour};
+use super::{Neighbour, WfcGraph};
 
 #[derive(Reflect)]
 #[reflect(Default)]
@@ -20,7 +20,7 @@ impl Default for GridGraphSettings {
     }
 }
 
-pub fn create_grid_graph<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> Graph<F> {
+pub fn create_grid_graph<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> WfcGraph<F> {
     let size = IVec2::new(settings.width as i32, settings.height as i32);
 
     let mut nodes_pos = Vec::new();
@@ -66,7 +66,7 @@ pub fn create_grid_graph<F: Clone>(settings: &GridGraphSettings, fill_with: F) -
 
     let tiles = vec![fill_with; nodes_pos.len()];
 
-    Graph {
+    WfcGraph {
         nodes: tiles,
         neighbors,
         order: Vec::new(),

@@ -1,14 +1,12 @@
-use std::time::Duration;
-
-use bevy::asset::ChangeWatcher;
+use bevy::{asset::ChangeWatcher, tasks::TaskPool, utils::petgraph::Graph};
+use std::{sync::Arc, time::Duration};
 
 use bevy::{
     math::{vec3, vec4},
     prelude::{AssetPlugin, PluginGroup, *},
-    render::mesh::{Indices, MeshVertexAttribute, VertexAttributeValues},
+    render::render_resource::{AddressMode, FilterMode, SamplerDescriptor},
 };
-
-use bevy::render::render_resource::{AddressMode, FilterMode, SamplerDescriptor, VertexFormat};
+use futures_lite::future;
 
 use bevy_inspector_egui::{bevy_egui, egui, reflect_inspector, DefaultInspectorConfigPlugin};
 use bevy_mod_debugdump;
@@ -21,10 +19,14 @@ use hierarchical_wfc::{
         fps::FpsCameraSettings,
     },
     materials::{debug_arc_material::DebugLineMaterial, tile_pbr_material::TilePbrMaterial},
+    tools::MeshBuilder,
     village::{layout_graph::LayoutGraphSettings, layout_pass::LayoutTileset},
-    wfc::{Graph, GraphWfc, Neighbour, TileSet},
+    wfc::{Neighbour, TileSet, WaveFunctionCollapse, WfcGraph},
 };
 use rand::{rngs::StdRng, SeedableRng};
+
+use bevy::tasks::{AsyncComputeTaskPool, Task};
+
 fn main() {
     let mut app = App::new();
     app.add_plugins((
@@ -62,7 +64,11 @@ fn main() {
     .add_systems(Update, ui_system)
     .add_systems(Startup, setup)
     .init_resource::<VillageLoadProgress>()
-    .add_systems(Update, load_village_system);
+    .insert_resource(WfcPassPool {
+        pool: AsyncComputeTaskPool::init(|| TaskPool::new()),
+    })
+    .add_event::<VillageWfcEvent>()
+    .add_systems(Update, (load_village_system, wfc_passes_system));
     #[cfg(not(target_arch = "wasm32"))]
     {
         let settings = bevy_mod_debugdump::render_graph::Settings::default();
@@ -141,263 +147,228 @@ fn setup(
 
 #[derive(Resource)]
 struct VillageResult {
-    graph: Graph<usize>,
+    graph: Arc<WfcGraph<usize>>,
 }
 
 #[derive(Component)]
 struct VillageTile;
 
-fn create_village(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut tile_materials: ResMut<Assets<TilePbrMaterial>>,
-    mut line_materials: ResMut<Assets<DebugLineMaterial>>,
-    settings: &LayoutGraphSettings,
-) {
-    let tileset = LayoutTileset::default();
-    let mut graph = tileset.create_graph(settings);
-    let constraints = tileset.get_constraints();
-    let mut rng = StdRng::from_entropy();
-    GraphWfc::collapse(&mut graph, &constraints, &tileset.get_weights(), &mut rng);
-    let result = match graph.validate() {
-        Ok(graph) => graph,
-        Err(e) => {
-            println!("Failed to generate!");
-            println!("{}", e);
-            return;
+struct VillageWaveFunctionCollapse;
+impl VillageWaveFunctionCollapse {
+    fn wfc(settings: LayoutGraphSettings) -> Option<Arc<WfcGraph<usize>>> {
+        let tileset = LayoutTileset::default();
+        let mut graph = tileset.create_graph(&settings);
+        let constraints = tileset.get_constraints();
+        let mut rng = StdRng::from_entropy();
+
+        WaveFunctionCollapse::collapse(&mut graph, &constraints, &tileset.get_weights(), &mut rng);
+        match graph.validate() {
+            Ok(result) => Some(Arc::new(result)),
+            Err(e) => None,
         }
-    };
+    }
+    const ARC_COLORS: [Vec4; 7] = [
+        vec4(1.0, 0.1, 0.1, 1.0),
+        vec4(0.1, 1.0, 1.0, 1.0),
+        vec4(0.1, 1.0, 0.1, 1.0),
+        vec4(1.0, 0.1, 1.0, 1.0),
+        vec4(0.1, 0.1, 1.0, 1.0),
+        vec4(1.0, 1.0, 0.1, 1.0),
+        vec4(0.1, 0.1, 0.1, 1.0),
+    ];
 
-    let arcs_mesh = create_arcs(&result, settings);
+    fn create_debug_arcs(result: Arc<WfcGraph<usize>>, settings: LayoutGraphSettings) -> Mesh {
+        let mut arc_vertex_positions = Vec::new();
+        let mut arc_vertex_normals = Vec::new();
+        let mut arc_vertex_uvs = Vec::new();
+        let mut arc_vertex_colors = Vec::new();
 
-    commands.spawn((
-        MaterialMeshBundle {
-            mesh: meshes.add(arcs_mesh),
-            material: line_materials.add(DebugLineMaterial {
-                color: Color::rgb(1.0, 0.0, 1.0),
-            }),
-            visibility: Visibility::Visible,
-            ..Default::default()
-        },
-        DebugArcs,
-    ));
+        for (u, neighbours) in result.neighbors.iter().enumerate() {
+            for Neighbour { index: v, arc_type } in neighbours {
+                let color = Self::ARC_COLORS[*arc_type.min(&6)];
 
-    let full_box: Mesh = shape::Box::new(1.9, 2.9, 1.9).into();
-    let node_box: Mesh = shape::Cube::new(0.2).into();
-    let error_box: Mesh = shape::Cube::new(1.0).into();
+                let u = settings.posf32_from_index(u);
+                let v = settings.posf32_from_index(*v);
+                let normal = (u - v).normalize();
 
-    let mut corner_mesh_builder = MeshBuilder::new();
-    let corner_material = tile_materials.add(TilePbrMaterial {
-        base_color: Color::rgb(0.8, 0.6, 0.6),
-        ..Default::default()
-    });
+                arc_vertex_positions.extend([u, v, u, v, v, u]);
+                arc_vertex_normals.extend([
+                    Vec3::ZERO,
+                    Vec3::ZERO,
+                    normal,
+                    Vec3::ZERO,
+                    normal,
+                    normal,
+                ]);
 
-    let mut side_mesh_builder = MeshBuilder::new();
-    let side_material = tile_materials.add(TilePbrMaterial {
-        base_color: Color::rgb(0.6, 0.8, 0.6),
-        ..Default::default()
-    });
+                arc_vertex_uvs.extend([
+                    Vec2::ZERO,
+                    (v - u).length() * Vec2::X,
+                    Vec2::Y,
+                    (v - u).length() * Vec2::X,
+                    (v - u).length() * Vec2::X + Vec2::Y,
+                    Vec2::Y,
+                ]);
 
-    let mut center_mesh_builder = MeshBuilder::new();
-    let center_material = tile_materials.add(TilePbrMaterial {
-        base_color: Color::rgb(0.6, 0.6, 0.8),
-        ..Default::default()
-    });
+                arc_vertex_colors.extend([color; 6])
+            }
+        }
 
-    let mut space_mesh_builder = MeshBuilder::new();
-    let space_material = tile_materials.add(TilePbrMaterial {
-        base_color: Color::rgb(0.8, 0.2, 0.2),
-        ..Default::default()
-    });
-
-    let mut air_mesh_builder = MeshBuilder::new();
-    let air_material = tile_materials.add(TilePbrMaterial {
-        base_color: Color::rgb(0.2, 0.2, 0.8),
-        ..Default::default()
-    });
-
-    let mut error_mesh_builder = MeshBuilder::new();
-    let error_material = tile_materials.add(TilePbrMaterial {
-        base_color: Color::rgb(1.0, 0.0, 0.0),
-        ..Default::default()
-    });
-
-    let mut missing_mesh_builder = MeshBuilder::new();
-    let missing_material = tile_materials.add(TilePbrMaterial {
-        base_color: Color::rgb(1.0, 0.5, 1.0),
-        ..Default::default()
-    });
-
-    let mut ordering: Vec<usize> = vec![0; result.nodes.len()];
-    for (order, index) in result.order.iter().enumerate() {
-        ordering[*index] = order;
+        let mut edges = Mesh::new(bevy::render::render_resource::PrimitiveTopology::TriangleList);
+        edges.insert_attribute(Mesh::ATTRIBUTE_POSITION, arc_vertex_positions);
+        edges.insert_attribute(Mesh::ATTRIBUTE_NORMAL, arc_vertex_normals);
+        edges.insert_attribute(Mesh::ATTRIBUTE_UV_0, arc_vertex_uvs);
+        edges.insert_attribute(Mesh::ATTRIBUTE_COLOR, arc_vertex_colors);
+        return edges;
     }
 
-    for (index, tile) in result.nodes.iter().enumerate() {
-        let position = settings.posf32_from_index(index);
-        let transform = Transform::from_translation(position);
-        let order = ordering[index] as u32;
-        match tile {
-            0..=3 => corner_mesh_builder.add_mesh(&full_box, transform, order),
-            4..=7 => side_mesh_builder.add_mesh(&full_box, transform, order),
-            8 => center_mesh_builder.add_mesh(&full_box, transform, order),
-            9..=12 => space_mesh_builder.add_mesh(&node_box, transform, order),
-            13 => air_mesh_builder.add_mesh(&node_box, transform, order),
-            404 => error_mesh_builder.add_mesh(&error_box, transform, order),
-            _ => missing_mesh_builder.add_mesh(&error_box, transform, order),
-        };
+    fn spawn_arcs(
+        commands: &mut Commands,
+        meshes: &mut ResMut<Assets<Mesh>>,
+        line_materials: &mut ResMut<Assets<DebugLineMaterial>>,
+        arcs_mesh: Mesh,
+    ) {
+        commands.spawn((
+            MaterialMeshBundle {
+                mesh: meshes.add(arcs_mesh),
+                material: line_materials.add(DebugLineMaterial {
+                    color: Color::rgb(1.0, 0.0, 1.0),
+                }),
+                visibility: Visibility::Visible,
+                ..Default::default()
+            },
+            DebugArcs,
+        ));
     }
-    for (enable_collisions, material, mesh_builder) in [
-        (true, corner_material, corner_mesh_builder),
-        (true, side_material, side_mesh_builder),
-        (true, center_material, center_mesh_builder),
-        (false, space_material, space_mesh_builder),
-        (false, air_material, air_mesh_builder),
-        (true, error_material, error_mesh_builder),
-        (true, missing_material, missing_mesh_builder),
-    ] {
-        let mesh = mesh_builder.build_mesh();
-        let collider = if enable_collisions && mesh.count_vertices() > 0 {
-            Some(Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh).unwrap())
+
+    // fn create_resource_handles() {
+    //     let full_box: Mesh = shape::Box::new(1.9, 2.9, 1.9).into();
+    //     let node_box: Mesh = shape::Cube::new(0.2).into();
+    //     let error_box: Mesh = shape::Cube::new(1.0).into();
+
+    //     let corner_material = tile_materials.add(TilePbrMaterial {
+    //         base_color: Color::rgb(0.8, 0.6, 0.6),
+    //         ..Default::default()
+    //     });
+
+    //     let side_material = tile_materials.add(TilePbrMaterial {
+    //         base_color: Color::rgb(0.6, 0.8, 0.6),
+    //         ..Default::default()
+    //     });
+
+    //     let center_material = tile_materials.add(TilePbrMaterial {
+    //         base_color: Color::rgb(0.6, 0.6, 0.8),
+    //         ..Default::default()
+    //     });
+
+    //     let space_material = tile_materials.add(TilePbrMaterial {
+    //         base_color: Color::rgb(0.8, 0.2, 0.2),
+    //         ..Default::default()
+    //     });
+
+    //     let air_material = tile_materials.add(TilePbrMaterial {
+    //         base_color: Color::rgb(0.2, 0.2, 0.8),
+    //         ..Default::default()
+    //     });
+
+    //     let error_material = tile_materials.add(TilePbrMaterial {
+    //         base_color: Color::rgb(1.0, 0.0, 0.0),
+    //         ..Default::default()
+    //     });
+
+    //     let missing_material = tile_materials.add(TilePbrMaterial {
+    //         base_color: Color::rgb(1.0, 0.5, 1.0),
+    //         ..Default::default()
+    //     });
+    // }
+
+    fn create_debug_mesh(
+        result: Arc<WfcGraph<usize>>,
+        settings: LayoutGraphSettings,
+    ) -> (Mesh, Mesh, Option<Collider>) {
+        let full_box: Mesh = shape::Box::new(1.9, 2.9, 1.9).into();
+        let node_box: Mesh = shape::Cube::new(0.2).into();
+        let error_box: Mesh = shape::Cube::new(1.0).into();
+
+        let mut ordering: Vec<usize> = vec![0; result.nodes.len()];
+        for (order, index) in result.order.iter().enumerate() {
+            ordering[*index] = order;
+        }
+
+        let mut physical_mesh_builder = MeshBuilder::new();
+        let mut non_physical_mesh_builder = MeshBuilder::new();
+
+        for (index, tile) in result.nodes.iter().enumerate() {
+            let position = settings.posf32_from_index(index);
+            let transform = Transform::from_translation(position);
+            let order = ordering[index] as u32;
+            match tile {
+                0..=3 => physical_mesh_builder.add_mesh(&full_box, transform, order),
+                4..=7 => physical_mesh_builder.add_mesh(&full_box, transform, order),
+                8 => physical_mesh_builder.add_mesh(&full_box, transform, order),
+                9..=12 => non_physical_mesh_builder.add_mesh(&node_box, transform, order),
+                13 => non_physical_mesh_builder.add_mesh(&node_box, transform, order),
+                404 => physical_mesh_builder.add_mesh(&error_box, transform, order),
+                _ => physical_mesh_builder.add_mesh(&error_box, transform, order),
+            };
+        }
+        let physical_mesh = physical_mesh_builder.build();
+        let non_physical_mesh = non_physical_mesh_builder.build();
+        let physical_mesh_collider = if physical_mesh.count_vertices() > 0 {
+            Some(Collider::from_bevy_mesh(&physical_mesh, &ComputedColliderShape::TriMesh).unwrap())
         } else {
             None
         };
+        (physical_mesh, non_physical_mesh, physical_mesh_collider)
+    }
+
+    fn spawn(
+        commands: &mut Commands,
+        meshes: &mut ResMut<Assets<Mesh>>,
+        tile_materials: &mut ResMut<Assets<TilePbrMaterial>>,
+        line_materials: &mut ResMut<Assets<DebugLineMaterial>>,
+        result: Arc<WfcGraph<usize>>,
+        mesh_data: (Mesh, Mesh, Option<Collider>),
+    ) {
+        let material = tile_materials.add(TilePbrMaterial {
+            base_color: Color::rgb(0.6, 0.6, 0.8),
+            ..Default::default()
+        });
+
         let mut entity_commands = commands.spawn((
             VillageTile,
             MaterialMeshBundle {
                 material: material.clone(),
-                mesh: meshes.add(mesh),
+                mesh: meshes.add(mesh_data.0),
                 visibility: Visibility::Visible,
                 ..Default::default()
             },
         ));
-        if let Some(collider) = collider {
+        if let Some(collider) = mesh_data.2 {
             entity_commands.insert((RigidBody::Fixed, collider));
         }
-    }
 
-    commands.insert_resource(VillageResult { graph: result });
-}
+        let mut entity_commands = commands.spawn((
+            VillageTile,
+            MaterialMeshBundle {
+                material: material.clone(),
+                mesh: meshes.add(mesh_data.1),
+                visibility: Visibility::Visible,
+                ..Default::default()
+            },
+        ));
 
-struct MeshBuilder {
-    positions: Vec<[f32; 3]>,
-    normals: Vec<[f32; 3]>,
-    uvs: Vec<[f32; 2]>,
-    indices: Vec<u32>,
-    order: Vec<u32>,
-    offset: u32,
-}
-impl MeshBuilder {
-    fn new() -> Self {
-        Self {
-            positions: Vec::new(),
-            normals: Vec::new(),
-            uvs: Vec::new(),
-            indices: Vec::new(),
-            order: Vec::new(),
-            offset: 0,
-        }
-    }
-
-    fn add_mesh(&mut self, mesh: &Mesh, transform: Transform, order: u32) {
-        if let Some(VertexAttributeValues::Float32x3(positions)) =
-            mesh.attribute(Mesh::ATTRIBUTE_POSITION)
-        {
-            self.positions.extend(
-                positions
-                    .iter()
-                    .map(|p| transform * Vec3::from_array(*p))
-                    .map(|p| p.to_array()),
-            );
-            self.order
-                .extend(std::iter::repeat(order).take(positions.len()))
-        }
-
-        if let Some(VertexAttributeValues::Float32x3(normals)) =
-            mesh.attribute(Mesh::ATTRIBUTE_NORMAL)
-        {
-            self.normals.extend(normals);
-        }
-        if let Some(VertexAttributeValues::Float32x2(uvs)) = mesh.attribute(Mesh::ATTRIBUTE_UV_0) {
-            self.uvs.extend(uvs);
-        }
-        if let Some(Indices::U32(indices)) = mesh.indices() {
-            self.indices.extend(indices.iter().map(|i| i + self.offset));
-        }
-        self.offset += mesh.count_vertices() as u32;
-    }
-    fn build_mesh(self) -> Mesh {
-        const ATTRIBUTE_TILE_ORDER: MeshVertexAttribute =
-            MeshVertexAttribute::new("TileOrder", 988540917, VertexFormat::Uint32);
-
-        let mut mesh = Mesh::new(bevy::render::render_resource::PrimitiveTopology::TriangleList);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs);
-        mesh.insert_attribute(ATTRIBUTE_TILE_ORDER, self.order);
-        mesh.set_indices(Some(Indices::U32(self.indices)));
-        mesh
-    }
-}
-
-fn create_arcs(
-    // commands: Commands,
-    // mut meshes: ResMut<Assets<Mesh>>,
-    // mut line_materials: ResMut<Assets<DebugLineMaterial>>,
-    result: &Graph<usize>,
-    settings: &LayoutGraphSettings,
-) -> Mesh {
-    let mut arc_vertex_positions = Vec::new();
-    let mut arc_vertex_normals = Vec::new();
-    let mut arc_vertex_uvs = Vec::new();
-    let mut arc_vertex_colors = Vec::new();
-
-    for (u, neighbours) in result.neighbors.iter().enumerate() {
-        for Neighbour { index: v, arc_type } in neighbours {
-            let color = color_arc(*arc_type);
-
-            let u = settings.posf32_from_index(u);
-            let v = settings.posf32_from_index(*v);
-            let normal = (u - v).normalize();
-
-            arc_vertex_positions.extend([u, v, u, v, v, u]);
-            arc_vertex_normals.extend([Vec3::ZERO, Vec3::ZERO, normal, Vec3::ZERO, normal, normal]);
-
-            arc_vertex_uvs.extend([
-                Vec2::ZERO,
-                (v - u).length() * Vec2::X,
-                Vec2::Y,
-                (v - u).length() * Vec2::X,
-                (v - u).length() * Vec2::X + Vec2::Y,
-                Vec2::Y,
-            ]);
-
-            arc_vertex_colors.extend([color; 6])
-        }
-    }
-
-    let mut edges = Mesh::new(bevy::render::render_resource::PrimitiveTopology::TriangleList);
-    edges.insert_attribute(Mesh::ATTRIBUTE_POSITION, arc_vertex_positions);
-    edges.insert_attribute(Mesh::ATTRIBUTE_NORMAL, arc_vertex_normals);
-    edges.insert_attribute(Mesh::ATTRIBUTE_UV_0, arc_vertex_uvs);
-    edges.insert_attribute(Mesh::ATTRIBUTE_COLOR, arc_vertex_colors);
-    return edges;
-}
-
-fn color_arc(arc_type: usize) -> Vec4 {
-    match arc_type {
-        0 => vec4(1.0, 0.1, 0.1, 1.0),
-        1 => vec4(0.1, 1.0, 1.0, 1.0),
-        2 => vec4(0.1, 1.0, 0.1, 1.0),
-        3 => vec4(1.0, 0.1, 1.0, 1.0),
-        4 => vec4(0.1, 0.1, 1.0, 1.0),
-        5 => vec4(1.0, 1.0, 0.1, 1.0),
-        _ => vec4(0.1, 0.1, 0.1, 1.0),
+        commands.insert_resource(VillageResult { graph: result });
     }
 }
 
 #[derive(Component)]
 struct DebugArcs;
+
+#[derive(Event)]
+enum VillageWfcEvent {
+    Start,
+}
 
 #[derive(Resource)]
 struct VillageLoadProgress {
@@ -458,6 +429,7 @@ fn ui_system(
         &mut Projection,
         Option<&mut FpsCameraSettings>,
     )>,
+    mut ev_village_wfc: EventWriter<VillageWfcEvent>,
 ) {
     egui::Window::new("Settings and Controls").show(contexts.ctx_mut(), |ui| {
         let settings = settings_resource.as_mut();
@@ -474,7 +446,7 @@ fn ui_system(
                     for arcs in existing_debug_arcs.iter_mut() {
                         commands.entity(arcs).despawn();
                     }
-                    create_village(commands, meshes, tile_materials, line_materials, settings);
+                    ev_village_wfc.send(VillageWfcEvent::Start);
                 }
             }
         });
@@ -552,4 +524,156 @@ fn ui_system(
 #[derive(Resource)]
 enum GraphSettings {
     LayoutGraphSettings(LayoutGraphSettings),
+}
+
+#[derive(Resource)]
+struct WfcPassPool {
+    pool: &'static AsyncComputeTaskPool,
+}
+
+#[derive(Component)]
+struct WfcPass {
+    generate: Box<dyn Fn() -> () + 'static + Sync + Send>,
+}
+
+#[derive(Default)]
+struct PassState {
+    settings: LayoutGraphSettings,
+    status: PassStateEnum,
+    wfc_result: Option<Arc<WfcGraph<usize>>>,
+    wfc_task: Option<Task<Option<Arc<WfcGraph<usize>>>>>,
+    debug_arcs_task: Option<Task<Mesh>>,
+    debug_mesh_task: Option<Task<(Mesh, Mesh, Option<Collider>)>>,
+}
+impl PassState {
+    fn reset(&mut self) {
+        if let Some(task) = self.wfc_task.take() {
+            future::block_on(future::poll_once(task.cancel()));
+        }
+        if let Some(task) = self.debug_arcs_task.take() {
+            future::block_on(future::poll_once(task.cancel()));
+        }
+        if let Some(task) = self.debug_mesh_task.take() {
+            future::block_on(future::poll_once(task.cancel()));
+        }
+        self.wfc_result = None;
+    }
+}
+
+#[derive(Default)]
+enum PassStateEnum {
+    #[default]
+    Idle,
+    Start,
+    WfcPending,
+    DebugMeshesPending((bool, bool)),
+}
+
+fn wfc_passes_system(
+    task_pool_resource: Res<WfcPassPool>,
+    mut state: Local<PassState>,
+
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut line_materials: ResMut<'_, Assets<DebugLineMaterial>>,
+    mut tile_materials: ResMut<Assets<TilePbrMaterial>>,
+    mut ev_village_wfc: EventReader<VillageWfcEvent>,
+    graph_settings: Res<GraphSettings>,
+) {
+    match graph_settings.as_ref() {
+        GraphSettings::LayoutGraphSettings(settings) => {
+            state.settings = *settings;
+        }
+    }
+
+    for event in ev_village_wfc.iter() {
+        match event {
+            VillageWfcEvent::Start => {
+                state.status = PassStateEnum::Start;
+            }
+        }
+    }
+
+    match state.status {
+        PassStateEnum::Start => {
+            state.reset();
+            let settings = state.settings;
+            state.wfc_task = Some(
+                task_pool_resource
+                    .pool
+                    .spawn(async move { VillageWaveFunctionCollapse::wfc(settings) }),
+            );
+            state.status = PassStateEnum::WfcPending;
+        }
+        PassStateEnum::WfcPending => {
+            if let Some(mut task) = state.wfc_task.as_mut() {
+                if task.is_finished() {
+                    dbg!("WFC task finished");
+                    if let Some(Some(result_arc)) = future::block_on(future::poll_once(&mut task)) {
+                        let settings = state.settings;
+                        let result_arc_a = result_arc.clone();
+                        let result_arc_b = result_arc.clone();
+                        state.wfc_result = Some(result_arc);
+                        state.debug_arcs_task = Some(task_pool_resource.pool.spawn(async move {
+                            VillageWaveFunctionCollapse::create_debug_arcs(result_arc_a, settings)
+                        }));
+                        state.debug_mesh_task = Some(task_pool_resource.pool.spawn(async move {
+                            VillageWaveFunctionCollapse::create_debug_mesh(result_arc_b, settings)
+                        }));
+                        state.status = PassStateEnum::DebugMeshesPending((false, false));
+                    }
+                }
+            }
+        }
+        PassStateEnum::DebugMeshesPending((mut arcs_generated, mut mesh_generated)) => {
+            if !arcs_generated {
+                if let Some(mut task) = state.debug_arcs_task.as_mut() {
+                    if task.is_finished() {
+                        arcs_generated = true;
+                        dbg!("Arc task finished");
+
+                        if let Some(debug_arcs) =
+                            future::block_on(future::poll_once(&mut task)).clone()
+                        {
+                            VillageWaveFunctionCollapse::spawn_arcs(
+                                &mut commands,
+                                &mut meshes,
+                                &mut line_materials,
+                                debug_arcs,
+                            )
+                        }
+                    }
+                }
+            }
+            if !mesh_generated {
+                if let Some(mut task) = state.debug_mesh_task.as_mut() {
+                    if task.is_finished() {
+                        mesh_generated = true;
+                        dbg!("Mesh task finished");
+
+                        if let Some(debug_meshes) =
+                            future::block_on(future::poll_once(&mut task)).clone()
+                        {
+                            if let Some(result) = state.wfc_result.take() {
+                                VillageWaveFunctionCollapse::spawn(
+                                    &mut commands,
+                                    &mut meshes,
+                                    &mut tile_materials,
+                                    &mut line_materials,
+                                    result,
+                                    debug_meshes,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            if arcs_generated && mesh_generated {
+                state.status = PassStateEnum::Idle;
+            } else {
+                state.status = PassStateEnum::DebugMeshesPending((arcs_generated, mesh_generated))
+            }
+        }
+        PassStateEnum::Idle => {}
+    };
 }

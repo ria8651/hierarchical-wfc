@@ -13,6 +13,7 @@ bevy_mod_debugdump = "0.8.0"
 strum = "0.25.0"
 strum_macros = "0.25.1"
 bevy_rapier3d = "0.22.0"
+futures-lite = "1.13.0"
 
 [profile.release]
 debug = true
