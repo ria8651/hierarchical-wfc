@@ -21,6 +21,7 @@ use hierarchical_wfc::{
     cameras::{
         cam_switcher,
         cam_switcher::{CameraController, SwitchingCameraController, SwitchingCameraPlugin},
+        fps::{FpsCamera, FpsCameraSettings},
     },
     castle_tilset::CastleTileset,
     debug_line::DebugLineMaterial,
@@ -582,7 +583,11 @@ fn ui_system(
     mut existing_tiles: Query<Entity, With<VillageTile>>,
     mut existing_debug_arcs: Query<Entity, With<DebugArcs>>,
     tile_materials: ResMut<Assets<TilePbrMaterial>>,
-    mut q_cameras: Query<(&mut SwitchingCameraController, &mut Projection)>,
+    mut q_cameras: Query<(
+        &mut SwitchingCameraController,
+        &mut Projection,
+        Option<&mut FpsCameraSettings>,
+    )>,
 ) {
     egui::Window::new("Settings and Controls").show(contexts.ctx_mut(), |ui| {
         let settings = settings_resource.as_mut();
@@ -624,7 +629,7 @@ fn ui_system(
         });
 
         ui.collapsing("Cameras", |ui| {
-            for (mut camera_controller, projection) in q_cameras.iter_mut() {
+            for (mut camera_controller, projection, fps_settings) in q_cameras.iter_mut() {
                 egui::ComboBox::from_label("Camera Controller")
                     .selected_text(match camera_controller.selected {
                         CameraController::PanOrbit => "Pan Orbit",
@@ -644,40 +649,32 @@ fn ui_system(
                     });
                 match camera_controller.selected {
                     CameraController::Fps => {
-                        reflect_inspector::ui_for_value(
-                            &mut camera_controller.fps_cam.settings,
-                            ui,
-                            &type_registry.read(),
-                        );
+                        if let Some(mut settings) = fps_settings {
+                            reflect_inspector::ui_for_value(
+                                settings.as_mut(),
+                                ui,
+                                &type_registry.read(),
+                            );
+                        }
                     }
-                    CameraController::PanOrbit => {
-                        // reflect_inspector::ui_for_value(
-                        //     &mut camera_controller,
-                        //     ui,
-                        //     &type_registry.read(),
-                        // );
-                    }
+                    CameraController::PanOrbit => {}
                 }
-                // reflect_inspector::ui_for_value(camera_controller.into_inner(), ui, &type_registry.read());
 
                 reflect_inspector::ui_for_value(projection.into_inner(), ui, &type_registry.read());
             }
         });
 
-        ui.collapsing("Camera", |ui| {});
-        ui.collapsing("Visualisation", |ui| {
-            ui.collapsing("Constraint Arcs", |ui| {
-                for (index, mut arc) in debug_arcs.iter_mut().enumerate() {
-                    let mut show = *arc == Visibility::Visible;
-                    ui.checkbox(&mut show, format!("Arc set #{}", index));
-                    if show != (*arc == Visibility::Visible) {
-                        *arc = match show {
-                            true => Visibility::Visible,
-                            false => Visibility::Hidden,
-                        };
-                    }
+        ui.collapsing("Constraint Arcs", |ui| {
+            for (index, mut arc) in debug_arcs.iter_mut().enumerate() {
+                let mut show = *arc == Visibility::Visible;
+                ui.checkbox(&mut show, format!("Arc set #{}", index));
+                if show != (*arc == Visibility::Visible) {
+                    *arc = match show {
+                        true => Visibility::Visible,
+                        false => Visibility::Hidden,
+                    };
                 }
-            });
+            }
         });
     });
 }

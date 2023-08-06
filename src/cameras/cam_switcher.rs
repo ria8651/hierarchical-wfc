@@ -13,7 +13,7 @@ use bevy::{
 use crate::cameras::fps::FpsCameraBundle;
 
 use super::{
-    fps::{FpsCamera, FpsCameraPlugin},
+    fps::{FpsCamera, FpsCameraPlugin, FpsCharacterBundle},
     pan_orbit::{PanOrbitCamera, PanOrbitCameraPlugin},
 };
 
@@ -88,22 +88,34 @@ pub fn spawn_camera(mut commands: Commands) {
 
 fn switching_system(
     mut commands: Commands,
-    mut q_camera: Query<(Entity, &mut SwitchingCameraController)>,
+    mut q_camera: Query<(Entity, &mut SwitchingCameraController, &Transform)>,
 ) {
     match q_camera.get_single_mut() {
-        Ok((entity, mut switcher)) => {
+        Ok((entity, mut switcher, transform)) => {
             if switcher.last != switcher.selected {
-                let mut entity_commands = commands.entity(entity);
                 match switcher.last {
-                    CameraController::Fps => entity_commands.remove::<FpsCameraBundle>(),
-                    CameraController::PanOrbit => entity_commands.remove::<PanOrbitCamera>(),
-                };
-                match switcher.selected {
                     CameraController::Fps => {
-                        entity_commands.insert(FpsCameraBundle::default());
+                        commands.entity(entity).remove::<FpsCameraBundle>();
                     }
                     CameraController::PanOrbit => {
-                        entity_commands.insert(PanOrbitCamera::default());
+                        commands.entity(entity).remove::<PanOrbitCamera>();
+                    }
+                }
+                match switcher.selected {
+                    CameraController::Fps => {
+                        let character_entity = commands
+                            .spawn(FpsCharacterBundle::new(entity))
+                            .insert(TransformBundle {
+                                local: Transform::from_translation(transform.translation),
+                                ..Default::default()
+                            })
+                            .id();
+                        commands
+                            .entity(entity)
+                            .insert(FpsCameraBundle::new(character_entity));
+                    }
+                    CameraController::PanOrbit => {
+                        commands.entity(entity).insert(PanOrbitCamera::default());
                     }
                 };
                 switcher.last = switcher.selected;
