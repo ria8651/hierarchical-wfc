@@ -530,8 +530,8 @@ impl Material for TilePbrMaterial {
 
         let vertex_layout = layout.get_layout(&[
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
-            Mesh::ATTRIBUTE_UV_0.at_shader_location(1),
-            Mesh::ATTRIBUTE_NORMAL.at_shader_location(2),
+            Mesh::ATTRIBUTE_NORMAL.at_shader_location(1),
+            Mesh::ATTRIBUTE_UV_0.at_shader_location(2),
             ATTRIBUTE_TILE_ORDER.at_shader_location(3),
         ])?;
         dbg!(&descriptor.vertex.buffers);

@@ -157,10 +157,11 @@ fn fragment(
 
         pbr_input.V = V;
         pbr_input.occlusion = occlusion;
-
+// return vec4<f32>(vec3<f32>(occlusion), 1.0);
         pbr_input.flags = mesh.flags;
 
-        output_color = pbr_functions::pbr(pbr_input);
+// occlusion
+        output_color =  pbr_functions::pbr(pbr_input);
     } else {
         output_color = pbr_functions::alpha_discard(pbr_bindings::material, output_color);
     }
@@ -185,7 +186,7 @@ fn fragment(
 #ifdef PREMULTIPLY_ALPHA
     output_color = pbr_functions::premultiply_alpha(pbr_bindings::material.flags, output_color);
 #endif
-    return output_color;
+    return  output_color;
 }
 
 struct Vertex {
@@ -197,6 +198,7 @@ struct Vertex {
     // @location(4) color: vec3<f32>,
 };
 
+#import bevy_pbr::mesh_functions
 
 @vertex
 fn vertex(vertex: Vertex) -> MeshVertexOutput {
@@ -215,8 +217,8 @@ fn vertex(vertex: Vertex) -> MeshVertexOutput {
         vec4<f32>(vertex.position, 1.0)
     );
     out.position = pos;
-    out.world_position = vec4<f32>(vertex.position, 0.0);
-    out.world_normal = vertex.normal;//0.0 * vertex.normal;
+    out.world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(mesh.model, vec4<f32>(vertex.position , 1.0)) ;
+    out.world_normal =vertex.normal;//0.0 * vertex.normal;
     // out.instance_index =  vec4<f32>(0.0);//0.0 * vertex.normal;
     out.uv = vertex.uv;
     // out.color = vertex.i_color;
