@@ -1,16 +1,13 @@
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 
-use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::ScalingMode};
-use ui::UiPlugin;
-
 mod basic_tileset;
 mod carcassonne_tileset;
-mod graph;
-mod graph_grid;
-mod tileset;
 mod ui;
 mod wfc;
+
+use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::ScalingMode};
+use ui::UiPlugin;
 
 fn main() {
     App::new()

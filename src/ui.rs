@@ -1,6 +1,7 @@
 use crate::{
-    basic_tileset::BasicTileset, carcassonne_tileset::CarcassonneTileset,
-    graph_grid::GridGraphSettings, tileset::TileSet, wfc::GraphWfc,
+    basic_tileset::BasicTileset,
+    carcassonne_tileset::CarcassonneTileset,
+    wfc::{graph_grid::GridGraphSettings, GraphWfc, TileSet},
 };
 use bevy::prelude::*;
 use bevy_inspector_egui::{
@@ -12,7 +13,6 @@ use bevy_inspector_egui::{
     DefaultInspectorConfigPlugin,
 };
 use rand::{rngs::StdRng, SeedableRng};
-
 pub struct UiPlugin;
 
 impl Plugin for UiPlugin {

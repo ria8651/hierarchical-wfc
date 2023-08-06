@@ -1,4 +1,4 @@
-use crate::graph::{Graph, Superposition};
+use super::{Graph, Superposition};
 
 pub trait TileSet {
     type GraphSettings;

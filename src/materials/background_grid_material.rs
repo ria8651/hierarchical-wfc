@@ -1,11 +1,7 @@
 use bevy::{
-    prelude::{Color},
-    render::{
-        render_resource::{
-            AsBindGroup, ShaderRef,
-        },
-    },
-    sprite::{Material2d},
+    prelude::Color,
+    render::render_resource::{AsBindGroup, ShaderRef},
+    sprite::Material2d,
 };
 use bevy_reflect::{TypePath, TypeUuid};
 

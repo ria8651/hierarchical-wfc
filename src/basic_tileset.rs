@@ -1,8 +1,6 @@
-use crate::{
-    graph::{Graph, Superposition},
-    graph_grid::{self, GridGraphSettings},
-    tileset::TileSet,
-    wfc::Direction,
+use crate::wfc::{
+    graph_grid::{create_grid_graph, GridGraphSettings},
+    Direction, Graph, Superposition, TileSet,
 };
 
 #[derive(Default)]
@@ -102,6 +100,6 @@ impl TileSet for BasicTileset {
 
     fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Superposition> {
         let cell = Superposition::filled(self.tile_count());
-        graph_grid::create(settings, cell)
+        create_grid_graph(settings, cell)
     }
 }

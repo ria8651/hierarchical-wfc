@@ -10,7 +10,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::cameras::fps::FpsCameraBundle;
+use crate::camera_controllers::fps::FpsCameraBundle;
 
 use super::{
     fps::{FpsCamera, FpsCameraPlugin, FpsCharacterBundle},

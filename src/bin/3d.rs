@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, time::Duration};
+use std::time::Duration;
 
 use bevy::asset::ChangeWatcher;
 
@@ -10,27 +10,19 @@ use bevy::{
 
 use bevy::render::render_resource::{AddressMode, FilterMode, SamplerDescriptor, VertexFormat};
 
-use bevy_inspector_egui::{
-    bevy_egui, bevy_inspector::ui_for_value, egui, reflect_inspector, DefaultInspectorConfigPlugin,
-};
+use bevy_inspector_egui::{bevy_egui, egui, reflect_inspector, DefaultInspectorConfigPlugin};
 use bevy_mod_debugdump;
 use bevy_rapier3d::prelude::{
     Collider, ComputedColliderShape, NoUserData, RapierPhysicsPlugin, RigidBody,
 };
 use hierarchical_wfc::{
-    cameras::{
-        cam_switcher,
+    camera_controllers::{
         cam_switcher::{CameraController, SwitchingCameraController, SwitchingCameraPlugin},
-        fps::{FpsCamera, FpsCameraSettings},
+        fps::FpsCameraSettings,
     },
-    castle_tilset::CastleTileset,
-    debug_line::DebugLineMaterial,
-    graph::{Graph, Neighbor},
-    graph_grid::GridGraphSettings,
-    tile_pbr_material::TilePbrMaterial,
-    tileset::TileSet,
+    materials::{debug_arc_material::DebugLineMaterial, tile_pbr_material::TilePbrMaterial},
     village::{layout_graph::LayoutGraphSettings, layout_pass::LayoutTileset},
-    wfc::GraphWfc,
+    wfc::{Graph, GraphWfc, Neighbour, TileSet},
 };
 use rand::{rngs::StdRng, SeedableRng};
 fn main() {
@@ -145,128 +137,6 @@ fn setup(
     commands.insert_resource(GraphSettings::LayoutGraphSettings(
         LayoutGraphSettings::default(),
     ));
-
-    // create_castle(commands, asset_server);
-    // create_village(commands, asset_server, meshes, materials, line_materials);
-}
-
-fn create_castle(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let wall_full_scene: Handle<Scene> = asset_server.load("gltf/castle/w-short-full.gltf#Scene0");
-    let wall_slit_scene: Handle<Scene> = asset_server.load("gltf/castle/w-short-slit.gltf#Scene0");
-    let wall_window_scene: Handle<Scene> =
-        asset_server.load("gltf/castle/w-short-window.gltf#Scene0");
-
-    let pillar_scene: Handle<Scene> = asset_server.load("gltf/castle/p-short.gltf#Scene0");
-    let _rng = rand::thread_rng();
-
-    let settings = GridGraphSettings {
-        width: 32,
-        height: 32,
-        ..Default::default()
-    };
-    let tileset = CastleTileset::default();
-
-    let create_graph_span = info_span!("wfc_create_graph").entered();
-    let mut graph = tileset.create_graph(&settings);
-    create_graph_span.exit();
-
-    let setup_constraints_span = info_span!("wfc_setup_constraints").entered();
-    let constraints = tileset.get_constraints();
-    let mut rng = StdRng::from_entropy();
-    setup_constraints_span.exit();
-
-    let collapse_span = info_span!("wfc_collapse").entered();
-    GraphWfc::collapse(&mut graph, &constraints, &tileset.get_weights(), &mut rng);
-    collapse_span.exit();
-
-    let _render_span = info_span!("wfc_render").entered();
-    let result = match graph.validate() {
-        Ok(graph) => graph,
-        Err(e) => {
-            println!("Failed to generate!");
-            println!("{}", e);
-            return;
-        }
-    };
-
-    // result
-    for i in 0..result.nodes.len() {
-        let tile_index = result.nodes[i] as usize;
-
-        let pos = IVec3::new(
-            (i / settings.height) as i32,
-            0i32,
-            (i % settings.height) as i32,
-        );
-        let pos = 4.0
-            * vec3(
-                pos.x.div_euclid(2) as f32,
-                pos.y as f32,
-                pos.z.div_euclid(2) as f32,
-            );
-
-        match tile_index {
-            0 => {
-                let pos = pos + Vec3::X * 2.0;
-                commands.spawn(SceneBundle {
-                    scene: wall_full_scene.clone(),
-                    transform: Transform::from_translation(pos),
-                    ..default()
-                });
-            }
-            1 => {
-                let pos = pos + Vec3::Z * 2.0;
-                commands.spawn(SceneBundle {
-                    scene: wall_full_scene.clone(),
-                    transform: Transform::from_translation(pos)
-                        * Transform::from_rotation(Quat::from_rotation_y(0.5 * PI)),
-                    ..default()
-                });
-            }
-            2 => {
-                let pos = pos + Vec3::X * 2.0;
-                commands.spawn(SceneBundle {
-                    scene: wall_slit_scene.clone(),
-                    transform: Transform::from_translation(pos),
-                    ..default()
-                });
-            }
-            3 => {
-                let pos = pos + Vec3::Z * 2.0;
-                commands.spawn(SceneBundle {
-                    scene: wall_slit_scene.clone(),
-                    transform: Transform::from_translation(pos)
-                        * Transform::from_rotation(Quat::from_rotation_y(0.5 * PI)),
-                    ..default()
-                });
-            }
-            4 => {
-                let pos = pos + Vec3::X * 2.0;
-                commands.spawn(SceneBundle {
-                    scene: wall_window_scene.clone(),
-                    transform: Transform::from_translation(pos),
-                    ..default()
-                });
-            }
-            5 => {
-                let pos = pos + Vec3::Z * 2.0;
-                commands.spawn(SceneBundle {
-                    scene: wall_window_scene.clone(),
-                    transform: Transform::from_translation(pos)
-                        * Transform::from_rotation(Quat::from_rotation_y(0.5 * PI)),
-                    ..default()
-                });
-            }
-            6 => {
-                commands.spawn(SceneBundle {
-                    scene: pillar_scene.clone(),
-                    transform: Transform::from_translation(pos),
-                    ..default()
-                });
-            }
-            _ => {}
-        }
-    }
 }
 
 #[derive(Resource)]
@@ -483,7 +353,7 @@ fn create_arcs(
     let mut arc_vertex_colors = Vec::new();
 
     for (u, neighbours) in result.neighbors.iter().enumerate() {
-        for Neighbor { index: v, arc_type } in neighbours {
+        for Neighbour { index: v, arc_type } in neighbours {
             let color = color_arc(*arc_type);
 
             let u = settings.posf32_from_index(u);

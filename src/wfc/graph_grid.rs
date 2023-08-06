@@ -1,5 +1,6 @@
-use crate::graph::{Graph, Neighbor};
 use bevy::prelude::*;
+
+use super::{Graph, Neighbour};
 
 #[derive(Reflect)]
 #[reflect(Default)]
@@ -19,7 +20,7 @@ impl Default for GridGraphSettings {
     }
 }
 
-pub fn create<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> Graph<F> {
+pub fn create_grid_graph<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> Graph<F> {
     let size = IVec2::new(settings.width as i32, settings.height as i32);
 
     let mut nodes_pos = Vec::new();
@@ -55,7 +56,7 @@ pub fn create<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> Graph<F> 
             }
 
             let neighbor_index = (neighbor_pos.x * size.y + neighbor_pos.y) as usize;
-            node_neighbors.push(Neighbor {
+            node_neighbors.push(Neighbour {
                 arc_type: i,
                 index: neighbor_index,
             });

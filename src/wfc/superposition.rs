@@ -1,45 +1,10 @@
-use anyhow::Result;
 use bevy::prelude::*;
 use rand::{distributions::WeightedIndex, prelude::Distribution, Rng};
 
 pub const TILE_U32S: usize = 4;
 
-#[derive(Debug)]
-pub struct Graph<C> {
-    pub nodes: Vec<C>,
-    pub order: Vec<usize>,
-    pub neighbors: Vec<Vec<Neighbor>>,
-}
-
-impl Graph<Superposition> {
-    /// Consumes the graph and returns the collapsed tiles
-    pub fn validate(self) -> Result<Graph<usize>> {
-        let mut result = Graph {
-            nodes: Vec::new(),
-            order: self.order,
-            neighbors: self.neighbors,
-        };
-        for node in 0..self.nodes.len() {
-            if let Some(tile) = self.nodes[node].collapse() {
-                result.nodes.push(tile);
-            } else {
-                result.nodes.push(404);
-                // return Err(anyhow::anyhow!("Invalid grid"));
-            }
-        }
-        Ok(result)
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct Neighbor {
-    pub arc_type: usize,
-    pub index: usize,
-}
-
 #[derive(Deref, DerefMut, Clone, Copy)]
 pub struct Superposition(pub [u32; TILE_U32S]);
-
 impl Superposition {
     /// Cell fill with ones up to size
     pub fn filled(size: usize) -> Self {
