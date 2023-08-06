@@ -8,7 +8,6 @@ mod basic_tileset;
 mod carcassonne_tileset;
 mod graph;
 mod graph_grid;
-mod pan_orbit_cam;
 mod tileset;
 mod ui;
 mod wfc;

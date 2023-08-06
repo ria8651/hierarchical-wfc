@@ -10,17 +10,22 @@ use bevy::{
 
 use bevy::render::render_resource::{AddressMode, FilterMode, SamplerDescriptor, VertexFormat};
 
-use bevy_inspector_egui::{bevy_egui, egui};
+use bevy_inspector_egui::{
+    bevy_egui, bevy_inspector::ui_for_value, egui, reflect_inspector, DefaultInspectorConfigPlugin,
+};
 use bevy_mod_debugdump;
 use bevy_rapier3d::prelude::{
     Collider, ComputedColliderShape, NoUserData, RapierPhysicsPlugin, RigidBody,
 };
 use hierarchical_wfc::{
+    cameras::{
+        cam_switcher,
+        cam_switcher::{CameraController, SwitchingCameraController, SwitchingCameraPlugin},
+    },
     castle_tilset::CastleTileset,
     debug_line::DebugLineMaterial,
     graph::{Graph, Neighbor},
     graph_grid::GridGraphSettings,
-    pan_orbit_cam::PanOrbitCameraPlugin,
     tile_pbr_material::TilePbrMaterial,
     tileset::TileSet,
     village::{layout_graph::LayoutGraphSettings, layout_pass::LayoutTileset},
@@ -47,8 +52,9 @@ fn main() {
                     ..Default::default()
                 },
             }),
-        PanOrbitCameraPlugin,
+        SwitchingCameraPlugin,
         RapierPhysicsPlugin::<NoUserData>::default(),
+        DefaultInspectorConfigPlugin,
     ))
     .add_plugins(MaterialPlugin::<DebugLineMaterial>::default())
     .add_plugins(MaterialPlugin::<TilePbrMaterial>::default())
@@ -370,25 +376,23 @@ fn create_village(
             _ => missing_mesh_builder.add_mesh(&error_box, transform, order),
         };
     }
-    for (material, mesh_builder) in [
-        (corner_material, corner_mesh_builder),
-        (side_material, side_mesh_builder),
-        (center_material, center_mesh_builder),
-        (space_material, space_mesh_builder),
-        (air_material, air_mesh_builder),
-        (error_material, error_mesh_builder),
-        (missing_material, missing_mesh_builder),
+    for (enable_collisions, material, mesh_builder) in [
+        (true, corner_material, corner_mesh_builder),
+        (true, side_material, side_mesh_builder),
+        (true, center_material, center_mesh_builder),
+        (false, space_material, space_mesh_builder),
+        (false, air_material, air_mesh_builder),
+        (true, error_material, error_mesh_builder),
+        (true, missing_material, missing_mesh_builder),
     ] {
         let mesh = mesh_builder.build_mesh();
-
-        commands.spawn((
+        let collider = if enable_collisions && mesh.count_vertices() > 0 {
+            Some(Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh).unwrap())
+        } else {
+            None
+        };
+        let mut entity_commands = commands.spawn((
             VillageTile,
-            RigidBody::Fixed,
-            if mesh.count_vertices() > 0 {
-                Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh).unwrap()
-            } else {
-                Collider::ball(0.0)
-            },
             MaterialMeshBundle {
                 material: material.clone(),
                 mesh: meshes.add(mesh),
@@ -396,6 +400,9 @@ fn create_village(
                 ..Default::default()
             },
         ));
+        if let Some(collider) = collider {
+            entity_commands.insert((RigidBody::Fixed, collider));
+        }
     }
 
     commands.insert_resource(VillageResult { graph: result });
@@ -549,28 +556,6 @@ fn load_village_system(
     if let Some(result) = result {
         progress.current = (result.graph.order.len() as f32 * progress.progress) as usize;
 
-        // if new_index > progress.current {
-        //     // for index in progress.current..new_index {
-        //     //     if let Some(ordered_index) = result.graph.order.get(index) {
-        //     //         if let Some(current) = result.tiles.get(*ordered_index) {
-        //     //             if let Ok(mut visibility) = tiles.get_mut(*current) {
-        //     //                 *visibility = Visibility::Visible;
-        //     //             }
-        //     //         }
-        //     //     }
-        //     // }
-        // }
-        // if new_index < progress.current {
-        //     for index in new_index..progress.current {
-        //         if let Some(ordered_index) = result.graph.order.get(index) {
-        //             if let Some(current) = result.tiles.get(*ordered_index) {
-        //                 if let Ok(mut visibility) = tiles.get_mut(*current) {
-        //                     *visibility = Visibility::Hidden;
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
         for (_handle, material) in tile_materials.iter_mut() {
             material.order_cut_off = progress.current as u32;
         }
@@ -586,6 +571,7 @@ fn load_village_system(
 }
 
 fn ui_system(
+    type_registry: ResMut<AppTypeRegistry>,
     mut contexts: bevy_egui::EguiContexts,
     mut progress: ResMut<VillageLoadProgress>,
     mut debug_arcs: Query<&mut Visibility, With<DebugArcs>>,
@@ -596,10 +582,11 @@ fn ui_system(
     mut existing_tiles: Query<Entity, With<VillageTile>>,
     mut existing_debug_arcs: Query<Entity, With<DebugArcs>>,
     tile_materials: ResMut<Assets<TilePbrMaterial>>,
+    mut q_cameras: Query<(&mut SwitchingCameraController, &mut Projection)>,
 ) {
-    egui::Window::new("WFC Controls").show(contexts.ctx_mut(), |ui| {
+    egui::Window::new("Settings and Controls").show(contexts.ctx_mut(), |ui| {
         let settings = settings_resource.as_mut();
-        ui.collapsing("WFC Graphs", |ui| match settings {
+        ui.collapsing("WFC Settings", |ui| match settings {
             GraphSettings::LayoutGraphSettings(settings) => {
                 ui.heading("Settings for layout graph");
                 ui.add(egui::DragValue::new(&mut settings.x_size));
@@ -635,6 +622,49 @@ fn ui_system(
             ui.label("Duration");
             ui.add(egui::DragValue::new(&mut progress.duration).clamp_range(0f32..=20f32));
         });
+
+        ui.collapsing("Cameras", |ui| {
+            for (mut camera_controller, projection) in q_cameras.iter_mut() {
+                egui::ComboBox::from_label("Camera Controller")
+                    .selected_text(match camera_controller.selected {
+                        CameraController::PanOrbit => "Pan Orbit",
+                        CameraController::Fps => "First Person",
+                    })
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut camera_controller.selected,
+                            CameraController::PanOrbit,
+                            "Pan Orbit",
+                        );
+                        ui.selectable_value(
+                            &mut camera_controller.selected,
+                            CameraController::Fps,
+                            "First Person",
+                        );
+                    });
+                match camera_controller.selected {
+                    CameraController::Fps => {
+                        reflect_inspector::ui_for_value(
+                            &mut camera_controller.fps_cam.settings,
+                            ui,
+                            &type_registry.read(),
+                        );
+                    }
+                    CameraController::PanOrbit => {
+                        // reflect_inspector::ui_for_value(
+                        //     &mut camera_controller,
+                        //     ui,
+                        //     &type_registry.read(),
+                        // );
+                    }
+                }
+                // reflect_inspector::ui_for_value(camera_controller.into_inner(), ui, &type_registry.read());
+
+                reflect_inspector::ui_for_value(projection.into_inner(), ui, &type_registry.read());
+            }
+        });
+
+        ui.collapsing("Camera", |ui| {});
         ui.collapsing("Visualisation", |ui| {
             ui.collapsing("Constraint Arcs", |ui| {
                 for (index, mut arc) in debug_arcs.iter_mut().enumerate() {

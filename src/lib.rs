@@ -1,8 +1,8 @@
+pub mod cameras;
 pub mod castle_tilset;
 pub mod debug_line;
 pub mod graph;
 pub mod graph_grid;
-pub mod pan_orbit_cam;
 pub mod tile_pbr_material;
 pub mod tileset;
 pub mod village;
