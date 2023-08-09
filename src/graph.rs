@@ -4,12 +4,13 @@ use rand::{distributions::WeightedIndex, Rng, prelude::Distribution};
 
 pub const TILE_U32S: usize = 4;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Graph<C> {
     pub tiles: Vec<C>,
     pub neighbors: Vec<Vec<Neighbor>>,
 }
 
+#[allow(dead_code)]
 impl Graph<Cell> {
     /// Consumes the graph and returns the collapsed tiles
     pub fn validate(self) -> Result<Graph<usize>> {

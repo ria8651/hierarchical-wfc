@@ -1,49 +1,45 @@
 use crate::graph::{Cell, Graph, Neighbor};
 use rand::Rng;
+use std::time::Instant;
 
 pub struct GraphWfc;
 
 impl GraphWfc {
+    /// Returns true if returned early
     pub fn collapse<R: Rng>(
         graph: &mut Graph<Cell>,
         constraints: &Vec<Vec<Cell>>,
         weights: &Vec<u32>,
         rng: &mut R,
-    ) {
-        let start_node = rng.gen_range(0..graph.tiles.len());
+        timeout: Option<f64>,
+    ) -> bool {
+        let start = Instant::now();
 
-        // update cell
-        graph.tiles[start_node].select_random(rng, weights);
+        let mut stack = Vec::new();
+        while let Some(cell) = GraphWfc::lowest_entropy(graph) {
+            // collapse cell
+            graph.tiles[cell].select_random(rng, weights);
 
-        let mut stack = vec![start_node];
-        while let Some(index) = stack.pop() {
-            for i in 0..graph.neighbors[index].len() {
-                // propagate changes
-                let neighbor = graph.neighbors[index][i];
-                if GraphWfc::propagate(graph, index, neighbor, &constraints) {
-                    stack.push(neighbor.index);
+            // propagate changes
+            stack.push(cell);
+            while let Some(index) = stack.pop() {
+                for i in 0..graph.neighbors[index].len() {
+                    // propagate changes
+                    let neighbor = graph.neighbors[index][i];
+                    if GraphWfc::propagate(graph, index, neighbor, &constraints) {
+                        stack.push(neighbor.index);
+                    }
                 }
             }
 
-            if stack.len() == 0 {
-                // find next cell to update
-                let mut min_entropy = usize::MAX;
-                let mut min_pos = None;
-                for (index, node) in graph.tiles.iter().enumerate() {
-                    let entropy = node.count_bits();
-                    if entropy > 1 && entropy < min_entropy {
-                        min_entropy = entropy;
-                        min_pos = Some(index);
-                    }
-                }
-
-                if let Some(pos) = min_pos {
-                    // update cell
-                    graph.tiles[pos].select_random(rng, weights);
-                    stack.push(pos);
+            if let Some(timeout) = timeout {
+                if start.elapsed().as_secs_f64() > timeout {
+                    return true;
                 }
             }
         }
+
+        false
 
         // for y in (0..grid_wfc.grid[0].len()).rev() {
         //     for x in 0..grid_wfc.grid.len() {
@@ -52,6 +48,21 @@ impl GraphWfc {
         //     }
         //     println!();
         // }
+    }
+
+    pub fn lowest_entropy(graph: &mut Graph<Cell>) -> Option<usize> {
+        // find next cell to update
+        let mut min_entropy = usize::MAX;
+        let mut min_index = None;
+        for (index, node) in graph.tiles.iter().enumerate() {
+            let entropy = node.count_bits();
+            if entropy > 1 && entropy < min_entropy {
+                min_entropy = entropy;
+                min_index = Some(index);
+            }
+        }
+
+        min_index
     }
 
     /// Returns true if the tile was updated
