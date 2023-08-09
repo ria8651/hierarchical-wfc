@@ -47,6 +47,8 @@ struct UiState {
     graph_dirty: bool,
     #[reflect(ignore)]
     render_dirty: bool,
+    #[reflect(ignore)]
+    tile_entities: Vec<Entity>,
 }
 
 #[derive(Reflect)]
@@ -59,6 +61,7 @@ enum TileSetUi {
 struct TileSprite;
 
 fn ui(
+    mut commands: Commands,
     mut contexts: EguiContexts,
     mut ui_state: ResMut<UiState>,
     type_registry: Res<AppTypeRegistry>,
@@ -105,8 +108,42 @@ fn ui(
                             TileSetUi::BasicTileset(settings) => settings,
                             TileSetUi::Carcassonne(settings) => settings,
                         };
-                        ui_state.graph = Some(tileset.create_graph(settings));
+                        let graph = tileset.create_graph(settings);
                         create_graph_span.exit();
+
+                        let mut tile_entities = Vec::new();
+                        for i in 0..graph.tiles.len() {
+                            let pos = Vec2::new(
+                                (i / settings.height) as f32,
+                                (i % settings.height) as f32,
+                            );
+                            tile_entities.push(
+                                commands
+                                    .spawn((
+                                        SpriteBundle {
+                                            transform: Transform::from_translation(
+                                                ((pos + 0.5) / settings.width as f32 - 0.5)
+                                                    .extend(0.0),
+                                            ),
+                                            sprite: Sprite {
+                                                custom_size: Some(Vec2::splat(
+                                                    1.0 / settings.width as f32,
+                                                )),
+                                                ..default()
+                                            },
+                                            ..default()
+                                        },
+                                        TileSprite,
+                                    ))
+                                    .id(),
+                            );
+                        }
+                        for tile_entity in ui_state.tile_entities.iter() {
+                            commands.entity(*tile_entity).despawn();
+                        }
+
+                        ui_state.tile_entities = tile_entities;
+                        ui_state.graph = Some(graph);
 
                         ui_state.graph_dirty = true;
                         ui_state.render_dirty = true;
@@ -167,11 +204,11 @@ fn propagate(mut ui_state: ResMut<UiState>) {
 }
 
 fn render_grid_graph(
-    mut tile_sprites: Query<Entity, With<TileSprite>>,
-    mut commands: Commands,
     mut ui_state: ResMut<UiState>,
     asset_server: Res<AssetServer>,
+    mut tile_entity_query: Query<(&mut Transform, &mut Handle<Image>), With<TileSprite>>,
 ) {
+    let render_span = info_span!("wfc_render").entered();
     if let Some(graph) = &ui_state.graph {
         if ui_state.render_dirty {
             let tileset = match &ui_state.picked_tileset {
@@ -180,17 +217,6 @@ fn render_grid_graph(
                 TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset::default())
                     as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
             };
-            let settings = match &ui_state.picked_tileset {
-                TileSetUi::BasicTileset(settings) => settings,
-                TileSetUi::Carcassonne(settings) => settings,
-            };
-
-            let render_span = info_span!("wfc_render").entered();
-
-            // cleanup
-            for entity in tile_sprites.iter_mut() {
-                commands.entity(entity).despawn();
-            }
 
             // tileset
             let mut tile_handles: Vec<Handle<Image>> = Vec::new();
@@ -206,31 +232,21 @@ fn render_grid_graph(
                         tile_rotation = tile_index / (tileset.tile_count() / 4);
                         tile_index = tile_index % (tileset.tile_count() / 4);
                     }
-                    let pos = Vec2::new((i / settings.height) as f32, (i % settings.height) as f32);
-                    commands.spawn((
-                        SpriteBundle {
-                            texture: tile_handles[tile_index].clone(),
-                            transform: Transform::from_translation(
-                                ((pos + 0.5) / settings.width as f32 - 0.5).extend(0.0),
-                            )
-                            .with_rotation(Quat::from_rotation_z(
-                                -std::f32::consts::PI * tile_rotation as f32 / 2.0,
-                            )),
-                            sprite: Sprite {
-                                custom_size: Some(Vec2::splat(1.0 / settings.width as f32)),
-                                ..default()
-                            },
-                            ..default()
-                        },
-                        TileSprite,
-                    ));
+
+                    let (mut transform, mut sprite) = tile_entity_query
+                        .get_mut(ui_state.tile_entities[i])
+                        .unwrap();
+
+                    transform.rotation =
+                        Quat::from_rotation_z(-std::f32::consts::PI * tile_rotation as f32 / 2.0);
+                    *sprite = tile_handles[tile_index].clone();
                 }
             }
-            render_span.exit();
 
             ui_state.render_dirty = false;
         }
     }
+    render_span.exit();
 }
 
 impl Default for TileSetUi {
