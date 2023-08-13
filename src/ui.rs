@@ -10,7 +10,8 @@ use bevy::prelude::*;
 use bevy_inspector_egui::{
     bevy_egui::{EguiContexts, EguiPlugin},
     egui::{
-        self, panel::Side, CollapsingHeader, Color32, DragValue, Frame, Id, SidePanel, TextureId,
+        self, panel::Side, CollapsingHeader, Color32, DragValue, Frame, Id, ScrollArea, SidePanel,
+        TextureId,
     },
     reflect_inspector::ui_for_value,
     DefaultInspectorConfigPlugin,
@@ -27,7 +28,7 @@ impl Plugin for UiPlugin {
             .register_type::<UiState>()
             .register_type::<TileSetUi>()
             .register_type::<GridGraphSettings>()
-            .add_systems(Update, (ui, render_grid_graph, propagate).chain());
+            .add_systems(Update, (ui, propagate, render_grid_graph).chain());
     }
 }
 
@@ -86,6 +87,9 @@ fn ui(
             let handle = contexts.add_image(bevy_handle.clone_weak());
             ui_state.image_handles.push((handle, bevy_handle));
         }
+
+        ui_state.graph_dirty = false;
+        ui_state.render_dirty = false;
     }
 
     SidePanel::new(Side::Left, Id::new("left_panel"))
@@ -97,75 +101,77 @@ fn ui(
                 .fill(Color32::from_rgb(38, 38, 38)),
         )
         .show(contexts.ctx_mut(), |ui| {
-            CollapsingHeader::new("WFC Settings")
-                .default_open(true)
-                .show(ui, |ui| {
-                    ui_for_value(ui_state.as_mut(), ui, &type_registry.read());
+            ScrollArea::new([false, true]).show(ui, |ui| {
+                CollapsingHeader::new("WFC Settings")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        ui_for_value(ui_state.as_mut(), ui, &type_registry.read());
 
-                    if ui.button("Generate").clicked() {
-                        let create_graph_span = info_span!("wfc_create_graph").entered();
-                        let settings = match &ui_state.picked_tileset {
-                            TileSetUi::BasicTileset(settings) => settings,
-                            TileSetUi::Carcassonne(settings) => settings,
-                        };
-                        let graph = tileset.create_graph(settings);
-                        create_graph_span.exit();
+                        if ui.button("Generate").clicked() {
+                            let create_graph_span = info_span!("wfc_create_graph").entered();
+                            let settings = match &ui_state.picked_tileset {
+                                TileSetUi::BasicTileset(settings) => settings,
+                                TileSetUi::Carcassonne(settings) => settings,
+                            };
+                            let graph = tileset.create_graph(settings);
+                            create_graph_span.exit();
 
-                        let mut tile_entities = Vec::new();
-                        for i in 0..graph.tiles.len() {
-                            let pos = Vec2::new(
-                                (i / settings.height) as f32,
-                                (i % settings.height) as f32,
-                            );
-                            tile_entities.push(
-                                commands
-                                    .spawn((
-                                        SpriteBundle {
-                                            transform: Transform::from_translation(
-                                                ((pos + 0.5) / settings.width as f32 - 0.5)
-                                                    .extend(0.0),
-                                            ),
-                                            sprite: Sprite {
-                                                custom_size: Some(Vec2::splat(
-                                                    1.0 / settings.width as f32,
-                                                )),
+                            let mut tile_entities = Vec::new();
+                            for i in 0..graph.tiles.len() {
+                                let pos = Vec2::new(
+                                    (i / settings.height) as f32,
+                                    (i % settings.height) as f32,
+                                );
+                                tile_entities.push(
+                                    commands
+                                        .spawn((
+                                            SpriteBundle {
+                                                transform: Transform::from_translation(
+                                                    ((pos + 0.5) / settings.width as f32 - 0.5)
+                                                        .extend(0.0),
+                                                ),
+                                                sprite: Sprite {
+                                                    custom_size: Some(Vec2::splat(
+                                                        1.0 / settings.width as f32,
+                                                    )),
+                                                    ..default()
+                                                },
                                                 ..default()
                                             },
-                                            ..default()
-                                        },
-                                        TileSprite,
-                                    ))
-                                    .id(),
-                            );
-                        }
-                        for tile_entity in ui_state.tile_entities.iter() {
-                            commands.entity(*tile_entity).despawn();
-                        }
-
-                        ui_state.tile_entities = tile_entities;
-                        ui_state.graph = Some(graph);
-
-                        ui_state.graph_dirty = true;
-                        ui_state.render_dirty = true;
-                    }
-                });
-
-            CollapsingHeader::new("Tileset Settings")
-                .default_open(true)
-                .show(ui, |ui| {
-                    egui::Grid::new("some_unique_id").show(ui, |ui| {
-                        for i in 0..ui_state.weights.len() {
-                            ui.vertical_centered(|ui| {
-                                ui.image(ui_state.image_handles[i % 30].0, [64.0, 64.0]);
-                                ui.add(DragValue::new(&mut ui_state.weights[i]));
-                            });
-
-                            if i % 4 == 3 {
-                                ui.end_row();
+                                            TileSprite,
+                                        ))
+                                        .id(),
+                                );
                             }
+                            for tile_entity in ui_state.tile_entities.iter() {
+                                commands.entity(*tile_entity).despawn();
+                            }
+
+                            ui_state.tile_entities = tile_entities;
+                            ui_state.graph = Some(graph);
+
+                            ui_state.graph_dirty = true;
+                            ui_state.render_dirty = true;
                         }
                     });
-                });
+
+                CollapsingHeader::new("Tileset Settings")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        egui::Grid::new("some_unique_id").show(ui, |ui| {
+                            for i in 0..ui_state.weights.len() {
+                                ui.vertical_centered(|ui| {
+                                    ui.image(ui_state.image_handles[i % 30].0, [64.0, 64.0]);
+                                    ui.add(DragValue::new(&mut ui_state.weights[i]));
+                                });
+
+                                if i % 4 == 3 {
+                                    ui.end_row();
+                                }
+                            }
+                        });
+                    });
+            });
         });
 }
 
