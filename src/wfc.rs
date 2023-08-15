@@ -1,6 +1,6 @@
 use crate::graph::{Cell, Graph, Neighbor};
 use rand::Rng;
-use std::time::Instant;
+use web_time::Instant;
 
 pub struct GraphWfc;
 

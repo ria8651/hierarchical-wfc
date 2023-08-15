@@ -28,11 +28,11 @@ impl Plugin for UiPlugin {
             .register_type::<UiState>()
             .register_type::<TileSetUi>()
             .register_type::<GridGraphSettings>()
-            .add_systems(Update, (ui, propagate, render_grid_graph).chain());
+            .add_systems(Update, (ui, render_grid_graph, propagate).chain());
     }
 }
 
-#[derive(Resource, Reflect, Default)]
+#[derive(Resource, Reflect)]
 struct UiState {
     seed: u64,
     random_seed: bool,
@@ -50,6 +50,23 @@ struct UiState {
     render_dirty: bool,
     #[reflect(ignore)]
     tile_entities: Vec<Entity>,
+}
+
+impl Default for UiState {
+    fn default() -> Self {
+        Self {
+            seed: 0,
+            random_seed: true,
+            picked_tileset: TileSetUi::default(),
+            timeout: Some(0.05),
+            weights: Vec::new(),
+            image_handles: Vec::new(),
+            graph: None,
+            graph_dirty: false,
+            render_dirty: false,
+            tile_entities: Vec::new(),
+        }
+    }
 }
 
 #[derive(Reflect)]
