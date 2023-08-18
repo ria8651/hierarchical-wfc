@@ -1,7 +1,7 @@
 use crate::{
     graph::{Cell, Graph},
     graph_grid::GridGraphSettings,
-    graph_grid_8D::{create, Direction8D},
+    graph_grid_8D::{self, Direction8D},
     tileset::TileSet,
 };
 
@@ -30,7 +30,6 @@ impl TileSet for HierarchicalTileset {
         enum TileEdgeType {
             Any,
             Ocean,
-            Shore,
             Sand,
             OceanShore,
             ShoreSand,
@@ -95,7 +94,7 @@ impl TileSet for HierarchicalTileset {
         for edges in rotated_tile_edge_types.iter() {
             let mut allowed_neighbors_for_tile = Vec::with_capacity(self.directions());
             for (edge_index, edge) in edges.into_iter().enumerate() {
-                let direction = Direction::from(edge_index);
+                let direction = Direction8D::from(edge_index);
                 let mut cell = Cell::empty();
 
                 // add all tiles with this edge type to the neighbor set
@@ -131,6 +130,6 @@ impl TileSet for HierarchicalTileset {
 
     fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Cell> {
         let cell = Cell::filled(self.tile_count());
-        graph_grid::create(settings, cell)
+        graph_grid_8D::create(settings, cell)
     }
 }
