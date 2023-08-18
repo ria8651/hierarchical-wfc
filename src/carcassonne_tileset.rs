@@ -11,9 +11,6 @@ pub struct CarcassonneTileset;
 impl TileSet for CarcassonneTileset {
     type GraphSettings = GridGraphSettings;
 
-    // const TILE_COUNT: usize = 120;
-    // const DIRECTIONS: usize = 4;
-
     fn tile_count(&self) -> usize {
         120
     }

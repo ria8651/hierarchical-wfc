@@ -115,37 +115,22 @@ pub enum Direction {
 
 impl Direction {
     pub fn other(&self) -> Self {
-        match self {
-            Self::Up => Self::Down,
-            Self::Down => Self::Up,
-            Self::Left => Self::Right,
-            Self::Right => Self::Left,
-        }
+        self.rotate(2)
     }
 
     pub fn rotate(&self, rotation: usize) -> Self {
-        match rotation {
-            0 => *self,
-            1 => match self {
-                Self::Up => Self::Right,
-                Self::Down => Self::Left,
-                Self::Left => Self::Up,
-                Self::Right => Self::Down,
-            },
-            2 => match self {
-                Self::Up => Self::Down,
-                Self::Down => Self::Up,
-                Self::Left => Self::Right,
-                Self::Right => Self::Left,
-            },
-            3 => match self {
-                Self::Up => Self::Left,
-                Self::Down => Self::Right,
-                Self::Left => Self::Down,
-                Self::Right => Self::Up,
-            },
-            _ => panic!("Invalid rotation: {}", rotation),
+        if rotation == 0 {
+            return *self;
         }
+        if rotation >= 4 {
+            panic!("Invalid rotation: {}", rotation);
+        }
+
+        // Array that specifies the correct rotation order
+        let rotation_order = [Self::Up, Self::Right, Self::Down, Self::Left];
+        let current_idx = rotation_order.iter().position(|&dir| dir == *self).unwrap();
+        let new_idx = (current_idx + rotation) % 4;
+        rotation_order[new_idx]
     }
 }
 

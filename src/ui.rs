@@ -3,6 +3,7 @@ use crate::{
     carcassonne_tileset::CarcassonneTileset,
     graph::{Cell, Graph},
     graph_grid::GridGraphSettings,
+    hierarchical_tileset::HierarchicalTileset,
     tileset::TileSet,
     wfc::GraphWfc,
 };

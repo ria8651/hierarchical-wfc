@@ -8,6 +8,8 @@ mod basic_tileset;
 mod carcassonne_tileset;
 mod graph;
 mod graph_grid;
+mod graph_grid_8D;
+mod hierarchical_tileset;
 mod tileset;
 mod ui;
 mod wfc;
