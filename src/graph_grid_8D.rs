@@ -69,7 +69,7 @@ pub enum Direction8D {
 
 impl Direction8D {
     pub fn other(&self) -> Self {
-        Self.rotate(4)
+        self.rotate(4)
     }
 
     pub fn rotate(&self, rotation: usize) -> Self {
@@ -82,7 +82,7 @@ impl Direction8D {
 
         let current_direction = *self as usize;
         let new_direction = (current_direction + rotation) % 8;
-        Direction::from(new_direction)
+        Direction8D::from(new_direction)
     }
 }
 
