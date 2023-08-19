@@ -1,3 +1,4 @@
+pub mod bevy_passes;
 pub mod direction;
 pub mod graph;
 pub mod graph_grid;

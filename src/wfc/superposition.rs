@@ -23,6 +23,14 @@ impl Superposition {
         self[tile / 32] |= 1 << (tile % 32);
     }
 
+    pub fn add_other(&mut self, other: &Self) {
+        self.0 = Superposition::join(&self, other).0;
+    }
+
+    pub fn contains(&self, tile: usize) -> bool {
+        0 != (self[tile / 32] & 1 << (tile % 32))
+    }
+
     pub fn single(tile: usize) -> Self {
         let mut cell = Self([0; TILE_U32S]);
         cell[tile / 32] |= 1 << (tile % 32);

@@ -7,6 +7,7 @@ use bevy::{
     render::render_resource::{AddressMode, FilterMode, SamplerDescriptor},
 };
 
+use bevy::log::LogPlugin;
 use bevy_inspector_egui::{bevy_egui, egui, reflect_inspector, DefaultInspectorConfigPlugin};
 use bevy_mod_debugdump;
 use bevy_rapier3d::prelude::{
@@ -20,11 +21,17 @@ use hierarchical_wfc::{
     materials::{debug_arc_material::DebugLineMaterial, tile_pbr_material::TilePbrMaterial},
     tools::MeshBuilder,
     village::{
-        facade_graph::{FacadePassData, FacadePassSettings},
+        facade_graph::{FacadePassData, FacadePassSettings, FacadeTileset},
         layout_graph::LayoutGraphSettings,
         layout_pass::LayoutTileset,
     },
-    wfc::{Superposition, TileSet, WaveFunctionCollapse, WfcGraph},
+    wfc::{
+        bevy_passes::{
+            wfc_collapse_system, wfc_ready_system, WfcEntityMarker, WfcFCollapsedData,
+            WfcInitialData, WfcParentPasses, WfcPassReadyMarker, WfcPendingParentMarker,
+        },
+        Superposition, TileSet, WaveFunctionCollapse, WfcGraph,
+    },
 };
 
 use rand::{rngs::StdRng, SeedableRng};
@@ -47,6 +54,10 @@ fn main() {
                     address_mode_w: AddressMode::Repeat,
                     ..Default::default()
                 },
+            })
+            .set(LogPlugin {
+                filter: "info,wgpu_core=error,wgpu_hal=error,naga=error,mygame=debug".into(),
+                level: bevy::log::Level::DEBUG,
             }),
         SwitchingCameraPlugin,
         RapierPhysicsPlugin::<NoUserData>::default(),
@@ -141,34 +152,9 @@ fn setup(
 }
 
 #[derive(Component)]
-struct WfcEntityMarker;
-
-#[derive(Component)]
 struct LayoutPass {
     settings: LayoutGraphSettings,
 }
-
-#[derive(Component)]
-struct WfcInitialData {
-    graph: WfcGraph<Superposition>,
-    constraints: Vec<Vec<Superposition>>,
-    weights: Vec<u32>,
-    rng: StdRng,
-}
-
-#[derive(Component)]
-struct WfcFCollapsedData {
-    graph: WfcGraph<usize>,
-}
-
-#[derive(Component)]
-struct WfcParentPasses(Vec<Entity>);
-
-#[derive(Component)]
-struct WfcPendingParentMarker;
-
-#[derive(Component)]
-struct WfcPassReadyMarker;
 
 fn layout_init_system(
     mut commands: Commands,
@@ -191,52 +177,6 @@ fn layout_init_system(
             weights: tileset.get_weights(),
             rng,
         });
-    }
-}
-
-fn wfc_ready_system(
-    mut commands: Commands,
-    q_pending: Query<(Entity, &WfcParentPasses), With<WfcPendingParentMarker>>,
-    q_parent: Query<With<WfcFCollapsedData>>,
-) {
-    for (child, WfcParentPasses(parents)) in q_pending.iter() {
-        if 'ready: {
-            for parent in parents {
-                match q_parent.get(*parent) {
-                    Ok(_) => {}
-                    Err(_) => {
-                        break 'ready false;
-                    }
-                }
-            }
-            true
-        } {
-            let mut entity_commands = commands.entity(child);
-            entity_commands.remove::<WfcPendingParentMarker>();
-            entity_commands.insert(WfcPassReadyMarker);
-        }
-    }
-}
-
-fn wfc_collapse_system(mut commands: Commands, mut query: Query<(Entity, &mut WfcInitialData)>) {
-    for (entity, mut initial_data) in query.iter_mut() {
-        dbg!("Collapsing Entity");
-        let WfcInitialData {
-            graph,
-            constraints,
-            weights,
-            rng,
-        } = initial_data.as_mut();
-
-        WaveFunctionCollapse::collapse(graph, constraints, weights, rng);
-        let mut entity_commands = commands.entity(entity);
-        entity_commands.remove::<WfcInitialData>();
-        match graph.validate() {
-            Ok(result) => {
-                entity_commands.insert(WfcFCollapsedData { graph: result });
-            }
-            Err(_) => {}
-        };
     }
 }
 
@@ -322,7 +262,8 @@ fn facade_init_system(
             parent_data,
         ) in q_layout_parents.iter_many(parents.0.iter())
         {
-            let facade_pass_data = FacadePassData::from_layout(&parent_data.graph, parent_settings);
+            let facade_pass_data =
+                FacadePassData::from_layout(&parent_data.graph, &parent_settings);
 
             // Create debug meshes
             commands
@@ -363,6 +304,8 @@ fn facade_init_system(
                 .remove::<WfcPassReadyMarker>()
                 .insert(facade_pass_data)
                 .insert(SpatialBundle::default());
+
+            FacadeTileset::from_asset("semantics/facade.json");
         }
     }
 }
