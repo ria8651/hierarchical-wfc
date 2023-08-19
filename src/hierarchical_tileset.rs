@@ -34,6 +34,24 @@ impl TileSet for HierarchicalTileset {
             OceanShore,
             ShoreSand,
         }
+
+        fn edge_to_tile_types(edge: TileEdgeType) -> Vec<TileType> {
+            match edge {
+                TileEdgeType::Any => vec![TileType::Ocean, TileType::Shore, TileType::Sand],
+                TileEdgeType::Ocean => vec![TileType::Ocean],
+                TileEdgeType::Sand => vec![TileType::Sand],
+                TileEdgeType::OceanShore => vec![TileType::Ocean, TileType::Shore],
+                TileEdgeType::ShoreSand => vec![TileType::Shore, TileType::Sand],
+            }
+        }
+        fn tile_type_to_indices(tile_type: TileType) -> Vec<usize> {
+            match tile_type {
+                TileType::Ocean => vec![0],
+                TileType::Shore => (1..=8).collect(),
+                TileType::Sand => vec![9],
+            }
+        }
+
         type T = TileEdgeType;
 
         let tile_edge_types = [
@@ -94,15 +112,11 @@ impl TileSet for HierarchicalTileset {
         for edges in rotated_tile_edge_types.iter() {
             let mut allowed_neighbors_for_tile = Vec::with_capacity(self.directions());
             for (edge_index, edge) in edges.into_iter().enumerate() {
-                let direction = Direction8D::from(edge_index);
                 let mut cell = Cell::empty();
 
                 // add all tiles with this edge type to the neighbor set
-                for (other_tile, other_edges) in rotated_tile_edge_types.iter().enumerate() {
-                    if other_edges[direction.other() as usize] == *edge {
-                        cell.add_tile(other_tile);
-                    }
-                }
+
+                cell.add_tile(other_tile);
 
                 allowed_neighbors_for_tile.push(cell);
             }
