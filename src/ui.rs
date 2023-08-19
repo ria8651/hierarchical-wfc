@@ -28,7 +28,7 @@ impl Plugin for UiPlugin {
             .register_type::<UiState>()
             .register_type::<TileSetUi>()
             .register_type::<GridGraphSettings>()
-            .add_systems(Update, (ui, render_grid_graph, propagate).chain());
+            .add_systems(Update, (ui, propagate, render_grid_graph).chain());
     }
 }
 
@@ -47,9 +47,17 @@ struct UiState {
     #[reflect(ignore)]
     graph_dirty: bool,
     #[reflect(ignore)]
-    render_dirty: bool,
+    render_dirty: RenderState,
     #[reflect(ignore)]
     tile_entities: Vec<Entity>,
+}
+
+#[derive(Default, PartialEq, Eq)]
+enum RenderState {
+    #[default]
+    Init,
+    Dirty,
+    Done,
 }
 
 #[derive(Reflect)]
@@ -143,7 +151,7 @@ fn ui(
                         ui_state.graph = Some(graph);
 
                         ui_state.graph_dirty = true;
-                        ui_state.render_dirty = true;
+                        ui_state.render_dirty = RenderState::Init;
                     }
                 });
 
@@ -198,7 +206,9 @@ fn propagate(mut ui_state: ResMut<UiState>) {
         ui_state.graph = Some(graph);
         collapse_span.exit();
 
-        ui_state.render_dirty = true;
+        if ui_state.render_dirty != RenderState::Init {
+            ui_state.render_dirty = RenderState::Dirty;
+        }
     }
 }
 
@@ -209,7 +219,7 @@ fn render_grid_graph(
 ) {
     let render_span = info_span!("wfc_render").entered();
     if let Some(graph) = &ui_state.graph {
-        if ui_state.render_dirty {
+        if ui_state.render_dirty == RenderState::Dirty {
             let tileset = get_tileset(&ui_state.picked_tileset);
 
             // tileset
@@ -219,6 +229,7 @@ fn render_grid_graph(
             }
 
             // result
+            println!("graph.tiles.len(): {}", graph.tiles.len());
             for i in 0..graph.tiles.len() {
                 if let Some(mut tile_index) = graph.tiles[i].collapse() {
                     let mut tile_rotation = 0;
@@ -237,7 +248,10 @@ fn render_grid_graph(
                 }
             }
 
-            ui_state.render_dirty = false;
+            ui_state.render_dirty = RenderState::Done;
+        }
+        if ui_state.render_dirty == RenderState::Init {
+            ui_state.render_dirty = RenderState::Dirty;
         }
     }
     render_span.exit();
