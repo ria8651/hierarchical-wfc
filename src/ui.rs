@@ -56,6 +56,7 @@ struct UiState {
 enum TileSetUi {
     Carcassonne(GridGraphSettings),
     BasicTileset(GridGraphSettings),
+    HierarchicalTileset(GridGraphSettings),
 }
 
 #[derive(Component)]
@@ -68,13 +69,7 @@ fn ui(
     type_registry: Res<AppTypeRegistry>,
     asset_server: Res<AssetServer>,
 ) {
-    let tileset = match &ui_state.picked_tileset {
-        TileSetUi::BasicTileset(_) => {
-            Box::new(BasicTileset::default()) as Box<dyn TileSet<GraphSettings = GridGraphSettings>>
-        }
-        TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset::default())
-            as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
-    };
+    let tileset = get_tileset(&ui_state.picked_tileset);
 
     if ui_state.weights.len() != tileset.tile_count() {
         ui_state.weights = tileset.get_weights();
@@ -108,6 +103,7 @@ fn ui(
                         let settings = match &ui_state.picked_tileset {
                             TileSetUi::BasicTileset(settings) => settings,
                             TileSetUi::Carcassonne(settings) => settings,
+                            TileSetUi::HierarchicalTileset(settings) => settings,
                         };
                         let graph = tileset.create_graph(settings);
                         create_graph_span.exit();
@@ -170,15 +166,17 @@ fn ui(
         });
 }
 
+fn get_tileset(picked_tileset: &TileSetUi) -> Box<dyn TileSet<GraphSettings = GridGraphSettings>> {
+    match picked_tileset {
+        TileSetUi::BasicTileset(_) => Box::new(BasicTileset::default()),
+        TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset::default()),
+        TileSetUi::HierarchicalTileset(_) => Box::new(HierarchicalTileset::default()),
+    }
+}
+
 fn propagate(mut ui_state: ResMut<UiState>) {
     if ui_state.graph_dirty {
-        let tileset = match &ui_state.picked_tileset {
-            TileSetUi::BasicTileset(_) => Box::new(BasicTileset::default())
-                as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
-            TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset::default())
-                as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
-        };
-
+        let tileset = get_tileset(&ui_state.picked_tileset);
         let setup_constraints_span = info_span!("wfc_setup_constraints").entered();
         let constraints = tileset.get_constraints();
         let mut rng = if !ui_state.random_seed {
@@ -212,12 +210,7 @@ fn render_grid_graph(
     let render_span = info_span!("wfc_render").entered();
     if let Some(graph) = &ui_state.graph {
         if ui_state.render_dirty {
-            let tileset = match &ui_state.picked_tileset {
-                TileSetUi::BasicTileset(_) => Box::new(BasicTileset::default())
-                    as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
-                TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset::default())
-                    as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
-            };
+            let tileset = get_tileset(&ui_state.picked_tileset);
 
             // tileset
             let mut tile_handles: Vec<Handle<Image>> = Vec::new();

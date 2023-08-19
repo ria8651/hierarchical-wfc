@@ -2,6 +2,19 @@ use crate::graph::{Graph, Neighbor};
 use crate::graph_grid::GridGraphSettings;
 use bevy::prelude::*;
 
+fn directions() -> [IVec2; 8] {
+    [
+        IVec2::new(0, 1),   // up
+        IVec2::new(1, 1),   // up right
+        IVec2::new(1, 0),   // right
+        IVec2::new(1, -1),  // down right
+        IVec2::new(0, -1),  // down
+        IVec2::new(-1, -1), // down left
+        IVec2::new(-1, 0),  // left
+        IVec2::new(-1, 1),  // up left
+    ]
+}
+
 pub fn create<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> Graph<F> {
     let size = IVec2::new(settings.width as i32, settings.height as i32);
 
@@ -12,16 +25,7 @@ pub fn create<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> Graph<F> 
         }
     }
 
-    let directions = [
-        IVec2::new(0, 1),   // up
-        IVec2::new(1, 1),   // up right
-        IVec2::new(1, 0),   // right
-        IVec2::new(1, -1),  // down right
-        IVec2::new(0, -1),  // down
-        IVec2::new(-1, -1), // down left
-        IVec2::new(-1, 0),  // left
-        IVec2::new(-1, 1),  // up left
-    ];
+    let directions = directions();
 
     let mut neighbors = Vec::new();
     for pos in nodes_pos.iter() {
@@ -68,15 +72,11 @@ pub enum Direction8D {
 }
 
 impl Direction8D {
-    pub fn other(&self) -> Self {
-        self.rotate(4)
-    }
-
     pub fn rotate(&self, rotation: usize) -> Self {
         if rotation == 0 {
             return *self;
         }
-        if rotation >= 4 {
+        if rotation >= 8 {
             panic!("Invalid rotation: {}", rotation);
         }
 

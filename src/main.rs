@@ -8,6 +8,7 @@ mod basic_tileset;
 mod carcassonne_tileset;
 mod graph;
 mod graph_grid;
+#[allow(non_snake_case)]
 mod graph_grid_8D;
 mod hierarchical_tileset;
 mod tileset;

@@ -8,6 +8,10 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct HierarchicalTileset;
 
+impl HierarchicalTileset {
+    const ROTATED_TILES: [usize; 1] = [1];
+}
+
 impl TileSet for HierarchicalTileset {
     type GraphSettings = GridGraphSettings;
 
@@ -27,7 +31,7 @@ impl TileSet for HierarchicalTileset {
             Sand,
         }
         #[derive(Clone, Copy, PartialEq, Eq)]
-        enum TileEdgeType {
+        enum EdgeType {
             Any,
             Ocean,
             Sand,
@@ -35,13 +39,13 @@ impl TileSet for HierarchicalTileset {
             ShoreSand,
         }
 
-        fn edge_to_tile_types(edge: TileEdgeType) -> Vec<TileType> {
+        fn edge_to_tile_types(edge: EdgeType) -> Vec<TileType> {
             match edge {
-                TileEdgeType::Any => vec![TileType::Ocean, TileType::Shore, TileType::Sand],
-                TileEdgeType::Ocean => vec![TileType::Ocean],
-                TileEdgeType::Sand => vec![TileType::Sand],
-                TileEdgeType::OceanShore => vec![TileType::Ocean, TileType::Shore],
-                TileEdgeType::ShoreSand => vec![TileType::Shore, TileType::Sand],
+                EdgeType::Any => vec![TileType::Ocean, TileType::Shore, TileType::Sand],
+                EdgeType::Ocean => vec![TileType::Ocean],
+                EdgeType::Sand => vec![TileType::Sand],
+                EdgeType::OceanShore => vec![TileType::Ocean, TileType::Shore],
+                EdgeType::ShoreSand => vec![TileType::Shore, TileType::Sand],
             }
         }
         fn tile_type_to_indices(tile_type: TileType) -> Vec<usize> {
@@ -52,49 +56,45 @@ impl TileSet for HierarchicalTileset {
             }
         }
 
-        type T = TileEdgeType;
-
         let tile_edge_types = [
             [
-                T::OceanShore,
-                T::OceanShore,
-                T::OceanShore,
-                T::OceanShore,
-                T::OceanShore,
-                T::OceanShore,
-                T::OceanShore,
-                T::OceanShore,
+                EdgeType::OceanShore,
+                EdgeType::OceanShore,
+                EdgeType::OceanShore,
+                EdgeType::OceanShore,
+                EdgeType::OceanShore,
+                EdgeType::OceanShore,
+                EdgeType::OceanShore,
+                EdgeType::OceanShore,
             ],
             [
-                T::Ocean,
-                T::OceanShore,
-                T::Any,
-                T::ShoreSand,
-                T::Sand,
-                T::ShoreSand,
-                T::Any,
-                T::OceanShore,
+                EdgeType::Ocean,
+                EdgeType::OceanShore,
+                EdgeType::Any,
+                EdgeType::ShoreSand,
+                EdgeType::Sand,
+                EdgeType::ShoreSand,
+                EdgeType::Any,
+                EdgeType::OceanShore,
             ],
             [
-                T::ShoreSand,
-                T::ShoreSand,
-                T::ShoreSand,
-                T::ShoreSand,
-                T::ShoreSand,
-                T::ShoreSand,
-                T::ShoreSand,
-                T::ShoreSand,
+                EdgeType::ShoreSand,
+                EdgeType::ShoreSand,
+                EdgeType::ShoreSand,
+                EdgeType::ShoreSand,
+                EdgeType::ShoreSand,
+                EdgeType::ShoreSand,
+                EdgeType::ShoreSand,
+                EdgeType::ShoreSand,
             ],
         ];
-
-        let tiles_to_rotate = [1];
 
         // rotate all tiles to get all possible edge types
         let mut rotated_tile_edge_types = Vec::with_capacity(self.tile_count());
         for (edges_index, edges) in tile_edge_types.iter().enumerate() {
-            if tiles_to_rotate.contains(&edges_index) {
+            if HierarchicalTileset::ROTATED_TILES.contains(&edges_index) {
                 for rotation in 0..self.directions() {
-                    let mut rotated_edges = vec![T::Any; self.directions()];
+                    let mut rotated_edges = vec![EdgeType::Any; self.directions()];
                     for (edge_index, edge) in edges.iter().enumerate() {
                         let direction = Direction8D::from(edge_index);
                         rotated_edges[direction.rotate(rotation) as usize] = *edge;
@@ -106,20 +106,26 @@ impl TileSet for HierarchicalTileset {
             }
         }
 
-        // convert to allowed neighbors
-        // %TODO: this code has not been yet converted to the new graph_grid_8D
+        // Convert to allowed neighbors
         let mut allowed_neighbors = Vec::with_capacity(self.tile_count());
-        for edges in rotated_tile_edge_types.iter() {
+
+        for edges in &rotated_tile_edge_types {
             let mut allowed_neighbors_for_tile = Vec::with_capacity(self.directions());
-            for (edge_index, edge) in edges.into_iter().enumerate() {
+
+            for edge in edges {
+                let tile_types = edge_to_tile_types(*edge);
+
                 let mut cell = Cell::empty();
-
-                // add all tiles with this edge type to the neighbor set
-
-                cell.add_tile(other_tile);
+                for tile_type in &tile_types {
+                    let indices = tile_type_to_indices(*tile_type);
+                    for idx in indices {
+                        cell.add_tile(idx);
+                    }
+                }
 
                 allowed_neighbors_for_tile.push(cell);
             }
+
             allowed_neighbors.push(allowed_neighbors_for_tile);
         }
 
@@ -128,22 +134,53 @@ impl TileSet for HierarchicalTileset {
 
     fn get_weights(&self) -> Vec<u32> {
         let mut weights = Vec::with_capacity(self.tile_count());
-        for _ in 0..self.tile_count() {
-            weights.push(100);
+        weights.push(100);
+        for _ in 0..HierarchicalTileset::ROTATED_TILES.len() * self.directions() {
+            weights.push(100 / self.directions() as u32);
         }
+        weights.push(100);
         weights
     }
 
     fn get_tile_paths(&self) -> Vec<String> {
         let mut paths = Vec::new();
-        for tile in 0..self.tile_count() / 4 {
-            paths.push(format!("carcassonne/{}.png", tile));
+        paths.push("hierarchical/layer0/0.png".to_string());
+        for _ in 0..self.directions() {
+            paths.push("hierarchical/layer0/1.png".to_string());
         }
+        paths.push("hierarchical/layer0/2.png".to_string());
         paths
     }
 
     fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Cell> {
         let cell = Cell::filled(self.tile_count());
-        graph_grid_8D::create(settings, cell)
+        let mut graph = graph_grid_8D::create(settings, cell);
+
+        // Fill boundaries of graph with ocean
+        let mut ocean_cell = Cell::empty();
+        ocean_cell.add_tile(0);
+
+        // 1. Fill the top edge
+        for i in 0..settings.width {
+            graph.tiles[i] = ocean_cell;
+        }
+
+        // 2. Fill the bottom edge
+        let start_of_bottom_edge = settings.width * (settings.height - 1);
+        for i in start_of_bottom_edge..(settings.width * settings.height) {
+            graph.tiles[i] = ocean_cell;
+        }
+
+        // 3. Fill the left edge
+        for i in (0..(settings.width * settings.height)).step_by(settings.width) {
+            graph.tiles[i] = ocean_cell;
+        }
+
+        // 4. Fill the right edge
+        for i in (settings.width - 1..(settings.width * settings.height)).step_by(settings.width) {
+            graph.tiles[i] = ocean_cell;
+        }
+
+        graph
     }
 }
