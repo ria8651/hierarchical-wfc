@@ -1,4 +1,9 @@
-use bevy::{asset::ChangeWatcher, math::ivec3, render::primitives::Sphere, tasks::TaskPool};
+use bevy::{
+    asset::ChangeWatcher,
+    math::ivec3,
+    render::{mesh::VertexAttributeDescriptor, primitives::Sphere},
+    tasks::TaskPool,
+};
 use std::{sync::Arc, time::Duration};
 
 use bevy::{
@@ -24,12 +29,13 @@ use hierarchical_wfc::{
     },
     tools::MeshBuilder,
     village::{
+        facade_graph::{create_facade_graph, FacadePassData, FacadePassSettings},
         layout_graph::{create_layout_graph, LayoutGraphSettings},
         layout_pass::LayoutTileset,
     },
     wfc::{Neighbour, Superposition, TileSet, WaveFunctionCollapse, WfcGraph},
 };
-use itertools;
+
 use rand::{rngs::StdRng, SeedableRng};
 fn main() {
     let mut app = App::new();
@@ -310,9 +316,6 @@ impl Default for ReplayPassProgress {
     }
 }
 
-#[derive(Component)]
-struct FacadePass;
-
 const ARC_COLORS: [Vec4; 7] = [
     vec4(1.0, 0.1, 0.1, 1.0), // +x
     vec4(0.1, 1.0, 1.0, 1.0), // -x
@@ -323,133 +326,39 @@ const ARC_COLORS: [Vec4; 7] = [
     vec4(0.1, 0.1, 0.1, 1.0), // invalid
 ];
 
+const DIRECTIONS: [IVec3; 6] = [
+    IVec3::X,
+    IVec3::NEG_X,
+    IVec3::Y,
+    IVec3::NEG_Y,
+    IVec3::Z,
+    IVec3::NEG_Z,
+];
+
 fn facade_init_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut line_materials: ResMut<Assets<DebugLineMaterial>>,
-    query: Query<(Entity, &FacadePass, &WfcParentPasses), With<WfcPassReadyMarker>>,
+    query: Query<(Entity, &FacadePassSettings, &WfcParentPasses), With<WfcPassReadyMarker>>,
     q_layout_parents: Query<(&LayoutPass, &WfcFCollapsedData)>,
 ) {
-    for (entity, pass, parents) in query.iter() {
+    for (entity, pass_settings, parents) in query.iter() {
         for (
             LayoutPass {
-                settings:
-                    LayoutGraphSettings {
-                        x_size,
-                        y_size,
-                        z_size,
-                        periodic: _,
-                    },
+                settings: parent_settings,
             },
             parent_data,
         ) in q_layout_parents.iter_many(parents.0.iter())
         {
-            let mut corner_mesh_builder = MeshBuilder::new();
-            let corner_mesh: Mesh = shape::Cube::new(0.5).into();
-            let mut nodes: Vec<bool> = vec![false; (x_size + 1) * (y_size + 1) * (z_size + 1)];
-            let size = ivec3(*x_size as i32, *y_size as i32, *z_size as i32);
-            let node_pos = itertools::iproduct!(0..size.z + 1, 0..size.y + 1, 0..size.x + 1)
-                .map(|(z, y, x)| ivec3(x, y, z));
-            for (index, pos) in node_pos.clone().enumerate() {
-                let mut connected = 0;
-                for delta in
-                    itertools::iproduct!(-1..=0, -1..=0, -1..=0).map(|(x, y, z)| ivec3(x, y, z))
-                {
-                    let pos = pos + delta;
-                    if (0..size.x).contains(&pos.x)
-                        && (0..size.y).contains(&pos.y)
-                        && (0..size.z).contains(&pos.z)
-                    {
-                        let index = pos.dot(ivec3(1, size.x, size.x * size.y)) as usize;
+            let facade_pass_data = FacadePassData::from_layout(&parent_data.graph, parent_settings);
 
-                        let tile = parent_data.graph.nodes[index];
-                        if (0..=8).contains(&tile) {
-                            connected += 1;
-                        }
-                    }
-                }
-                // let index = pos.dot(ivec3(1, size.x + 1, (size.x + 1) * (size.y + 1)));
-                dbg!(connected);
-                if 0 < connected && connected < 8 {
-                    nodes[index as usize] = true;
-                    let transform =
-                        Transform::from_translation(pos.as_vec3() * vec3(2.0, 3.0, 2.0));
-                    corner_mesh_builder.add_mesh(&corner_mesh, transform, 0);
-                }
-            }
-
-            let mut arc_vertex_positions = Vec::new();
-            let mut arc_vertex_normals = Vec::new();
-            let mut arc_vertex_uvs = Vec::new();
-            let mut arc_vertex_colors = Vec::new();
-
-            for (u, u_pos) in node_pos.enumerate() {
-                if !nodes[u] {
-                    continue;
-                }
-                for (arc_type, v_pos) in [
-                    IVec3::X,
-                    IVec3::NEG_X,
-                    IVec3::Y,
-                    IVec3::NEG_Y,
-                    IVec3::Z,
-                    IVec3::NEG_Z,
-                ]
-                .into_iter()
-                .map(|delta| u_pos + delta)
-                .enumerate()
-                .filter(|(_, pos)| {
-                    (0..size.x + 1).contains(&pos.x)
-                        && (0..size.y + 1).contains(&pos.y)
-                        && (0..size.z + 1).contains(&pos.z)
-                })
-                .filter(|(_, pos)| {
-                    nodes[pos.dot(ivec3(1, size.x + 1, (size.x + 1) * (size.y + 1))) as usize]
-                }) {
-                    let color = ARC_COLORS[arc_type.min(6)];
-
-                    let u = u_pos.as_vec3() * vec3(2.0, 3.0, 2.0);
-                    let v = v_pos.as_vec3() * vec3(2.0, 3.0, 2.0);
-                    let normal = (u - v).normalize();
-
-                    arc_vertex_positions.extend([u, v, u, v, v, u]);
-                    arc_vertex_normals.extend([
-                        Vec3::ZERO,
-                        Vec3::ZERO,
-                        normal,
-                        Vec3::ZERO,
-                        normal,
-                        normal,
-                    ]);
-
-                    arc_vertex_uvs.extend([
-                        Vec2::ZERO,
-                        (v - u).length() * Vec2::X,
-                        Vec2::Y,
-                        (v - u).length() * Vec2::X,
-                        (v - u).length() * Vec2::X + Vec2::Y,
-                        Vec2::Y,
-                    ]);
-
-                    arc_vertex_colors.extend([color; 6])
-                }
-            }
-
-            let mut arcs_mesh =
-                Mesh::new(bevy::render::render_resource::PrimitiveTopology::TriangleList);
-            arcs_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, arc_vertex_positions);
-            arcs_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, arc_vertex_normals);
-            arcs_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, arc_vertex_uvs);
-            arcs_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, arc_vertex_colors);
-
+            // Create debug meshes
             commands
                 .spawn((
                     MaterialMeshBundle {
-                        mesh: meshes.add(arcs_mesh),
-                        material: line_materials.add(DebugLineMaterial {
-                            color: Color::rgb(1.0, 0.0, 1.0),
-                        }),
+                        mesh: meshes
+                            .add(facade_pass_data.debug_vertex_mesh(shape::Cube::new(0.3).into())),
+                        material: materials.add(Color::rgb(0.8, 0.6, 0.6).into()),
                         visibility: Visibility::Visible,
                         ..Default::default()
                     },
@@ -458,17 +367,33 @@ fn facade_init_system(
                 .set_parent(entity);
 
             commands
+                .spawn((MaterialMeshBundle {
+                    mesh: meshes
+                        .add(facade_pass_data.debug_edge_mesh(shape::Cube::new(0.3).into())),
+                    material: materials.add(Color::rgb(0.6, 0.8, 0.6).into()),
+                    visibility: Visibility::Visible,
+                    ..Default::default()
+                },))
+                .set_parent(entity);
+
+            commands
+                .spawn((MaterialMeshBundle {
+                    mesh: meshes
+                        .add(facade_pass_data.debug_quad_mesh(shape::Cube::new(0.3).into())),
+                    material: materials.add(Color::rgb(0.6, 0.6, 0.8).into()),
+                    visibility: Visibility::Visible,
+                    ..Default::default()
+                },))
+                .set_parent(entity);
+
+            commands
                 .entity(entity)
                 .remove::<WfcPassReadyMarker>()
-                .insert(MaterialMeshBundle {
-                    mesh: meshes.add(corner_mesh_builder.build()),
-                    material: materials.add(Color::RED.into()),
-                    ..Default::default()
-                });
+                .insert(facade_pass_data)
+                .insert(SpatialBundle::default());
         }
     }
 }
-
 fn replay_generation_system(
     mut q_passes: Query<(&mut ReplayPassProgress, &WfcFCollapsedData, &Children)>,
     q_blocks: Query<&mut DebugBlocks>,
@@ -524,7 +449,7 @@ fn layout_debug_system(
                 create_debug_mesh(&collapsed_data.graph, &layout_pass.settings);
 
             let material = tile_materials.add(TilePbrMaterial {
-                base_color: Color::rgb(0.6, 0.6, 0.8),
+                base_color: Color::rgb(0.6, 0.6, 0.6),
                 ..Default::default()
             });
 
@@ -609,7 +534,7 @@ fn ui_system(
 
                 commands.spawn((
                     WfcEntityMarker,
-                    FacadePass,
+                    FacadePassSettings,
                     WfcPendingParentMarker,
                     WfcParentPasses(vec![layout_entity]),
                 ));

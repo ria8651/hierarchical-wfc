@@ -1,4 +1,4 @@
-// pub mod facade_graph;
+pub mod facade_graph;
 // pub mod facade_pass;
 pub mod layout_graph;
 pub mod layout_pass;
