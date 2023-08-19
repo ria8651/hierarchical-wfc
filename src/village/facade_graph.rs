@@ -3,7 +3,7 @@ use crate::{
         index_tools::{ivec3_in_bounds, ivec3_to_index},
         MeshBuilder,
     },
-    wfc::{Neighbour, Superposition, WfcGraph},
+    wfc::{Superposition, WfcGraph},
 };
 use bevy::{
     math::{ivec3, vec3},
@@ -302,8 +302,8 @@ const DIRECTIONS: [IVec3; 6] = [
 ];
 
 pub fn create_facade_graph<F: Clone>(
-    data: &FacadePassData,
-    settings: &FacadePassSettings,
+    _data: &FacadePassData,
+    _settings: &FacadePassSettings,
 ) -> WfcGraph<Superposition> {
     WfcGraph {
         nodes: vec![],

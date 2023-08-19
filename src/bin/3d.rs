@@ -164,7 +164,7 @@ impl VillageWaveFunctionCollapse {
         WaveFunctionCollapse::collapse(&mut graph, &constraints, &tileset.get_weights(), &mut rng);
         match graph.validate() {
             Ok(result) => Some(Arc::new(result)),
-            Err(e) => None,
+            Err(_e) => None,
         }
     }
     const ARC_COLORS: [Vec4; 7] = [

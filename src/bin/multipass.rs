@@ -1,17 +1,11 @@
-use bevy::{
-    asset::ChangeWatcher,
-    math::ivec3,
-    render::{mesh::VertexAttributeDescriptor, primitives::Sphere},
-    tasks::TaskPool,
-};
-use std::{sync::Arc, time::Duration};
+use bevy::asset::ChangeWatcher;
+use std::time::Duration;
 
 use bevy::{
     math::{vec3, vec4},
     prelude::{AssetPlugin, PluginGroup, *},
     render::render_resource::{AddressMode, FilterMode, SamplerDescriptor},
 };
-use futures_lite::future;
 
 use bevy_inspector_egui::{bevy_egui, egui, reflect_inspector, DefaultInspectorConfigPlugin};
 use bevy_mod_debugdump;
@@ -23,17 +17,14 @@ use hierarchical_wfc::{
         cam_switcher::{CameraController, SwitchingCameraController, SwitchingCameraPlugin},
         fps::FpsCameraSettings,
     },
-    materials::{
-        debug_arc_material::DebugLineMaterial,
-        tile_pbr_material::{self, TilePbrMaterial},
-    },
+    materials::{debug_arc_material::DebugLineMaterial, tile_pbr_material::TilePbrMaterial},
     tools::MeshBuilder,
     village::{
-        facade_graph::{create_facade_graph, FacadePassData, FacadePassSettings},
-        layout_graph::{create_layout_graph, LayoutGraphSettings},
+        facade_graph::{FacadePassData, FacadePassSettings},
+        layout_graph::LayoutGraphSettings,
         layout_pass::LayoutTileset,
     },
-    wfc::{Neighbour, Superposition, TileSet, WaveFunctionCollapse, WfcGraph},
+    wfc::{Superposition, TileSet, WaveFunctionCollapse, WfcGraph},
 };
 
 use rand::{rngs::StdRng, SeedableRng};
@@ -316,25 +307,6 @@ impl Default for ReplayPassProgress {
     }
 }
 
-const ARC_COLORS: [Vec4; 7] = [
-    vec4(1.0, 0.1, 0.1, 1.0), // +x
-    vec4(0.1, 1.0, 1.0, 1.0), // -x
-    vec4(0.1, 1.0, 0.1, 1.0), // +y
-    vec4(1.0, 0.1, 1.0, 1.0), // -y
-    vec4(0.1, 0.1, 1.0, 1.0), // +z
-    vec4(1.0, 1.0, 0.1, 1.0), // -z
-    vec4(0.1, 0.1, 0.1, 1.0), // invalid
-];
-
-const DIRECTIONS: [IVec3; 6] = [
-    IVec3::X,
-    IVec3::NEG_X,
-    IVec3::Y,
-    IVec3::NEG_Y,
-    IVec3::Z,
-    IVec3::NEG_Z,
-];
-
 fn facade_init_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -342,7 +314,7 @@ fn facade_init_system(
     query: Query<(Entity, &FacadePassSettings, &WfcParentPasses), With<WfcPassReadyMarker>>,
     q_layout_parents: Query<(&LayoutPass, &WfcFCollapsedData)>,
 ) {
-    for (entity, pass_settings, parents) in query.iter() {
+    for (entity, _pass_settings, parents) in query.iter() {
         for (
             LayoutPass {
                 settings: parent_settings,
@@ -404,7 +376,7 @@ fn replay_generation_system(
         progress.current = (collapsed_data.graph.order.len() as f32 * progress.progress) as usize;
 
         for DebugBlocks { material_handle } in q_blocks.iter_many(children) {
-            if let Some(material) = tile_materials.get_mut(material_handle) {
+            if let Some(material) = tile_materials.get_mut(&material_handle) {
                 material.order_cut_off = progress.current as u32;
             };
         }
@@ -489,13 +461,8 @@ fn layout_debug_system(
 fn ui_system(
     type_registry: ResMut<AppTypeRegistry>,
     mut contexts: bevy_egui::EguiContexts,
-    // mut progress: ResMut<VillageLoadProgress>,
-    // mut debug_arcs: Query<&mut Visibility, With<DebugArcs>>,
-    // mut settings_resource: ResMut<GraphSettings>,
     mut commands: Commands,
     mut q_passes: Query<(&mut ReplayPassProgress, &WfcFCollapsedData, &Children)>,
-    // mut existing_tiles: Query<Entity, With<VillageTile>>,
-    // mut existing_debug_arcs: Query<Entity, With<DebugArcs>>,
     wfc_entities: Query<Entity, With<WfcEntityMarker>>,
     mut q_cameras: Query<(
         &mut SwitchingCameraController,
@@ -503,7 +470,6 @@ fn ui_system(
         Option<&mut FpsCameraSettings>,
     )>,
     mut layout_settings: Local<LayoutGraphSettings>,
-    // mut ev_village_wfc: EventWriter<VillageWfcEvent>,
 ) {
     egui::Window::new("Settings and Controls").show(contexts.ctx_mut(), |ui| {
         ui.collapsing("WFC Settings", |ui| {
@@ -538,13 +504,6 @@ fn ui_system(
                     WfcPendingParentMarker,
                     WfcParentPasses(vec![layout_entity]),
                 ));
-                // for tile in existing_tiles.iter_mut() {
-                //     commands.entity(tile).despawn_recursive();
-                // }
-                // // for arcs in existing_debug_arcs.iter_mut() {
-                // //     commands.entity(arcs).despawn_recursive();
-                // // }
-                // ev_village_wfc.send(VillageWfcEvent::Start);
             }
             if ui.button("Clear").clicked() {
                 for entity in wfc_entities.iter() {
@@ -554,7 +513,7 @@ fn ui_system(
         });
 
         ui.collapsing("Replay Generation", |ui| {
-            for (index, (mut replay_pass, data, children)) in q_passes.iter_mut().enumerate() {
+            for (index, (mut replay_pass, _data, _children)) in q_passes.iter_mut().enumerate() {
                 ui.collapsing(format!("{}", index), |ui| {
                     if replay_pass.playing {
                         if ui.button("Pause").clicked() {
@@ -615,18 +574,5 @@ fn ui_system(
                 reflect_inspector::ui_for_value(projection.into_inner(), ui, &type_registry.read());
             }
         });
-
-        // ui.collapsing("Constraint Arcs", |ui| {
-        //     for (index, mut arc) in debug_arcs.iter_mut().enumerate() {
-        //         let mut show = *arc == Visibility::Visible;
-        //         ui.checkbox(&mut show, format!("Arc set #{}", index));
-        //         if show != (*arc == Visibility::Visible) {
-        //             *arc = match show {
-        //                 true => Visibility::Visible,
-        //                 false => Visibility::Hidden,
-        //             };
-        //         }
-        //     }
-        // });
     });
 }
