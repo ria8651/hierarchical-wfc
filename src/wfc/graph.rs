@@ -11,11 +11,11 @@ pub struct WfcGraph<C> {
 
 impl WfcGraph<Superposition> {
     /// Consumes the graph and returns the collapsed tiles
-    pub fn validate(self) -> Result<WfcGraph<usize>> {
+    pub fn validate(&self) -> Result<WfcGraph<usize>> {
         let mut result = WfcGraph {
             nodes: Vec::new(),
-            order: self.order,
-            neighbors: self.neighbors,
+            order: self.order.clone(),
+            neighbors: self.neighbors.clone(),
         };
         for node in 0..self.nodes.len() {
             if let Some(tile) = self.nodes[node].collapse() {
