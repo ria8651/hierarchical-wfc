@@ -1,8 +1,7 @@
 use crate::{
     graph::{Cell, Graph},
-    graph_grid::{self, GridGraphSettings},
+    graph_grid::{self, Direction, GridGraphSettings},
     tileset::TileSet,
-    wfc::Direction,
 };
 
 #[derive(Debug, Default)]

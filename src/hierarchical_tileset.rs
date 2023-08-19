@@ -39,7 +39,7 @@ impl TileSet for HierarchicalTileset {
             ShoreSand,
         }
 
-        fn edge_to_tile_types(edge: EdgeType) -> Vec<TileType> {
+        fn edge_to_tiles(edge: EdgeType) -> Vec<TileType> {
             match edge {
                 EdgeType::Any => vec![TileType::Ocean, TileType::Shore, TileType::Sand],
                 EdgeType::Ocean => vec![TileType::Ocean],
@@ -48,11 +48,19 @@ impl TileSet for HierarchicalTileset {
                 EdgeType::ShoreSand => vec![TileType::Shore, TileType::Sand],
             }
         }
-        fn tile_type_to_indices(tile_type: TileType) -> Vec<usize> {
+        fn tile_to_indices(tile_type: TileType) -> Vec<usize> {
             match tile_type {
                 TileType::Ocean => vec![0],
                 TileType::Shore => (1..=8).collect(),
                 TileType::Sand => vec![9],
+            }
+        }
+        fn index_to_tile(index: usize) -> TileType {
+            match index {
+                0 => TileType::Ocean,
+                1..=8 => TileType::Shore,
+                9 => TileType::Sand,
+                _ => panic!("Invalid tile index"),
             }
         }
 
@@ -109,17 +117,23 @@ impl TileSet for HierarchicalTileset {
         // Convert to allowed neighbors
         let mut allowed_neighbors = Vec::with_capacity(self.tile_count());
 
-        for edges in &rotated_tile_edge_types {
+        for (tile_idx, edges) in rotated_tile_edge_types.iter().enumerate() {
             let mut allowed_neighbors_for_tile = Vec::with_capacity(self.directions());
 
-            for edge in edges {
-                let tile_types = edge_to_tile_types(*edge);
+            for (dir_idx, edge) in edges.iter().enumerate() {
+                let dir = Direction8D::from(dir_idx);
+                let tile_types = edge_to_tiles(*edge);
 
                 let mut cell = Cell::empty();
                 for tile_type in &tile_types {
-                    let indices = tile_type_to_indices(*tile_type);
+                    let indices = tile_to_indices(*tile_type);
                     for idx in indices {
-                        cell.add_tile(idx);
+                        // Use rotated_tile_edge_types to determine if the neighboring tile also accepts
+                        // the current tile as its neighbor in the opposite direction.
+                        let other_edge = rotated_tile_edge_types[idx][dir.other() as usize];
+                        if edge_to_tiles(other_edge).contains(&index_to_tile(tile_idx)) {
+                            cell.add_tile(idx);
+                        }
                     }
                 }
 
@@ -156,30 +170,30 @@ impl TileSet for HierarchicalTileset {
         let cell = Cell::filled(self.tile_count());
         let mut graph = graph_grid_8D::create(settings, cell);
 
-        // Fill boundaries of graph with ocean
-        let mut ocean_cell = Cell::empty();
-        ocean_cell.add_tile(0);
+        // // Fill boundaries of graph with ocean
+        // let mut ocean_cell = Cell::empty();
+        // ocean_cell.add_tile(0);
 
-        // 1. Fill the top edge
-        for i in 0..settings.width {
-            graph.tiles[i] = ocean_cell;
-        }
+        // // 1. Fill the top edge
+        // for i in 0..settings.width {
+        //     graph.tiles[i] = ocean_cell;
+        // }
 
-        // 2. Fill the bottom edge
-        let start_of_bottom_edge = settings.width * (settings.height - 1);
-        for i in start_of_bottom_edge..(settings.width * settings.height) {
-            graph.tiles[i] = ocean_cell;
-        }
+        // // 2. Fill the bottom edge
+        // let start_of_bottom_edge = settings.width * (settings.height - 1);
+        // for i in start_of_bottom_edge..(settings.width * settings.height) {
+        //     graph.tiles[i] = ocean_cell;
+        // }
 
-        // 3. Fill the left edge
-        for i in (0..(settings.width * settings.height)).step_by(settings.width) {
-            graph.tiles[i] = ocean_cell;
-        }
+        // // 3. Fill the left edge
+        // for i in (0..(settings.width * settings.height)).step_by(settings.width) {
+        //     graph.tiles[i] = ocean_cell;
+        // }
 
-        // 4. Fill the right edge
-        for i in (settings.width - 1..(settings.width * settings.height)).step_by(settings.width) {
-            graph.tiles[i] = ocean_cell;
-        }
+        // // 4. Fill the right edge
+        // for i in (settings.width - 1..(settings.width * settings.height)).step_by(settings.width) {
+        //     graph.tiles[i] = ocean_cell;
+        // }
 
         graph
     }

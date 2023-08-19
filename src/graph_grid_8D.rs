@@ -72,6 +72,10 @@ pub enum Direction8D {
 }
 
 impl Direction8D {
+    pub fn other(&self) -> Self {
+        self.rotate(4)
+    }
+
     pub fn rotate(&self, rotation: usize) -> Self {
         if rotation == 0 {
             return *self;

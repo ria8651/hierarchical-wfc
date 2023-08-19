@@ -229,7 +229,6 @@ fn render_grid_graph(
             }
 
             // result
-            println!("graph.tiles.len(): {}", graph.tiles.len());
             for i in 0..graph.tiles.len() {
                 if let Some(mut tile_index) = graph.tiles[i].collapse() {
                     let mut tile_rotation = 0;
