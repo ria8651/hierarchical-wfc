@@ -253,6 +253,7 @@ fn facade_init_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut line_materials: ResMut<Assets<DebugLineMaterial>>,
     query: Query<(Entity, &FacadePassSettings, &WfcParentPasses), With<WfcPassReadyMarker>>,
     q_layout_parents: Query<(&LayoutPass, &WfcFCollapsedData)>,
 ) {
@@ -301,10 +302,24 @@ fn facade_init_system(
                 },))
                 .set_parent(entity);
 
-            let tileset = FacadeTileset::from_asset("semantics/edge_directional.json");
-            let mut wfc_graph = facade_pass_data.create_wfc_graph(&tileset);
+            commands
+                .spawn((
+                    MaterialMeshBundle {
+                        mesh: meshes.add(facade_pass_data.debug_arcs_mesh()),
+                        material: line_materials.add(DebugLineMaterial {
+                            color: Color::rgb(1.0, 0.0, 1.0),
+                        }),
+                        visibility: Visibility::Visible,
+                        ..Default::default()
+                    },
+                    WfcEntityMarker,
+                ))
+                .set_parent(entity);
 
-            let mut wfc = WfcInitialData {
+            let tileset = FacadeTileset::from_asset("semantics/edge_directional.json");
+            let wfc_graph = facade_pass_data.create_wfc_graph(&tileset);
+
+            let wfc = WfcInitialData {
                 graph: wfc_graph,
                 constraints: tileset.get_constraints(),
                 rng: StdRng::from_entropy(),

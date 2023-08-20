@@ -12,7 +12,7 @@ use crate::{
     wfc::{Neighbour, Superposition, TileSet, WfcGraph},
 };
 use bevy::{
-    math::{ivec3, vec3},
+    math::{ivec3, vec3, vec4},
     prelude::*,
 };
 use itertools::Itertools;
@@ -64,13 +64,16 @@ pub struct FacadeEdge {
     pub pos: IVec3,
     pub from: usize,
     pub to: usize,
-    pub quads: Box<[usize]>,
+    pub quads: Box<[(usize, usize)]>,
     pub tangent: usize,
     pub cotangent: usize,
 }
 #[derive(Debug)]
 pub struct FacadeQuad {
     pub pos: IVec3,
+    pub normal: usize,
+    pub tangent: usize,
+    pub cotangent: usize,
     pub verts: [usize; 4],
     pub edges: [usize; 4],
 }
@@ -86,6 +89,16 @@ pub struct FacadePassData {
 }
 
 impl FacadePassData {
+    const ARC_COLORS: [Vec4; 7] = [
+        vec4(1.0, 0.1, 0.1, 1.0),
+        vec4(0.1, 1.0, 1.0, 1.0),
+        vec4(0.1, 1.0, 0.1, 1.0),
+        vec4(1.0, 0.1, 1.0, 1.0),
+        vec4(0.1, 0.1, 1.0, 1.0),
+        vec4(1.0, 1.0, 0.1, 1.0),
+        vec4(0.1, 0.1, 0.1, 1.0),
+    ];
+
     pub fn create_wfc_graph(&self, tileset: &FacadeTileset) -> WfcGraph<Superposition> {
         let vertex_superposition = tileset.superposition_from_semantic_name("vertex".to_string());
         let edge_superposition = tileset.superposition_from_semantic_name("edge".to_string());
@@ -241,40 +254,224 @@ impl FacadePassData {
         vertex_mesh_builder.build()
     }
 
-    fn edge_configuration(from: usize, to: usize, direction: usize) -> usize {
-        // Vertex configuration bits
-        // 0: +x +y +z
-        // 1: -x +y +z
-        // 2: +x -y +z
-        // 3: -x -y +z
-        // 4: +x +y -z
-        // 5: -x +y -z
-        // 6: +x -y -z
-        // 7: -x -y -z
+    pub fn debug_arcs_mesh(&self) -> Mesh {
+        let mut arc_vertex_positions = Vec::new();
+        let mut arc_vertex_normals = Vec::new();
+        let mut arc_vertex_uvs = Vec::new();
+        let mut arc_vertex_colors = Vec::new();
 
-        // Order so edge is from - to +
-        let (from, to) = if direction.rem_euclid(2) == 0 {
-            (from, to)
+        for edge in self.edges.iter() {
+            for dir_quad in edge.quads.iter() {
+                let quad = &self.quads[dir_quad.1];
+                let color = Self::ARC_COLORS[dir_quad.0]; //[*arc_type.min(&6)];
+
+                let u = edge.pos.as_vec3() * vec3(2.0, 3.0, 2.0) * 0.50;
+                let v = quad.pos.as_vec3() * vec3(2.0, 3.0, 2.0) * 0.25;
+                let normal = (u - v).normalize();
+
+                arc_vertex_positions.extend([u, v, u, v, v, u]);
+                arc_vertex_normals.extend([
+                    Vec3::ZERO,
+                    Vec3::ZERO,
+                    normal,
+                    Vec3::ZERO,
+                    normal,
+                    normal,
+                ]);
+
+                arc_vertex_uvs.extend([
+                    Vec2::ZERO,
+                    (v - u).length() * Vec2::X,
+                    Vec2::Y,
+                    (v - u).length() * Vec2::X,
+                    (v - u).length() * Vec2::X + Vec2::Y,
+                    Vec2::Y,
+                ]);
+
+                arc_vertex_colors.extend([color; 6])
+            }
+
+            for (invert_direction, vertex) in [edge.to, edge.from].iter().enumerate() {
+                let vertex = &self.vertices[*vertex];
+                let color = Self::ARC_COLORS[edge.tangent ^ invert_direction]; //[*arc_type.min(&6)];
+
+                let u = edge.pos.as_vec3() * vec3(2.0, 3.0, 2.0) * 0.50;
+                let v = vertex.pos.as_vec3() * vec3(2.0, 3.0, 2.0);
+                let normal = (u - v).normalize();
+
+                arc_vertex_positions.extend([u, v, u, v, v, u]);
+                arc_vertex_normals.extend([
+                    Vec3::ZERO,
+                    Vec3::ZERO,
+                    normal,
+                    Vec3::ZERO,
+                    normal,
+                    normal,
+                ]);
+
+                arc_vertex_uvs.extend([
+                    Vec2::ZERO,
+                    (v - u).length() * Vec2::X,
+                    Vec2::Y,
+                    (v - u).length() * Vec2::X,
+                    (v - u).length() * Vec2::X + Vec2::Y,
+                    Vec2::Y,
+                ]);
+
+                arc_vertex_colors.extend([color; 6])
+            }
+        }
+
+        for vertex in self.vertices.iter() {
+            for (direction, edge) in vertex.edges.iter().enumerate() {
+                if let Some(edge) = edge {
+                    let edge = &self.edges[*edge];
+                    let color = Self::ARC_COLORS[direction]; //[*arc_type.min(&6)];
+
+                    let u = vertex.pos.as_vec3() * vec3(2.0, 3.0, 2.0);
+                    let v = edge.pos.as_vec3() * vec3(2.0, 3.0, 2.0) * 0.5;
+                    let normal = (u - v).normalize();
+
+                    arc_vertex_positions.extend([u, v, u, v, v, u]);
+                    arc_vertex_normals.extend([
+                        Vec3::ZERO,
+                        Vec3::ZERO,
+                        normal,
+                        Vec3::ZERO,
+                        normal,
+                        normal,
+                    ]);
+
+                    arc_vertex_uvs.extend([
+                        Vec2::ZERO,
+                        (v - u).length() * Vec2::X,
+                        Vec2::Y,
+                        (v - u).length() * Vec2::X,
+                        (v - u).length() * Vec2::X + Vec2::Y,
+                        Vec2::Y,
+                    ]);
+
+                    arc_vertex_colors.extend([color; 6])
+                }
+            }
+        }
+
+        for quad in self.quads.iter() {
+            for (quad_edge_index, edge) in quad.edges.iter().enumerate() {
+                let edge = &self.edges[*edge];
+
+                let color = Self::ARC_COLORS[[
+                    quad.cotangent + 1,
+                    quad.tangent,
+                    quad.cotangent,
+                    quad.tangent + 1,
+                ][quad_edge_index]]; //[*arc_type.min(&6)];
+
+                let u = quad.pos.as_vec3() * vec3(2.0, 3.0, 2.0) * 0.25;
+                let v = edge.pos.as_vec3() * vec3(2.0, 3.0, 2.0) * 0.5;
+                let normal = (u - v).normalize();
+
+                arc_vertex_positions.extend([u, v, u, v, v, u]);
+                arc_vertex_normals.extend([
+                    Vec3::ZERO,
+                    Vec3::ZERO,
+                    normal,
+                    Vec3::ZERO,
+                    normal,
+                    normal,
+                ]);
+
+                arc_vertex_uvs.extend([
+                    Vec2::ZERO,
+                    (v - u).length() * Vec2::X,
+                    Vec2::Y,
+                    (v - u).length() * Vec2::X,
+                    (v - u).length() * Vec2::X + Vec2::Y,
+                    Vec2::Y,
+                ]);
+
+                arc_vertex_colors.extend([color; 6])
+            }
+        }
+
+        let mut edges = Mesh::new(bevy::render::render_resource::PrimitiveTopology::TriangleList);
+        edges.insert_attribute(Mesh::ATTRIBUTE_POSITION, arc_vertex_positions);
+        edges.insert_attribute(Mesh::ATTRIBUTE_NORMAL, arc_vertex_normals);
+        edges.insert_attribute(Mesh::ATTRIBUTE_UV_0, arc_vertex_uvs);
+        edges.insert_attribute(Mesh::ATTRIBUTE_COLOR, arc_vertex_colors);
+        return edges;
+    }
+
+    // Labeling the corners of the cube with bits according to:
+    // 0: +x +y +z
+    // 1: -x +y +z
+    // 2: +x -y +z
+    // 3: -x -y +z
+    // 4: +x +y -z
+    // 5: -x +y -z
+    // 6: +x -y -z
+    // 7: -x -y -z
+    const CONFIG_PLUS_X_MASK: usize = 0b01010101;
+    const CONFIG_PLUS_Y_MASK: usize = 0b00110011;
+    const CONFIG_PLUS_Z_MASK: usize = 0b00001111;
+
+    const CONFIG_PLUS_ZYX_MASK: usize = Self::CONFIG_PLUS_X_MASK
+        + (Self::CONFIG_PLUS_Y_MASK << 8)
+        + (Self::CONFIG_PLUS_Z_MASK << 16);
+
+    fn edge_configuration(from: usize, to: usize, direction: usize) -> usize {
+        // Vertex configuration bit index: delta
+
+        // Select the root vertex so that the edge is increasing
+        let root = if direction.rem_euclid(2) == 0 {
+            from
         } else {
-            (to, from)
+            to
         };
 
-        // x: from[2n] & to[2n+1]          : from & (to>>1) .3.2.1.0
+        // Result after comparing
+        // x: from[2n]      & to[2n+1]     : from & (to>>1) .3.2.1.0
         // y: from[0,1,4,5] & to[2,3,6,7]  : from & (to>>2) ..32..01
         // z: from[0,1,2,3] & to[4,5,6,7]  : from & (to>>4) ....3210
-
         match direction {
-            0..=1 => from & (to >> 1),
-            2..=3 => from & (to >> 2),
-            4..=5 => from & (to >> 4),
+            0..=1 => root & Self::CONFIG_PLUS_X_MASK,
+            2..=3 => root & Self::CONFIG_PLUS_Y_MASK,
+            4..=5 => root & Self::CONFIG_PLUS_Z_MASK,
             _ => unreachable!(),
         }
     }
 
     fn edge_occluded(edge_configuration: usize) -> bool {
-        (edge_configuration ^ 0b01010101 == 0)
-            || (edge_configuration ^ 0b00110011 == 0)
-            || (edge_configuration ^ 0b00001111 == 0)
+        println!("Checking: {:08b}", edge_configuration);
+        (edge_configuration & Self::CONFIG_PLUS_X_MASK == Self::CONFIG_PLUS_X_MASK)
+            || (edge_configuration & Self::CONFIG_PLUS_Y_MASK == Self::CONFIG_PLUS_Y_MASK)
+            || (edge_configuration & Self::CONFIG_PLUS_Z_MASK == Self::CONFIG_PLUS_Z_MASK)
+    }
+
+    fn quad_normal(root_configuration: usize, u_step: usize, v_step: usize) -> (bool, usize) {
+        // We always step along positive directions and X=0 Y=2 Z=4, so adding all steps give 6
+        // therefore subtracting two step directions from 6 gives the last direction .
+        let w_step = 6 - u_step - v_step;
+
+        // Three masks in the form [Z][Y][X], masks vertex configuration bits corresponding
+        // to the contents in neighbouring cells along + that axis
+        let face_configuration_mask = 0b11111111
+            & (Self::CONFIG_PLUS_ZYX_MASK >> u_step * 4)
+            & (Self::CONFIG_PLUS_ZYX_MASK >> v_step * 4);
+
+        // Mask two to only the two cells across the edge of the vertex configuration corresponding  to +U +V.
+        let config = face_configuration_mask & root_configuration;
+
+        // Check if the remaining bit lies in the +W or -W direction, the opposite
+        // direction to this will be the normal of the face.
+        let invert = (Self::CONFIG_PLUS_ZYX_MASK >> w_step * 4) & config != 0;
+        let normal = w_step + invert as usize;
+
+        // If there are occupied cells in both +W and -W the face is occluded
+        let occluded = (Self::CONFIG_PLUS_ZYX_MASK >> w_step * 4) & config != 0
+            && (!Self::CONFIG_PLUS_ZYX_MASK >> w_step * 4) & config != 0;
+
+        (occluded, normal)
     }
 
     pub fn from_layout(
@@ -307,6 +504,7 @@ impl FacadePassData {
             for delta in
                 itertools::iproduct!(-1..=0, -1..=0, -1..=0).map(|(z, y, x)| ivec3(x, y, z))
             {
+                vertex_configuration <<= 1;
                 let pos = pos + delta;
                 if (0..size.x).contains(&pos.x)
                     && (0..size.y).contains(&pos.y)
@@ -315,7 +513,6 @@ impl FacadePassData {
                     let index = pos.dot(ivec3(1, size.x, size.x * size.y)) as usize;
 
                     let tile = layout_data.nodes[index];
-                    vertex_configuration <<= 1;
                     if (0..=8).contains(&tile) {
                         vertex_configuration += 1;
                         connected += 1;
@@ -351,6 +548,7 @@ impl FacadePassData {
                                     vertex_configurations[v],
                                     direction_index,
                                 )) {
+                                    dbg!("Occluded edge");
                                     None
                                 } else {
                                     Some(v)
@@ -440,29 +638,33 @@ impl FacadePassData {
                         continue 'quad_loop;
                     }
                 }
+                let (occluded, normal) =
+                    Self::quad_normal(vertex_configurations[quad_vertices[0]], steps[0], steps[1]);
 
-                for e in quad_edges {
-                    edge_quads[e].push(quads.len());
+                if !occluded {
+                    for (step_index, e) in quad_edges.iter().enumerate() {
+                        edge_quads[*e].push((steps[(step_index + 1).rem_euclid(4)], quads.len()));
+                    }
+
+                    quads.push(FacadeQuad {
+                        pos,
+                        normal,
+                        tangent: steps[0],
+                        cotangent: steps[1],
+                        verts: quad_vertices,
+                        edges: quad_edges,
+                    });
                 }
-                quads.push(FacadeQuad {
-                    pos,
-                    verts: quad_vertices,
-                    edges: quad_edges,
-                });
             }
         }
 
         for (edge_index, edge_quads) in edge_quads.into_iter().enumerate() {
-            // assert!(
-            //     edge_quads.len() <= 2,
-            //     "Degenerate facade edge with >2 faces"
-            // );
-            println!("{:?}", edge_quads);
+            assert!(
+                edge_quads.len() <= 2,
+                "Degenerate facade edge with >2 faces"
+            );
             edges[edge_index].quads = edge_quads.into_boxed_slice();
         }
-
-        // dbg!(&quads);
-        // dbg!(&edges);
 
         Self {
             vertices,
