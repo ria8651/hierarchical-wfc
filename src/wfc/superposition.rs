@@ -4,7 +4,11 @@ use rand::{distributions::WeightedIndex, prelude::Distribution, Rng};
 pub const TILE_U32S: usize = 4;
 
 #[derive(Deref, DerefMut, Clone, Copy)]
-pub struct Superposition(pub [u32; TILE_U32S]);
+pub struct Superposition {
+    #[deref]
+    pub bits: [u32; TILE_U32S],
+    pub num_bits: Option<usize>,
+}
 impl Superposition {
     /// Cell fill with ones up to size
     pub fn filled(size: usize) -> Self {
@@ -12,36 +16,68 @@ impl Superposition {
         for i in 0..size {
             result[i / 32] |= 1 << (i % 32);
         }
-        Self(result)
+        Self {
+            bits: result,
+            num_bits: Some(size),
+        }
     }
 
     pub fn empty() -> Self {
-        Self([0; TILE_U32S])
+        Self {
+            bits: [0; TILE_U32S],
+            num_bits: None,
+        }
+    }
+
+    pub fn empty_sized(size: usize) -> Self {
+        Self {
+            bits: [0; TILE_U32S],
+            num_bits: Some(size),
+        }
     }
 
     pub fn add_tile(&mut self, tile: usize) {
-        self[tile / 32] |= 1 << (tile % 32);
+        self.bits[tile / 32] |= 1 << (tile % 32);
     }
 
     pub fn add_other(&mut self, other: &Self) {
-        self.0 = Superposition::join(&self, other).0;
+        self.bits = Superposition::join(&self, other).bits;
     }
 
     pub fn contains(&self, tile: usize) -> bool {
-        0 != (self[tile / 32] & 1 << (tile % 32))
+        0 != (self.bits[tile / 32] & 1 << (tile % 32))
     }
 
     pub fn single(tile: usize) -> Self {
-        let mut cell = Self([0; TILE_U32S]);
-        cell[tile / 32] |= 1 << (tile % 32);
+        let mut cell = Self {
+            bits: [0; TILE_U32S],
+            num_bits: None,
+        };
+        cell.bits[tile / 32] |= 1 << (tile % 32);
         return cell;
     }
 
     pub fn from_iter(tiles: impl Iterator<Item = usize>) -> Self {
-        let mut cell = Self([0; TILE_U32S]);
+        let mut cell = Self {
+            bits: [0; TILE_U32S],
+            num_bits: None,
+        };
         for tile in tiles {
-            cell[tile / 32] |= 1 << (tile % 32);
+            cell.bits[tile / 32] |= 1 << (tile % 32);
         }
+        cell.num_bits = None;
+        return cell;
+    }
+
+    pub fn from_iter_sized(tiles: impl Iterator<Item = usize>, size: usize) -> Self {
+        let mut cell = Self {
+            bits: [0; TILE_U32S],
+            num_bits: None,
+        };
+        for tile in tiles {
+            cell.bits[tile / 32] |= 1 << (tile % 32);
+        }
+        cell.num_bits = Some(size);
         return cell;
     }
 
@@ -51,14 +87,14 @@ impl Superposition {
         for i in 0..TILE_U32S {
             for j in 0..32 {
                 let index = i * 32 + j;
-                if self[i] & (1 << j) == 0 && index < weights.len() {
+                if self.bits[i] & (1 << j) == 0 && index < weights.len() {
                     weighted_rng.update_weights(&[(index, &0)]).unwrap();
                 }
             }
         }
 
         let selected = weighted_rng.sample(rng);
-        self.0 = [0; TILE_U32S];
+        self.bits = [0; TILE_U32S];
         self.add_tile(selected);
     }
 
@@ -74,24 +110,51 @@ impl Superposition {
     pub fn join(a: &Self, b: &Self) -> Self {
         let mut result = [0; TILE_U32S];
         for i in 0..TILE_U32S {
-            result[i] = a[i] | b[i];
+            result[i] = a.bits[i] | b.bits[i];
         }
-        Self(result)
+        let mut num_bits = None;
+        if let (Some(a_size), Some(b_size)) = (a.num_bits, b.num_bits) {
+            assert!(
+                a_size == b_size,
+                "Confit between explicit superposition lengths: ({} vs {})",
+                a_size,
+                b_size
+            );
+            num_bits = Some(a_size);
+        }
+
+        Self {
+            bits: result,
+            num_bits,
+        }
     }
 
     pub fn intersect(a: &Self, b: &Self) -> Self {
         let mut result = [0; TILE_U32S];
         for i in 0..TILE_U32S {
-            result[i] = a[i] & b[i];
+            result[i] = a.bits[i] & b.bits[i];
         }
-        Self(result)
+        let mut num_bits = None;
+        if let (Some(a_size), Some(b_size)) = (a.num_bits, b.num_bits) {
+            assert!(
+                a_size == b_size,
+                "Confit between explicit superposition lengths: \n\t{}\n\t{}",
+                a,
+                b
+            );
+            num_bits = Some(a_size);
+        }
+        Self {
+            bits: result,
+            num_bits,
+        }
     }
 
     /// Counts the number of bits set to 1
     pub fn count_bits(&self) -> usize {
         let mut result = 0;
         for i in 0..TILE_U32S {
-            result += self.0[i].count_ones() as usize;
+            result += self.bits[i].count_ones() as usize;
         }
         result
     }
@@ -100,7 +163,7 @@ impl Superposition {
     pub fn tile_iter(&self) -> impl Iterator<Item = usize> + '_ {
         (0..TILE_U32S).flat_map(move |i| {
             (0..32).filter_map(move |j| {
-                if self[i] & (1 << j) != 0 {
+                if self.bits[i] & (1 << j) != 0 {
                     Some(i * 32 + j)
                 } else {
                     None
@@ -128,30 +191,56 @@ impl std::fmt::Debug for Superposition {
         // print all the bits
         for i in 0..TILE_U32S {
             for j in 0..32 {
-                if self[i] & (1 << j) != 0 {
+                if self.num_bits.is_some_and(|num_bits| i * 32 + j >= num_bits) {
+                    break;
+                }
+                if self.bits[i] & (1 << j) != 0 {
                     write!(f, "1")?;
                 } else {
                     write!(f, "0")?;
                 }
             }
         }
+
+        if let Some(bit_count) = self.num_bits {
+            let bit_count = format!("[{} states]", bit_count);
+            write!(f, "{}", bit_count)?;
+        }
+
         Ok(())
     }
 }
 
 impl std::fmt::Display for Superposition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // print the number of bits
-        write!(f, "{}", self.count_bits())
+        // print all the bits
+        for i in 0..TILE_U32S {
+            for j in 0..32 {
+                if self.num_bits.is_some_and(|num_bits| i * 32 + j >= num_bits) {
+                    break;
+                }
+                if self.bits[i] & (1 << j) != 0 {
+                    write!(f, "1")?;
+                } else {
+                    write!(f, "0")?;
+                }
+            }
+        }
+
+        if let Some(bit_count) = self.num_bits {
+            write!(f, " [{} states]", bit_count)?;
+        }
+
+        Ok(())
     }
 }
 
 impl PartialEq for Superposition {
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        self.bits == other.bits
     }
     fn ne(&self, other: &Self) -> bool {
-        self.0 != other.0
+        self.bits != other.bits
     }
 }
 

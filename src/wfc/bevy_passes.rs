@@ -5,7 +5,7 @@ use rand::rngs::StdRng;
 #[derive(Component)]
 pub struct WfcEntityMarker;
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct WfcInitialData {
     pub graph: WfcGraph<Superposition>,
     pub constraints: Vec<Vec<Superposition>>,

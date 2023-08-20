@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::Add,
+};
 
 use crate::{
     json::tileset::{ConstraintNodeModel, DagNodeModel, SemanticNodeModel, TileSetModel},
@@ -6,7 +9,7 @@ use crate::{
         index_tools::{ivec3_in_bounds, ivec3_to_index},
         MeshBuilder,
     },
-    wfc::{Superposition, TileSet, WfcGraph},
+    wfc::{Neighbour, Superposition, TileSet, WfcGraph},
 };
 use bevy::{
     math::{ivec3, vec3},
@@ -51,24 +54,26 @@ pub enum FaceVariants {
 }
 
 pub struct FacadeVertex {
-    pos: IVec3,
-    neighbours: [Option<usize>; 6],
-    edges: [Option<usize>; 6],
+    pub pos: IVec3,
+    pub neighbours: [Option<usize>; 6],
+    pub edges: [Option<usize>; 6],
 }
 
 #[derive(Debug)]
 pub struct FacadeEdge {
-    pos: IVec3,
-    from: usize,
-    to: usize,
-    left: usize,
-    right: usize,
+    pub pos: IVec3,
+    pub from: usize,
+    pub to: usize,
+    pub left: usize,
+    pub right: usize,
+    pub tangent: usize,
+    pub cotangent: usize,
 }
 #[derive(Debug)]
 pub struct FacadeQuad {
-    pos: IVec3,
-    verts: [usize; 4],
-    edges: [usize; 4],
+    pub pos: IVec3,
+    pub verts: [usize; 4],
+    pub edges: [usize; 4],
 }
 
 #[derive(Component)]
@@ -76,12 +81,125 @@ pub struct FacadePassSettings;
 
 #[derive(Component)]
 pub struct FacadePassData {
-    vertices: Vec<FacadeVertex>,
-    edges: Vec<FacadeEdge>,
-    quads: Vec<FacadeQuad>,
+    pub vertices: Vec<FacadeVertex>,
+    pub edges: Vec<FacadeEdge>,
+    pub quads: Vec<FacadeQuad>,
 }
 
 impl FacadePassData {
+    pub fn create_wfc_graph(&self, tileset: &FacadeTileset) -> WfcGraph<Superposition> {
+        let vertex_superposition = tileset.superposition_from_string("vertex".to_string());
+        let edge_superposition = tileset.superposition_from_string("edge".to_string());
+        // let quad_superposition = tileset.superposition_from_string("quad".to_string());
+
+        let num_verts = self.vertices.len();
+        let num_edges = self.edges.len();
+        let num_quads = self.quads.len();
+
+        WfcGraph {
+            nodes: [
+                self.vertices
+                    .iter()
+                    .map(|_| vertex_superposition.clone())
+                    .collect_vec(),
+                self.edges
+                    .iter()
+                    .map(|_| edge_superposition.clone())
+                    .collect_vec(),
+                // self.quads
+                //     .iter()
+                //     .map(|_| quad_superposition.clone())
+                //     .collect_vec(),
+            ]
+            .into_iter()
+            .flat_map(|v| v.into_iter())
+            .collect_vec(),
+            order: Vec::new(),
+            neighbors: [
+                self.vertices
+                    .iter()
+                    .map(|vert| {
+                        vert.edges
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(index, edge)| {
+                                if let Some(edge) = edge {
+                                    Some(Neighbour {
+                                        arc_type: index,
+                                        index: edge + num_verts,
+                                    })
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect_vec()
+                    })
+                    .collect_vec(),
+                self.edges
+                    .iter()
+                    .map(|edge| {
+                        vec![
+                            Neighbour {
+                                arc_type: FacadeTileset::get_matching_direction(edge.tangent),
+                                index: edge.from,
+                            },
+                            Neighbour {
+                                arc_type: edge.tangent,
+                                index: edge.to,
+                            },
+                            // Neighbour {
+                            //     arc_type: 0,
+                            //     index: num_verts + num_edges + edge.left,
+                            // },
+                            // Neighbour {
+                            //     arc_type: 0,
+                            //     index: num_verts + num_edges + edge.right,
+                            // },
+                        ]
+                    })
+                    .collect_vec(),
+                // self.quads
+                //     .iter()
+                //     .map(|quad| {
+                //         let tangent =
+                //             (self.edges[quad.edges[1]].pos - self.edges[quad.edges[0]].pos);
+                //         let tangent = tangent.signum()
+                //             * [IVec3::X, IVec3::Y, IVec3::Z][tangent.max_element() as usize];
+                //         let tangent = FacadeTileset::ivec3_to_direction(tangent).unwrap();
+
+                //         let cotangent =
+                //             (self.edges[quad.edges[3]].pos - self.edges[quad.edges[1]].pos);
+                //         let cotangent = cotangent.signum()
+                //             * [IVec3::X, IVec3::Y, IVec3::Z][cotangent.max_element() as usize];
+                //         let cotangent = FacadeTileset::ivec3_to_direction(cotangent).unwrap();
+
+                //         vec![
+                //             Neighbour {
+                //                 arc_type: FacadeTileset::get_matching_direction(tangent),
+                //                 index: quad.edges[0] + num_verts,
+                //             },
+                //             Neighbour {
+                //                 arc_type: tangent,
+                //                 index: quad.edges[1] + num_verts,
+                //             },
+                //             // Neighbour {
+                //             //     arc_type: FacadeTileset::get_matching_direction(cotangent),
+                //             //     index: quad.edges[2] + num_verts,
+                //             // },
+                //             // Neighbour {
+                //             //     arc_type: cotangent,
+                //             //     index: quad.edges[3] + num_verts,
+                //             // },
+                //         ]
+                //     })
+                //     .collect_vec(),
+            ]
+            .into_iter()
+            .flat_map(|v| v.into_iter())
+            .collect_vec(),
+        }
+    }
+
     pub fn debug_vertex_mesh(&self, vertex_mesh: Mesh) -> Mesh {
         let mut vertex_mesh_builder = MeshBuilder::new();
 
@@ -164,7 +282,6 @@ impl FacadePassData {
                     }
                 }
             }
-            // let index = pos.dot(ivec3(1, size.x + 1, (size.x + 1) * (size.y + 1)));
             if 0 < connected && connected < 8 {
                 new_node_indices.push(Some(new_node_index));
                 new_node_index += 1;
@@ -216,6 +333,8 @@ impl FacadePassData {
                         pos: 2 * u_pos + dir,
                         left: 0,
                         right: 0,
+                        tangent: FacadeTileset::ivec3_to_direction(dir).unwrap(),
+                        cotangent: 0,
                     }),
                 );
                 let vertex_edges: [Option<usize>; 6] = neighbours
@@ -305,22 +424,29 @@ const DIRECTIONS: [IVec3; 6] = [
     IVec3::NEG_Z,
 ];
 
-pub fn create_facade_graph<F: Clone>(
-    _data: &FacadePassData,
-    _settings: &FacadePassSettings,
-) -> WfcGraph<Superposition> {
-    WfcGraph {
-        nodes: vec![],
-        order: vec![],
-        neighbors: vec![],
-    }
-}
+// pub fn create_facade_graph<F: Clone>(
+//     data: &FacadePassData,
+//     tileset: &FacadeTileset,
+//     _settings: &FacadePassSettings,
+// ) -> WfcGraph<Superposition> {
+//     // let tileset = FacadeTileset::from_asset("semantics/facade.json");
+//     WfcGraph {
+//         nodes: data.init_tiles(tileset),
+//         order: Vec::new(),
+//         neighbors: data.init_neighbours(),
+//     }
+// }
 
-#[derive(Debug)]
+#[derive(Component, Debug)]
 pub struct FacadeTileset {
     tile_count: usize,
     arc_types: usize,
+    leaf_sources: Box<[usize]>,
+    transformed_nodes: Box<[TransformedDagNode]>,
     constraints: Vec<Vec<Superposition>>,
+    sematic_node_names: HashMap<String, usize>,
+    associated_transformed_nodes: Box<[Box<[usize]>]>,
+    leaf_families: Box<[(usize, Superposition)]>,
 }
 
 impl TileSet for FacadeTileset {
@@ -351,6 +477,7 @@ impl TileSet for FacadeTileset {
     }
 }
 
+#[derive(Debug)]
 struct SemanticNode {
     sockets: Box<[String]>,
     symmetries: Box<[usize]>,
@@ -369,7 +496,7 @@ struct TransformedDagNode {
 impl FacadeTileset {
     pub fn from_asset(asset_path: impl Into<String>) -> Self {
         // TODO: handle errors
-        Self::from_model(TileSetModel::from_asset(asset_path.into()).ok().unwrap())
+        Self::from_model(TileSetModel::from_asset(asset_path.into()).unwrap())
     }
 
     fn traverse_dag_model(
@@ -410,6 +537,18 @@ impl FacadeTileset {
         return dir + 1 - 2 * dir.rem_euclid(2);
     }
 
+    fn ivec3_to_direction(dir: IVec3) -> Option<usize> {
+        match dir {
+            IVec3::X => Some(0),
+            IVec3::NEG_X => Some(1),
+            IVec3::Y => Some(2),
+            IVec3::NEG_Y => Some(3),
+            IVec3::Z => Some(4),
+            IVec3::NEG_Z => Some(5),
+            _ => None,
+        }
+    }
+
     fn from_model(model: TileSetModel) -> Self {
         // Process data for symmetries and directions
         let directions: Box<[String]> = model.directions.into();
@@ -434,19 +573,24 @@ impl FacadeTileset {
             })
             .collect::<Box<[Box<[usize]>]>>();
 
+        let semantic_node_names: Vec<String> =
+            Vec::from_iter(model.semantic_nodes.iter().map(|node| node.label.clone()));
+
+        dbg!(&semantic_node_names);
+
         // Process semantic nodes
-        let mut sematic_node_names = model
-            .semantic_nodes
+        let sematic_node_names_map = semantic_node_names
             .iter()
             .enumerate()
-            .map(|(index, (key, value))| (key.clone(), index + 1))
+            .map(|(index, key)| (key.clone(), index))
             .collect::<HashMap<String, usize>>();
-        sematic_node_names.insert("root".to_string(), 0);
-        let sematic_node_names = sematic_node_names;
-        let semantic_nodes_iter = model
+
+        dbg!(&sematic_node_names_map);
+
+        let semantic_nodes = model
             .semantic_nodes
-            .into_iter()
-            .map(|(_, node)| SemanticNode {
+            .iter()
+            .map(|node| SemanticNode {
                 sockets: directions
                     .iter()
                     .map(|dir| match node.sockets.get(dir) {
@@ -459,29 +603,17 @@ impl FacadeTileset {
                     .iter()
                     .map(|sym| symmetry_names[sym])
                     .collect::<Box<[usize]>>(),
-                assets: node.assets,
-            });
-        let semantic_nodes = [SemanticNode {
-            sockets: directions
-                .iter()
-                .map(|_| "".to_string())
-                .collect::<Box<[String]>>(),
-            symmetries: Box::new([]),
-            assets: HashMap::new(),
-        }]
-        .into_iter()
-        .chain(semantic_nodes_iter)
-        .collect::<Box<[SemanticNode]>>();
-
-        assert!(sematic_node_names.values().max().unwrap() < &semantic_nodes.len());
+                assets: node.assets.clone(),
+            })
+            .collect::<Box<[SemanticNode]>>();
 
         // Traverse DAG to build in new format and extract information
         let mut leaf_nodes: Vec<usize> = Vec::new();
-        let mut semantic_dag_adj: Vec<Vec<usize>> = vec![Vec::new(); sematic_node_names.len()];
+        let mut semantic_dag_adj: Vec<Vec<usize>> = vec![Vec::new(); sematic_node_names_map.len()];
         Self::traverse_dag_model(
             0,
             model.semantic_dag,
-            &sematic_node_names,
+            &sematic_node_names_map,
             &mut semantic_dag_adj,
             &mut leaf_nodes,
         );
@@ -503,9 +635,6 @@ impl FacadeTileset {
             &symmetries,
         );
 
-        dbg!(&transformed_nodes);
-        dbg!(&associated_transformed_nodes);
-
         for parent in transformed_nodes
             .iter()
             .flat_map(|node| node.parents.iter())
@@ -522,20 +651,20 @@ impl FacadeTileset {
             let constraint = (
                 match u {
                     ConstraintNodeModel::Node(node) => {
-                        (*sematic_node_names.get(&node).unwrap(), None)
+                        (*sematic_node_names_map.get(&node).unwrap(), None)
                     }
 
                     ConstraintNodeModel::NodeSocket { node, socket } => {
-                        (*sematic_node_names.get(&node).unwrap(), Some(socket))
+                        (*sematic_node_names_map.get(&node).unwrap(), Some(socket))
                     }
                 },
                 match v {
                     ConstraintNodeModel::Node(node) => {
-                        (*sematic_node_names.get(&node).unwrap(), None)
+                        (*sematic_node_names_map.get(&node).unwrap(), None)
                     }
 
                     ConstraintNodeModel::NodeSocket { node, socket } => {
-                        (*sematic_node_names.get(&node).unwrap(), Some(socket))
+                        (*sematic_node_names_map.get(&node).unwrap(), Some(socket))
                     }
                 },
             );
@@ -543,12 +672,12 @@ impl FacadeTileset {
             constraints[2 * index + 1] = (constraint.1, constraint.0);
         }
 
-        let mut allowed_neighbours: Box<[Box<[Superposition]>]> =
-            vec![
-                vec![Superposition::empty(); directions.len()].into_boxed_slice();
+        let mut allowed_neighbours: Box<[Box<[Superposition]>]> = vec![
+                vec![Superposition::empty_sized(transformed_nodes.len()); directions.len()]
+                    .into_boxed_slice();
                 transformed_nodes.len()
             ]
-            .into_boxed_slice();
+        .into_boxed_slice();
         for (source, target) in constraints.iter() {
             for transformed_source_index in associated_transformed_nodes[source.0].iter() {
                 let transformed_source = &transformed_nodes[*transformed_source_index];
@@ -576,7 +705,7 @@ impl FacadeTileset {
 
         let transformed_leaves = leaf_nodes
             .iter()
-            .flat_map(|n| associated_transformed_nodes[*n].iter())
+            .flat_map(|n| associated_transformed_nodes[*n].iter().map(|l| *l))
             .collect_vec();
 
         for parent in transformed_nodes
@@ -589,14 +718,14 @@ impl FacadeTileset {
         let leaf_families = transformed_leaves
             .iter()
             .map(|leaf| {
-                let mut family = Superposition::empty();
-                Self::traverse_create_family_mask(**leaf, &mut family, &transformed_nodes);
-                (**leaf, family)
+                let mut family = Superposition::empty_sized(transformed_nodes.len());
+                Self::traverse_create_family_mask(*leaf, &mut family, &transformed_nodes);
+                (*leaf, family)
             })
-            .collect_vec();
+            .collect::<Box<[(usize, Superposition)]>>();
 
         for transformed_leaf in transformed_leaves.iter() {
-            let transformed_leaf = **transformed_leaf;
+            let transformed_leaf = *transformed_leaf;
             for (direction, _) in directions.iter().enumerate() {
                 for (leaf, family) in leaf_families.iter() {
                     let allowed = allowed_neighbours[transformed_leaf][direction];
@@ -611,25 +740,80 @@ impl FacadeTileset {
         let leaf_allowed_neighbours = transformed_leaves
             .iter()
             .map(|leaf| {
-                allowed_neighbours[**leaf]
+                allowed_neighbours[*leaf]
                     .iter()
                     .map(|sp| {
-                        Superposition::from_iter(transformed_leaves.iter().filter_map(|leaf| {
-                            if sp.contains(**leaf) {
-                                Some(**leaf)
-                            } else {
-                                None
+                        let mut new_sp = Superposition::empty_sized(transformed_leaves.len());
+                        for (leaf_id, transformed_id) in transformed_leaves.iter().enumerate() {
+                            if sp.contains(*transformed_id) {
+                                new_sp.add_tile(leaf_id)
                             }
-                        }))
+                        }
+                        new_sp
+                        // Superposition::from_iter(transformed_leaves.iter().filter_map(|leaf| {
+                        //     if sp.contains(*leaf) {
+                        //         Some(*leaf)
+                        //     } else {
+                        //         None
+                        //     }
+                        // }))
                     })
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
 
+        // dbg!(&semantic_nodes);
+        dbg!(&semantic_node_names);
+        dbg!(&associated_transformed_nodes);
+        dbg!(&transformed_leaves);
+        dbg!(&leaf_families);
+
+        println!("\nExtracted Constraints:");
+        for (from, to) in constraints.iter() {
+            let none = "None".to_string();
+            println!(
+                "\t{} ({}) -> {} ({})",
+                semantic_node_names[transformed_nodes[from.0].source_node],
+                from.1.as_ref().unwrap_or(&none),
+                semantic_node_names[transformed_nodes[to.0].source_node],
+                to.1.as_ref().unwrap_or(&none)
+            );
+        }
+
+        println!("\nGenerated allowed neighbours:");
+        for (index, allowed) in allowed_neighbours.iter().enumerate() {
+            println!(
+                "\t{}",
+                semantic_node_names[transformed_nodes[index].source_node]
+            );
+            for (dir, allowed) in allowed.iter().enumerate() {
+                println!("\t\t{}: {}", dir, allowed);
+            }
+        }
+
+        println!("\nExtracted allowed leaf neighbours:");
+        for (index, allowed) in leaf_allowed_neighbours.iter().enumerate() {
+            println!(
+                "\t{}",
+                semantic_node_names[transformed_nodes[transformed_leaves[index]].source_node]
+            );
+            for (dir, allowed) in allowed.iter().enumerate() {
+                println!("\t\t{}: {}", dir, allowed);
+            }
+        }
+
         Self {
             arc_types: directions.len(),
             tile_count: transformed_leaves.len(),
+            leaf_sources: transformed_leaves.into_boxed_slice(),
+            transformed_nodes: transformed_nodes.into_boxed_slice(),
             constraints: leaf_allowed_neighbours,
+            sematic_node_names: sematic_node_names_map,
+            associated_transformed_nodes: associated_transformed_nodes
+                .into_iter()
+                .map(|associated| associated.into_boxed_slice())
+                .collect::<Box<[_]>>(),
+            leaf_families,
         }
     }
 
@@ -639,14 +823,6 @@ impl FacadeTileset {
         transformed_nodes: &Vec<TransformedDagNode>,
     ) {
         mask.add_tile(node);
-        dbg!((
-            node,
-            transformed_nodes.len(),
-            transformed_nodes
-                .iter()
-                .flat_map(|node| node.parents.iter())
-                .max()
-        ));
 
         for parent in transformed_nodes[node].parents.iter() {
             Self::traverse_create_family_mask(*parent, mask, transformed_nodes);
@@ -754,5 +930,38 @@ impl FacadeTileset {
                 }
             }
         }
+    }
+
+    pub fn get_leaf_semantic_name(&self, leaf_id: usize) -> String {
+        let transformed_id = self.leaf_sources[leaf_id];
+        let transformed_node = &self.transformed_nodes[transformed_id];
+        let source_id = transformed_node.source_node;
+
+        self.sematic_node_names
+            .iter()
+            .find_map(|(k, v)| if v == &source_id { Some(k) } else { None })
+            .unwrap_or(&"Unknown".to_string())
+            .clone()
+    }
+
+    pub fn superposition_from_string(&self, semantic_string: String) -> Superposition {
+        let node = *self.sematic_node_names.get(&semantic_string).unwrap();
+        let transformed_nodes = &self.associated_transformed_nodes[node];
+
+        let transformed_nodes = Superposition::from_iter_sized(
+            transformed_nodes.iter().map(|n| *n),
+            self.transformed_nodes.len(),
+        );
+
+        let possible_leaves = self.leaf_families.iter().enumerate().filter_map(
+            |(leaf_id, (_transformed_id, family))| {
+                if Superposition::intersect(family, &transformed_nodes).count_bits() > 0 {
+                    Some(leaf_id)
+                } else {
+                    None
+                }
+            },
+        );
+        Superposition::from_iter_sized(possible_leaves, self.leaf_sources.len())
     }
 }

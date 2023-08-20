@@ -4,7 +4,7 @@ use bevy::{
     prelude::*,
 };
 
-#[derive(Reflect, Clone, Copy)]
+#[derive(Reflect, Clone, Copy, Debug)]
 #[reflect(Default)]
 pub struct LayoutGraphSettings {
     pub x_size: usize,

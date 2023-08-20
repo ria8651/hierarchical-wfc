@@ -76,6 +76,7 @@
         }
     },
     "constraints": [
+        ["vertex", "edge"],
         [
             {
                 "node": "vertex_roof_flat",

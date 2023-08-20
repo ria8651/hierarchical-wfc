@@ -1,0 +1,79 @@
+{
+    "directions": [
+        "+X",
+        "-X",
+        "+Y",
+        "-Y",
+        "+Z",
+        "-Z"
+    ],
+    "symmetries": {
+        "rotateY": {
+             "+X":  "+Z",
+            "-X": "-Z", 
+             "+Z": "-X",
+            "-Z":  "+X"
+        }
+    },
+    "semantic_nodes": [
+        {
+            "label": "vertex_leaf",
+            "sockets": {"+X": "e", "-X":"e", "+Y": "e", "-Y": "e", "+Z": "e", "-Z": "e"},
+            "symmetries": [
+            ],
+            "assets": {
+                "model": "assets/models/facade/vertex_roof_flat.gltf"
+            }
+        },
+        {
+            "label": "edge_leaf_h",
+            "sockets": {"+X": "v", "-X":"v", "+Y": "f", "-Y": "f", "+Z": "f", "-Z": "f"},
+            "symmetries": [
+                "rotateY"
+            ],
+            "assets": {
+                "model": "assets/models/facade/edge_roof_flat.gltf"
+            }
+        },
+        {
+            "label": "edge_leaf_v",
+            "sockets": {"+X": "f", "-X":"f", "+Y": "v", "-Y": "v", "+Z": "f", "-Z": "f"},
+            "symmetries": [
+            ],
+            "assets": {
+                "model": "assets/models/facade/edge_roof_flat.gltf"
+            }
+        }
+    ],
+    "semantic_dag": {
+        "vertex":{
+            "vertex_leaf": null
+        },
+        "edge": {
+            "edge_leaf_h": null,
+            "edge_leaf_v": null
+        }
+    },
+    "constraints": [
+        [
+            {
+                "node": "vertex_leaf",
+                "socket": "e"
+            },
+            {
+                "node": "edge_leaf_h",
+                "socket": "v"
+            }
+        ],
+        [
+            {
+                "node": "vertex_leaf",
+                "socket": "e"
+            },
+            {
+                "node": "edge_leaf_v",
+                "socket": "v"
+            }
+        ]
+    ]
+}

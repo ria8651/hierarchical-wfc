@@ -1,49 +1,411 @@
-use bevy::prelude::dbg;
-use hierarchical_wfc::{
-    village::{
-        facade_graph::{FacadePassData, FacadeTileset},
-        LayoutGraphSettings,
-    },
-    wfc::{Neighbour, TileSet, WaveFunctionCollapse, WfcGraph},
-};
-use rand::{rngs::StdRng, SeedableRng};
+warning: unused import: `ops::Add`
+ --> src/village/facade_graph.rs:3:5
+  |
+3 |     ops::Add,
+  |     ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
 
-fn main() {
-    let tileset = FacadeTileset::from_asset("semantics/edge_directional.json");
-    let data = FacadePassData::from_layout(&test_graph(), &test_settings());
-    let mut wfc_graph = data.create_wfc_graph(&tileset);
+warning: unused import: `SemanticNodeModel`
+ --> src/village/facade_graph.rs:7:56
+  |
+7 |     json::tileset::{ConstraintNodeModel, DagNodeModel, SemanticNodeModel, TileSetModel},
+  |                                                        ^^^^^^^^^^^^^^^^^
 
-    dbg!(tileset.superposition_from_string("vertex".to_string()));
-    dbg!(tileset.superposition_from_string("edge".to_string()));
+warning: unused variable: `nodes`
+  --> src/village/facade_graph.rs:91:13
+   |
+91 |         let nodes: Vec<Superposition> =
+   |             ^^^^^ help: if this is intentional, prefix it with an underscore: `_nodes`
+   |
+   = note: `#[warn(unused_variables)]` on by default
 
-    dbg!(&wfc_graph.nodes);
+warning: unused variable: `neighbours`
+  --> src/village/facade_graph.rs:93:13
+   |
+93 |         let neighbours: Vec<Vec<Neighbour>> =
+   |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_neighbours`
 
-    WaveFunctionCollapse::collapse(
-        &mut wfc_graph,
-        &tileset.get_constraints(),
-        &tileset.get_weights(),
-        &mut StdRng::from_entropy(),
-    );
-}
+warning: unused variable: `num_edges`
+   --> src/village/facade_graph.rs:101:13
+    |
+101 |         let num_edges = self.edges.len();
+    |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_num_edges`
 
-fn test_graph() -> WfcGraph<usize> {
+warning: unused variable: `num_quads`
+   --> src/village/facade_graph.rs:102:13
+    |
+102 |         let num_quads = self.quads.len();
+    |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_num_quads`
+
+warning: unused variable: `settings`
+   --> src/village/facade_graph.rs:468:28
+    |
+468 |     fn create_graph(&self, settings: &Self::GraphSettings) -> WfcGraph<Superposition> {
+    |                            ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_settings`
+
+warning: unused variable: `value`
+   --> src/village/facade_graph.rs:565:33
+    |
+565 |             .map(|(index, (key, value))| (key.clone(), index))
+    |                                 ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
+
+warning: variable does not need to be mutable
+   --> src/wfc/superposition.rs:125:13
+    |
+125 |         let mut num_bits = None;
+    |             ----^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: field `assets` is never read
+   --> src/village/facade_graph.rs:489:5
+    |
+486 | struct SemanticNode {
+    |        ------------ field in this struct
+...
+489 |     assets: HashMap<String, String>,
+    |     ^^^^^^
+    |
+    = note: `SemanticNode` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` on by default
+
+warning: field `symmetry` is never read
+   --> src/village/facade_graph.rs:497:5
+    |
+493 | struct TransformedDagNode {
+    |        ------------------ field in this struct
+...
+497 |     symmetry: Box<[usize]>,
+    |     ^^^^^^^^
+    |
+    = note: `TransformedDagNode` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: `hierarchical-wfc` (lib) generated 11 warnings (run `cargo fix --lib -p hierarchical-wfc` to apply 9 suggestions)
+warning: unused import: `vec4`
+ --> src/bin/multipass.rs:5:18
+  |
+5 |     math::{vec3, vec4},
+  |                  ^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `Superposition`, `WaveFunctionCollapse`
+  --> src/bin/multipass.rs:34:9
+   |
+34 |         Superposition, TileSet, WaveFunctionCollapse, WfcGraph,
+   |         ^^^^^^^^^^^^^           ^^^^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated method `bevy::prelude::App::add_plugin`: Please use `add_plugins` instead.
+  --> src/bin/multipass.rs:68:6
+   |
+68 |     .add_plugin(BillboardPlugin)
+   |      ^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+warning: unreachable statement
+   --> src/bin/multipass.rs:269:13
+    |
+268 |               loop {}
+    |               ------- any code following this expression is unreachable
+269 | /             let facade_pass_data =
+270 | |                 FacadePassData::from_layout(&parent_data.graph, &parent_settings);
+    | |__________________________________________________________________________________^ unreachable statement
+    |
+    = note: `#[warn(unreachable_code)]` on by default
+
+warning: unused variable: `entity`
+   --> src/bin/multipass.rs:259:10
+    |
+259 |     for (entity, _pass_settings, parents) in query.iter() {
+    |          ^^^^^^ help: if this is intentional, prefix it with an underscore: `_entity`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `commands`
+   --> src/bin/multipass.rs:253:9
+    |
+253 |     mut commands: Commands,
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_commands`
+
+warning: unused variable: `meshes`
+   --> src/bin/multipass.rs:254:9
+    |
+254 |     mut meshes: ResMut<Assets<Mesh>>,
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_meshes`
+
+warning: unused variable: `materials`
+   --> src/bin/multipass.rs:255:9
+    |
+255 |     mut materials: ResMut<Assets<StandardMaterial>>,
+    |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_materials`
+
+warning: variable does not need to be mutable
+   --> src/bin/multipass.rs:253:5
+    |
+253 |     mut commands: Commands,
+    |     ----^^^^^^^^
+    |     |
+    |     help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: variable does not need to be mutable
+   --> src/bin/multipass.rs:254:5
+    |
+254 |     mut meshes: ResMut<Assets<Mesh>>,
+    |     ----^^^^^^
+    |     |
+    |     help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src/bin/multipass.rs:255:5
+    |
+255 |     mut materials: ResMut<Assets<StandardMaterial>>,
+    |     ----^^^^^^^^^
+    |     |
+    |     help: remove this `mut`
+
+warning: `hierarchical-wfc` (bin "multipass") generated 11 warnings (run `cargo fix --bin "multipass"` to apply 9 suggestions)
+    Finished dev [optimized + debuginfo] target(s) in 0.20s
+     Running `target/debug/multipass`
+[2m2023-08-20T01:01:03.695549Z[0m [32m INFO[0m [2mbevy_winit::system[0m[2m:[0m Creating new window "Bevy App" (0v0)
+[2m2023-08-20T01:01:03.695863Z[0m [32m INFO[0m [2mwinit::platform_impl::platform::x11::window[0m[2m:[0m Guessed window scale factor: 1    
+[2m2023-08-20T01:01:04.021437Z[0m [32m INFO[0m [2mbevy_render::renderer[0m[2m:[0m AdapterInfo { name: "NVIDIA GeForce GTX 1060 6GB", vendor: 4318, device: 7171, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "535.98", backend: Vulkan }
+[2m2023-08-20T01:01:04.152764Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m VALIDATION [VUID-VkShaderModuleCreateInfo-pCode-01379 (0x2a1bf17f)]
+	Validation Error: [ VUID-VkShaderModuleCreateInfo-pCode-01379 ] Object 0: handle = 0x55e7b98d3930, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0x2a1bf17f | SPIR-V module not valid: [VUID-StandaloneSpirv-OpTypeRuntimeArray-04680] Vulkan, OpTypeStruct containing an OpTypeRuntimeArray must be decorated with Block or BufferBlock.
+  %_naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLights = OpTypeStruct %_runtimearr__naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLight
+ The Vulkan spec states: If pCode is a pointer to GLSL code, it must be valid GLSL code written to the GL_KHR_vulkan_glsl GLSL extension specification (https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkShaderModuleCreateInfo-pCode-01379)    
+[2m2023-08-20T01:01:04.152831Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: DEVICE, hndl: 0x55e7b98d3930, name: ?)    
+[2m2023-08-20T01:01:04.181561Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m VALIDATION [VUID-VkShaderModuleCreateInfo-pCode-01379 (0x2a1bf17f)]
+	Validation Error: [ VUID-VkShaderModuleCreateInfo-pCode-01379 ] Object 0: handle = 0x55e7b98d3930, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0x2a1bf17f | SPIR-V module not valid: [VUID-StandaloneSpirv-OpTypeRuntimeArray-04680] Vulkan, OpTypeStruct containing an OpTypeRuntimeArray must be decorated with Block or BufferBlock.
+  %_naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLights = OpTypeStruct %_runtimearr__naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLight
+ The Vulkan spec states: If pCode is a pointer to GLSL code, it must be valid GLSL code written to the GL_KHR_vulkan_glsl GLSL extension specification (https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkShaderModuleCreateInfo-pCode-01379)    
+[2m2023-08-20T01:01:04.181610Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: DEVICE, hndl: 0x55e7b98d3930, name: ?)    
+[2m2023-08-20T01:01:04.184765Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m VALIDATION [VUID-VkShaderModuleCreateInfo-pCode-01379 (0x2a1bf17f)]
+	Validation Error: [ VUID-VkShaderModuleCreateInfo-pCode-01379 ] Object 0: handle = 0x55e7b98d3930, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0x2a1bf17f | SPIR-V module not valid: [VUID-StandaloneSpirv-OpTypeRuntimeArray-04680] Vulkan, OpTypeStruct containing an OpTypeRuntimeArray must be decorated with Block or BufferBlock.
+  %_naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLights = OpTypeStruct %_runtimearr__naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLight
+ The Vulkan spec states: If pCode is a pointer to GLSL code, it must be valid GLSL code written to the GL_KHR_vulkan_glsl GLSL extension specification (https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkShaderModuleCreateInfo-pCode-01379)    
+[2m2023-08-20T01:01:04.184783Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: DEVICE, hndl: 0x55e7b98d3930, name: ?)    
+[2m2023-08-20T01:01:04.291102Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m VALIDATION [VUID-VkShaderModuleCreateInfo-pCode-01379 (0x2a1bf17f)]
+	Validation Error: [ VUID-VkShaderModuleCreateInfo-pCode-01379 ] Object 0: handle = 0x55e7b98d3930, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0x2a1bf17f | SPIR-V module not valid: [VUID-StandaloneSpirv-OpTypeRuntimeArray-04680] Vulkan, OpTypeStruct containing an OpTypeRuntimeArray must be decorated with Block or BufferBlock.
+  %_naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLights = OpTypeStruct %_runtimearr__naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLight
+ The Vulkan spec states: If pCode is a pointer to GLSL code, it must be valid GLSL code written to the GL_KHR_vulkan_glsl GLSL extension specification (https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkShaderModuleCreateInfo-pCode-01379)    
+[2m2023-08-20T01:01:04.291141Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: DEVICE, hndl: 0x55e7b98d3930, name: ?)    
+[src/bin/multipass.rs:166] "Seeding Layout" = "Seeding Layout"
+[src/wfc/bevy_passes.rs:59] "Collapsing Entity" = "Collapsing Entity"
+[src/bin/multipass.rs:519] "Creating Debug Mesh" = "Creating Debug Mesh"
+[src/bin/multipass.rs:267] (&parent_data.graph, &parent_settings) = (
     WfcGraph {
-        nodes: vec![
-            7, 8, 5, 10, 13, 12, 3, 0, 10, 13, 3, 4, 0, 10, 13, 13, 9, 9, 13, 12, 9, 9, 9, 13, 11,
-            11, 13, 13, 13, 13, 13, 13, 13, 12, 2, 1, 10, 13, 13, 11, 10, 13, 13, 12, 3, 0, 10, 13,
-            12, 2, 10, 13, 13, 13, 9, 9, 13, 13, 12, 3, 13, 13, 13, 13, 13, 13, 13, 13, 13, 9, 13,
-            11, 11, 11, 11, 11, 11, 13, 13, 13, 12, 2, 6, 6, 6, 6, 1, 10, 13, 12, 12, 7, 8, 8, 8,
-            8, 5, 10, 13, 12,
+        nodes: [
+            7,
+            8,
+            5,
+            10,
+            13,
+            12,
+            3,
+            0,
+            10,
+            13,
+            3,
+            4,
+            0,
+            10,
+            13,
+            13,
+            9,
+            9,
+            13,
+            12,
+            9,
+            9,
+            9,
+            13,
+            11,
+            11,
+            13,
+            13,
+            13,
+            13,
+            13,
+            13,
+            13,
+            12,
+            2,
+            1,
+            10,
+            13,
+            13,
+            11,
+            10,
+            13,
+            13,
+            12,
+            3,
+            0,
+            10,
+            13,
+            12,
+            2,
+            10,
+            13,
+            13,
+            13,
+            9,
+            9,
+            13,
+            13,
+            12,
+            3,
+            13,
+            13,
+            13,
+            13,
+            13,
+            13,
+            13,
+            13,
+            13,
+            9,
+            13,
+            11,
+            11,
+            11,
+            11,
+            11,
+            11,
+            13,
+            13,
+            13,
+            12,
+            2,
+            6,
+            6,
+            6,
+            6,
+            1,
+            10,
+            13,
+            12,
+            12,
+            7,
+            8,
+            8,
+            8,
+            8,
+            5,
+            10,
+            13,
+            12,
         ],
-        order: vec![
-            83, 93, 73, 63, 72, 62, 74, 64, 53, 71, 61, 82, 92, 52, 84, 94, 75, 65, 54, 44, 43, 33,
-            32, 42, 55, 66, 41, 51, 23, 24, 25, 34, 14, 35, 36, 45, 46, 47, 56, 37, 26, 15, 81, 80,
-            91, 90, 70, 57, 50, 40, 31, 21, 3, 4, 12, 13, 22, 11, 1, 2, 20, 30, 85, 95, 76, 67, 68,
-            10, 0, 48, 38, 39, 49, 29, 59, 58, 69, 79, 77, 87, 88, 86, 97, 98, 96, 78, 28, 27, 18,
-            60, 17, 7, 8, 6, 5, 16, 9, 89, 19, 99,
+        order: [
+            83,
+            93,
+            73,
+            63,
+            72,
+            62,
+            74,
+            64,
+            53,
+            71,
+            61,
+            82,
+            92,
+            52,
+            84,
+            94,
+            75,
+            65,
+            54,
+            44,
+            43,
+            33,
+            32,
+            42,
+            55,
+            66,
+            41,
+            51,
+            23,
+            24,
+            25,
+            34,
+            14,
+            35,
+            36,
+            45,
+            46,
+            47,
+            56,
+            37,
+            26,
+            15,
+            81,
+            80,
+            91,
+            90,
+            70,
+            57,
+            50,
+            40,
+            31,
+            21,
+            3,
+            4,
+            12,
+            13,
+            22,
+            11,
+            1,
+            2,
+            20,
+            30,
+            85,
+            95,
+            76,
+            67,
+            68,
+            10,
+            0,
+            48,
+            38,
+            39,
+            49,
+            29,
+            59,
+            58,
+            69,
+            79,
+            77,
+            87,
+            88,
+            86,
+            97,
+            98,
+            96,
+            78,
+            28,
+            27,
+            18,
+            60,
+            17,
+            7,
+            8,
+            6,
+            5,
+            16,
+            9,
+            89,
+            19,
+            99,
         ],
-        neighbors: vec![
-            vec![
+        neighbors: [
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 1,
@@ -53,7 +415,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 10,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 2,
@@ -67,7 +429,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 11,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 3,
@@ -81,7 +443,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 12,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 4,
@@ -95,7 +457,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 13,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 5,
@@ -109,7 +471,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 14,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 6,
@@ -123,7 +485,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 15,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 7,
@@ -137,7 +499,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 16,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 8,
@@ -151,7 +513,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 17,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 9,
@@ -165,7 +527,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 18,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 1,
                     index: 8,
@@ -175,7 +537,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 19,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 11,
@@ -189,7 +551,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 0,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 12,
@@ -207,7 +569,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 1,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 13,
@@ -225,7 +587,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 2,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 14,
@@ -243,7 +605,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 3,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 15,
@@ -261,7 +623,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 4,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 16,
@@ -279,7 +641,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 5,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 17,
@@ -297,7 +659,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 6,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 18,
@@ -315,7 +677,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 7,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 19,
@@ -333,7 +695,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 8,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 1,
                     index: 18,
@@ -347,7 +709,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 9,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 21,
@@ -361,7 +723,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 10,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 22,
@@ -379,7 +741,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 11,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 23,
@@ -397,7 +759,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 12,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 24,
@@ -415,7 +777,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 13,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 25,
@@ -433,7 +795,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 14,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 26,
@@ -451,7 +813,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 15,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 27,
@@ -469,7 +831,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 16,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 28,
@@ -487,7 +849,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 17,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 29,
@@ -505,7 +867,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 18,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 1,
                     index: 28,
@@ -519,7 +881,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 19,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 31,
@@ -533,7 +895,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 20,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 32,
@@ -551,7 +913,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 21,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 33,
@@ -569,7 +931,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 22,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 34,
@@ -587,7 +949,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 23,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 35,
@@ -605,7 +967,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 24,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 36,
@@ -623,7 +985,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 25,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 37,
@@ -641,7 +1003,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 26,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 38,
@@ -659,7 +1021,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 27,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 39,
@@ -677,7 +1039,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 28,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 1,
                     index: 38,
@@ -691,7 +1053,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 29,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 41,
@@ -705,7 +1067,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 30,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 42,
@@ -723,7 +1085,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 31,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 43,
@@ -741,7 +1103,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 32,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 44,
@@ -759,7 +1121,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 33,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 45,
@@ -777,7 +1139,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 34,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 46,
@@ -795,7 +1157,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 35,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 47,
@@ -813,7 +1175,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 36,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 48,
@@ -831,7 +1193,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 37,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 49,
@@ -849,7 +1211,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 38,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 1,
                     index: 48,
@@ -863,7 +1225,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 39,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 51,
@@ -877,7 +1239,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 40,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 52,
@@ -895,7 +1257,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 41,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 53,
@@ -913,7 +1275,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 42,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 54,
@@ -931,7 +1293,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 43,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 55,
@@ -949,7 +1311,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 44,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 56,
@@ -967,7 +1329,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 45,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 57,
@@ -985,7 +1347,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 46,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 58,
@@ -1003,7 +1365,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 47,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 59,
@@ -1021,7 +1383,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 48,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 1,
                     index: 58,
@@ -1035,7 +1397,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 49,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 61,
@@ -1049,7 +1411,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 50,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 62,
@@ -1067,7 +1429,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 51,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 63,
@@ -1085,7 +1447,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 52,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 64,
@@ -1103,7 +1465,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 53,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 65,
@@ -1121,7 +1483,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 54,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 66,
@@ -1139,7 +1501,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 55,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 67,
@@ -1157,7 +1519,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 56,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 68,
@@ -1175,7 +1537,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 57,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 69,
@@ -1193,7 +1555,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 58,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 1,
                     index: 68,
@@ -1207,7 +1569,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 59,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 71,
@@ -1221,7 +1583,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 60,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 72,
@@ -1239,7 +1601,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 61,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 73,
@@ -1257,7 +1619,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 62,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 74,
@@ -1275,7 +1637,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 63,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 75,
@@ -1293,7 +1655,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 64,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 76,
@@ -1311,7 +1673,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 65,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 77,
@@ -1329,7 +1691,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 66,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 78,
@@ -1347,7 +1709,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 67,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 79,
@@ -1365,7 +1727,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 68,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 1,
                     index: 78,
@@ -1379,7 +1741,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 69,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 81,
@@ -1393,7 +1755,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 70,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 82,
@@ -1411,7 +1773,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 71,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 83,
@@ -1429,7 +1791,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 72,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 84,
@@ -1447,7 +1809,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 73,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 85,
@@ -1465,7 +1827,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 74,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 86,
@@ -1483,7 +1845,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 75,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 87,
@@ -1501,7 +1863,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 76,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 88,
@@ -1519,7 +1881,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 77,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 89,
@@ -1537,7 +1899,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 78,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 1,
                     index: 88,
@@ -1551,7 +1913,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 79,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 91,
@@ -1561,7 +1923,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 80,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 92,
@@ -1575,7 +1937,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 81,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 93,
@@ -1589,7 +1951,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 82,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 94,
@@ -1603,7 +1965,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 83,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 95,
@@ -1617,7 +1979,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 84,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 96,
@@ -1631,7 +1993,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 85,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 97,
@@ -1645,7 +2007,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 86,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 98,
@@ -1659,7 +2021,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 87,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 0,
                     index: 99,
@@ -1673,7 +2035,7 @@ fn test_graph() -> WfcGraph<usize> {
                     index: 88,
                 },
             ],
-            vec![
+            [
                 Neighbour {
                     arc_type: 1,
                     index: 98,
@@ -1684,14 +2046,95 @@ fn test_graph() -> WfcGraph<usize> {
                 },
             ],
         ],
-    }
-}
-
-fn test_settings() -> LayoutGraphSettings {
+    },
     LayoutGraphSettings {
         x_size: 10,
         y_size: 1,
         z_size: 10,
         periodic: false,
-    }
-}
+    },
+)
+[src/materials/tile_pbr_material.rs:537] &descriptor.vertex.buffers = [
+    VertexBufferLayout {
+        array_stride: 36,
+        step_mode: Vertex,
+        attributes: [
+            VertexAttribute {
+                format: Float32x3,
+                offset: 0,
+                shader_location: 0,
+            },
+            VertexAttribute {
+                format: Float32x2,
+                offset: 24,
+                shader_location: 1,
+            },
+            VertexAttribute {
+                format: Float32x3,
+                offset: 12,
+                shader_location: 2,
+            },
+        ],
+    },
+]
+[src/materials/tile_pbr_material.rs:537] &descriptor.vertex.buffers = [
+    VertexBufferLayout {
+        array_stride: 36,
+        step_mode: Vertex,
+        attributes: [
+            VertexAttribute {
+                format: Float32x3,
+                offset: 0,
+                shader_location: 0,
+            },
+            VertexAttribute {
+                format: Float32x3,
+                offset: 12,
+                shader_location: 1,
+            },
+            VertexAttribute {
+                format: Float32x2,
+                offset: 24,
+                shader_location: 2,
+            },
+        ],
+    },
+]
+[src/materials/tile_pbr_material.rs:537] &descriptor.vertex.buffers = [
+    VertexBufferLayout {
+        array_stride: 36,
+        step_mode: Vertex,
+        attributes: [
+            VertexAttribute {
+                format: Float32x3,
+                offset: 0,
+                shader_location: 0,
+            },
+            VertexAttribute {
+                format: Float32x2,
+                offset: 24,
+                shader_location: 1,
+            },
+        ],
+    },
+]
+[2m2023-08-20T01:01:06.839898Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m VALIDATION [VUID-VkShaderModuleCreateInfo-pCode-01379 (0x2a1bf17f)]
+	Validation Error: [ VUID-VkShaderModuleCreateInfo-pCode-01379 ] Object 0: handle = 0x55e7b98d3930, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0x2a1bf17f | SPIR-V module not valid: [VUID-StandaloneSpirv-OpTypeRuntimeArray-04680] Vulkan, OpTypeStruct containing an OpTypeRuntimeArray must be decorated with Block or BufferBlock.
+  %_naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLights = OpTypeStruct %_runtimearr__naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLight
+ The Vulkan spec states: If pCode is a pointer to GLSL code, it must be valid GLSL code written to the GL_KHR_vulkan_glsl GLSL extension specification (https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkShaderModuleCreateInfo-pCode-01379)    
+[2m2023-08-20T01:01:06.839939Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: DEVICE, hndl: 0x55e7b98d3930, name: ?)    
+[2m2023-08-20T01:01:06.858252Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m VALIDATION [VUID-VkShaderModuleCreateInfo-pCode-01379 (0x2a1bf17f)]
+	Validation Error: [ VUID-VkShaderModuleCreateInfo-pCode-01379 ] Object 0: handle = 0x55e7b98d3930, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0x2a1bf17f | SPIR-V module not valid: [VUID-StandaloneSpirv-OpTypeRuntimeArray-04680] Vulkan, OpTypeStruct containing an OpTypeRuntimeArray must be decorated with Block or BufferBlock.
+  %_naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLights = OpTypeStruct %_runtimearr__naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLight
+ The Vulkan spec states: If pCode is a pointer to GLSL code, it must be valid GLSL code written to the GL_KHR_vulkan_glsl GLSL extension specification (https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkShaderModuleCreateInfo-pCode-01379)    
+[2m2023-08-20T01:01:06.858292Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: DEVICE, hndl: 0x55e7b98d3930, name: ?)    
+[2m2023-08-20T01:01:06.982023Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m VALIDATION [VUID-VkShaderModuleCreateInfo-pCode-01379 (0x2a1bf17f)]
+	Validation Error: [ VUID-VkShaderModuleCreateInfo-pCode-01379 ] Object 0: handle = 0x55e7b98d3930, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0x2a1bf17f | SPIR-V module not valid: [VUID-StandaloneSpirv-OpTypeRuntimeArray-04680] Vulkan, OpTypeStruct containing an OpTypeRuntimeArray must be decorated with Block or BufferBlock.
+  %_naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLights = OpTypeStruct %_runtimearr__naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLight
+ The Vulkan spec states: If pCode is a pointer to GLSL code, it must be valid GLSL code written to the GL_KHR_vulkan_glsl GLSL extension specification (https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkShaderModuleCreateInfo-pCode-01379)    
+[2m2023-08-20T01:01:06.982053Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: DEVICE, hndl: 0x55e7b98d3930, name: ?)    
+[2m2023-08-20T01:01:06.985101Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m VALIDATION [VUID-VkShaderModuleCreateInfo-pCode-01379 (0x2a1bf17f)]
+	Validation Error: [ VUID-VkShaderModuleCreateInfo-pCode-01379 ] Object 0: handle = 0x55e7b98d3930, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0x2a1bf17f | SPIR-V module not valid: [VUID-StandaloneSpirv-OpTypeRuntimeArray-04680] Vulkan, OpTypeStruct containing an OpTypeRuntimeArray must be decorated with Block or BufferBlock.
+  %_naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLights = OpTypeStruct %_runtimearr__naga_oil_mod_MJSXM6K7OBRHEOR2NVSXG2C7OZUWK527OR4XAZLT_memberPointLight
+ The Vulkan spec states: If pCode is a pointer to GLSL code, it must be valid GLSL code written to the GL_KHR_vulkan_glsl GLSL extension specification (https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkShaderModuleCreateInfo-pCode-01379)    
+[2m2023-08-20T01:01:06.985129Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: DEVICE, hndl: 0x55e7b98d3930, name: ?)    

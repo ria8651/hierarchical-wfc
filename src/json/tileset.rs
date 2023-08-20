@@ -13,6 +13,7 @@ pub enum ConstraintNodeModel {
 #[derive(Deserialize, Debug)]
 
 pub struct SemanticNodeModel {
+    pub label: String,
     pub sockets: HashMap<String, String>,
     pub symmetries: Vec<String>,
     pub assets: HashMap<String, String>,
@@ -20,6 +21,7 @@ pub struct SemanticNodeModel {
 impl Default for SemanticNodeModel {
     fn default() -> Self {
         Self {
+            label: "".to_string(),
             sockets: HashMap::new(),
             symmetries: Vec::new(),
             assets: HashMap::new(),
@@ -39,7 +41,7 @@ pub enum DagNodeModel {
 pub struct TileSetModel {
     pub directions: Vec<String>,
     pub symmetries: HashMap<String, HashMap<String, String>>,
-    pub semantic_nodes: HashMap<String, SemanticNodeModel>,
+    pub semantic_nodes: Vec<SemanticNodeModel>,
     pub constraints: Vec<[ConstraintNodeModel; 2]>,
     pub semantic_dag: DagNodeModel,
 }
@@ -60,15 +62,29 @@ impl TileSetModel {
     pub fn from_asset(asset_path: String) -> anyhow::Result<Self> {
         let file = fs::File::open(format!("assets/{}", asset_path)).unwrap();
         let reader = BufReader::new(file);
+
         match serde_json::from_reader::<BufReader<fs::File>, TileSetModel>(reader) {
             Ok(mut model) => {
+                let mut semantic_labels: HashSet<String> =
+                    HashSet::from_iter(model.semantic_nodes.iter().map(|n| n.label.clone()));
+                semantic_labels.insert("root".to_string());
+                model.semantic_nodes.insert(
+                    0,
+                    SemanticNodeModel {
+                        label: "root".to_string(),
+                        ..Default::default()
+                    },
+                );
+
                 let mut dag_nodes: HashSet<String> = HashSet::new();
                 Self::traverse_dag(&model.semantic_dag, &mut dag_nodes);
                 for node in dag_nodes {
-                    if !model.semantic_nodes.contains_key(&node) {
-                        model
-                            .semantic_nodes
-                            .insert(node, SemanticNodeModel::default());
+                    if !semantic_labels.contains(&node) {
+                        semantic_labels.insert(node.clone());
+                        model.semantic_nodes.push(SemanticNodeModel {
+                            label: node,
+                            ..Default::default()
+                        });
                     }
                 }
 
