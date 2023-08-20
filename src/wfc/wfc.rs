@@ -36,13 +36,6 @@ impl WaveFunctionCollapse {
         weights: &Vec<u32>,
         rng: &mut R,
     ) {
-        // Self::pre_propagate(graph, constraints);
-
-        // let start_node = Self::min_entropy(graph, rng).unwrap();
-        // println!("\t{}: {}", graph.order.len(), graph.nodes[start_node]);
-        // graph.nodes[start_node].select_random(rng, weights);
-        // graph.order.push(start_node);
-
         let mut stack = Vec::from_iter(0..graph.nodes.len());
         while let Some(index) = stack.pop() {
             // propagate changes for node from stack
@@ -57,23 +50,8 @@ impl WaveFunctionCollapse {
             if stack.len() == 0 {
                 if let Some(index) = Self::min_entropy(graph, rng) {
                     graph.nodes[index].select_random(rng, weights);
-                    println!("\t{}: {}", graph.order.len(), graph.nodes[index]);
-
                     graph.order.push(index);
                     stack.push(index);
-                }
-            }
-        }
-    }
-
-    fn pre_propagate(graph: &mut WfcGraph<Superposition>, constraints: &Vec<Vec<Superposition>>) {
-        let mut stack = Vec::from_iter(0..graph.nodes.len());
-        while let Some(node_id) = stack.pop() {
-            for i in 0..graph.neighbors[node_id].len() {
-                let neighbor = graph.neighbors[node_id][i];
-                if WaveFunctionCollapse::propagate(graph, node_id, neighbor, &constraints) {
-                    stack.push(neighbor.index);
-                    println!("Pushed: {}", neighbor.index);
                 }
             }
         }
