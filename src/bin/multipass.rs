@@ -77,7 +77,7 @@ fn main() {
             layout_init_system,
             // layout_debug_system,
             facade_init_system,
-            // facade_debug_system,
+            facade_debug_system,
         ),
     )
     .add_systems(Startup, setup);
@@ -251,9 +251,9 @@ impl Default for ReplayPassProgress {
 
 fn facade_init_system(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut line_materials: ResMut<Assets<DebugLineMaterial>>,
+    // mut meshes: ResMut<Assets<Mesh>>,
+    // mut materials: ResMut<Assets<StandardMaterial>>,
+    // mut line_materials: ResMut<Assets<DebugLineMaterial>>,
     query: Query<(Entity, &FacadePassSettings, &WfcParentPasses), With<WfcPassReadyMarker>>,
     q_layout_parents: Query<(&LayoutPass, &WfcFCollapsedData)>,
 ) {
@@ -268,55 +268,55 @@ fn facade_init_system(
             let facade_pass_data =
                 FacadePassData::from_layout(&parent_data.graph, &parent_settings);
 
-            // Create debug meshes
-            commands
-                .spawn((
-                    MaterialMeshBundle {
-                        mesh: meshes
-                            .add(facade_pass_data.debug_vertex_mesh(shape::Cube::new(0.3).into())),
-                        material: materials.add(Color::rgb(0.8, 0.6, 0.6).into()),
-                        visibility: Visibility::Visible,
-                        ..Default::default()
-                    },
-                    // DebugArcs,
-                ))
-                .set_parent(entity);
+            // // Create debug meshes
+            // commands
+            //     .spawn((
+            //         MaterialMeshBundle {
+            //             mesh: meshes
+            //                 .add(facade_pass_data.debug_vertex_mesh(shape::Cube::new(0.3).into())),
+            //             material: materials.add(Color::rgb(0.8, 0.6, 0.6).into()),
+            //             visibility: Visibility::Visible,
+            //             ..Default::default()
+            //         },
+            //         // DebugArcs,
+            //     ))
+            //     .set_parent(entity);
 
-            commands
-                .spawn((MaterialMeshBundle {
-                    mesh: meshes
-                        .add(facade_pass_data.debug_edge_mesh(shape::Cube::new(0.3).into())),
-                    material: materials.add(Color::rgb(0.6, 0.8, 0.6).into()),
-                    visibility: Visibility::Visible,
-                    ..Default::default()
-                },))
-                .set_parent(entity);
+            // commands
+            //     .spawn((MaterialMeshBundle {
+            //         mesh: meshes
+            //             .add(facade_pass_data.debug_edge_mesh(shape::Cube::new(0.3).into())),
+            //         material: materials.add(Color::rgb(0.6, 0.8, 0.6).into()),
+            //         visibility: Visibility::Visible,
+            //         ..Default::default()
+            //     },))
+            //     .set_parent(entity);
 
-            commands
-                .spawn((MaterialMeshBundle {
-                    mesh: meshes
-                        .add(facade_pass_data.debug_quad_mesh(shape::Cube::new(0.3).into())),
-                    material: materials.add(Color::rgb(0.6, 0.6, 0.8).into()),
-                    visibility: Visibility::Visible,
-                    ..Default::default()
-                },))
-                .set_parent(entity);
+            // commands
+            //     .spawn((MaterialMeshBundle {
+            //         mesh: meshes
+            //             .add(facade_pass_data.debug_quad_mesh(shape::Cube::new(0.3).into())),
+            //         material: materials.add(Color::rgb(0.6, 0.6, 0.8).into()),
+            //         visibility: Visibility::Visible,
+            //         ..Default::default()
+            //     },))
+            //     .set_parent(entity);
 
-            commands
-                .spawn((
-                    MaterialMeshBundle {
-                        mesh: meshes.add(facade_pass_data.debug_arcs_mesh()),
-                        material: line_materials.add(DebugLineMaterial {
-                            color: Color::rgb(1.0, 0.0, 1.0),
-                        }),
-                        visibility: Visibility::Visible,
-                        ..Default::default()
-                    },
-                    WfcEntityMarker,
-                ))
-                .set_parent(entity);
+            // commands
+            //     .spawn((
+            //         MaterialMeshBundle {
+            //             mesh: meshes.add(facade_pass_data.debug_arcs_mesh()),
+            //             material: line_materials.add(DebugLineMaterial {
+            //                 color: Color::rgb(1.0, 0.0, 1.0),
+            //             }),
+            //             visibility: Visibility::Visible,
+            //             ..Default::default()
+            //         },
+            //         WfcEntityMarker,
+            //     ))
+            //     .set_parent(entity);
 
-            let tileset = FacadeTileset::from_asset("semantics/edge_directional.json");
+            let tileset = FacadeTileset::from_asset("semantics/quad_mesh_test.json");
             let wfc_graph = facade_pass_data.create_wfc_graph(&tileset);
 
             let wfc = WfcInitialData {
@@ -404,8 +404,9 @@ fn facade_debug_system(
             let error_cube: Mesh = shape::Cube::new(0.5).into();
 
             let mut vertex_mesh_builder = MeshBuilder::new();
-            let mut error_mesh_builder = MeshBuilder::new();
             let mut edge_mesh_builder = MeshBuilder::new();
+            let mut quad_mesh_builder = MeshBuilder::new();
+            let mut error_mesh_builder = MeshBuilder::new();
 
             let vertex_material = tile_materials.add(TilePbrMaterial {
                 base_color: Color::rgb(0.8, 0.6, 0.6),
@@ -414,6 +415,11 @@ fn facade_debug_system(
 
             let edge_material = tile_materials.add(TilePbrMaterial {
                 base_color: Color::rgb(0.6, 0.8, 0.6),
+                ..Default::default()
+            });
+
+            let quad_material = tile_materials.add(TilePbrMaterial {
+                base_color: Color::rgb(0.6, 0.6, 0.8),
                 ..Default::default()
             });
 
@@ -487,7 +493,7 @@ fn facade_debug_system(
                                     style: TextStyle {
                                         font_size: 60.0,
                                         font: fira_code_handle.clone(),
-                                        color: Color::rgb(0.4, 0.4, 0.9),
+                                        color: Color::rgb(0.4, 0.9, 0.4),
                                     },
                                 }])
                                 .with_alignment(TextAlignment::Center),
@@ -504,6 +510,51 @@ fn facade_debug_system(
                     }
                 }
             }
+
+            for (index, quad) in facade_pass_data.quads.iter().enumerate() {
+                let transform =
+                    Transform::from_translation(quad.pos.as_vec3() * vec3(2.0, 3.0, 2.0) * 0.25);
+                match collapsed_data.graph.nodes
+                    [index + facade_pass_data.vertices.len() + facade_pass_data.edges.len()]
+                {
+                    404 => error_mesh_builder.add_mesh(
+                        &error_cube,
+                        transform,
+                        collapsed_data.graph.order[index] as u32,
+                    ),
+                    id => {
+                        commands.spawn((
+                            BillboardTextBundle {
+                                transform: transform
+                                    .with_scale(Vec3::ONE * 0.0025)
+                                    .with_translation(transform.translation + 0.25 * Vec3::Y),
+                                text: Text::from_sections([TextSection {
+                                    value: format!(
+                                        "{} [{}]",
+                                        tileset.get_leaf_semantic_name(id),
+                                        id
+                                    ),
+                                    style: TextStyle {
+                                        font_size: 60.0,
+                                        font: fira_code_handle.clone(),
+                                        color: Color::rgb(0.4, 0.4, 0.9),
+                                    },
+                                }])
+                                .with_alignment(TextAlignment::Center),
+                                ..default()
+                            },
+                            WfcEntityMarker,
+                        ));
+
+                        quad_mesh_builder.add_mesh(
+                            &ok_cube,
+                            transform,
+                            collapsed_data.graph.order[index] as u32,
+                        )
+                    }
+                }
+            }
+
             // Create debug meshes
             commands
                 .spawn((
@@ -522,6 +573,18 @@ fn facade_debug_system(
                     MaterialMeshBundle {
                         mesh: meshes.add(edge_mesh_builder.build()),
                         material: edge_material,
+                        visibility: Visibility::Visible,
+                        ..Default::default()
+                    },
+                    // DebugArcs,
+                ))
+                .set_parent(entity);
+
+            commands
+                .spawn((
+                    MaterialMeshBundle {
+                        mesh: meshes.add(quad_mesh_builder.build()),
+                        material: quad_material,
                         visibility: Visibility::Visible,
                         ..Default::default()
                     },

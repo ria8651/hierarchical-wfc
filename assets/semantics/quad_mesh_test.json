@@ -1,0 +1,352 @@
+{
+  "directions": ["+X", "-X", "+Y", "-Y", "+Z", "-Z"],
+  "symmetries": {
+    "rotateY": {
+      "+X": "+Z",
+      "-X": "-Z",
+      "+Z": "-X",
+      "-Z": "+X"
+    }
+  },
+  "semantic_nodes": [
+    {
+      "label": "vertex_leaf_00",
+      "sockets": {
+        "+X": "v_00",
+        "-X": "v_00",
+        "+Y": "v_00",
+        "-Y": "v_00",
+        "+Z": "v_00",
+        "-Z": "v_00"
+      },
+      "symmetries": [],
+      "assets": {
+        "model": "assets/models/facade/vertex_roof_flat.gltf"
+      }
+    },
+    {
+      "label": "vertex_leaf_01",
+      "sockets": {
+        "+X": "v_01",
+        "-X": "v_01",
+        "+Y": "v_01",
+        "-Y": "v_01",
+        "+Z": "v_01",
+        "-Z": "v_01"
+      },
+      "symmetries": [],
+      "assets": {
+        "model": "assets/models/facade/vertex_roof_flat.gltf"
+      }
+    },
+    {
+      "label": "edge_leaf_00_h",
+      "sockets": {
+        "+X": "v_00",
+        "-X": "v_00",
+        "+Y": "f",
+        "-Y": "f",
+        "+Z": "f",
+        "-Z": "f"
+      },
+      "symmetries": ["rotateY"],
+      "assets": {
+        "model": "assets/models/facade/edge_roof_flat.gltf"
+      }
+    },
+    {
+      "label": "edge_leaf_00_v",
+      "sockets": {
+        "+X": "f",
+        "-X": "f",
+        "+Y": "v_00",
+        "-Y": "v_00",
+        "+Z": "f",
+        "-Z": "f"
+      },
+      "symmetries": [],
+      "assets": {
+        "model": "assets/models/facade/edge_roof_flat.gltf"
+      }
+    },
+    {
+      "label": "edge_leaf_01_h",
+      "sockets": {
+        "+X": "v_01",
+        "-X": "v_01",
+        "+Y": "f",
+        "-Y": "f",
+        "+Z": "f",
+        "-Z": "f"
+      },
+      "symmetries": ["rotateY"],
+      "assets": {
+        "model": "assets/models/facade/edge_roof_flat.gltf"
+      }
+    },
+    {
+      "label": "edge_leaf_01_v",
+      "sockets": {
+        "+X": "f",
+        "-X": "f",
+        "+Y": "v_01",
+        "-Y": "v_01",
+        "+Z": "f",
+        "-Z": "f"
+      },
+      "symmetries": [],
+      "assets": {
+        "model": "assets/models/facade/edge_roof_flat.gltf"
+      }
+    },
+    {
+      "label": "edge_leaf_00_01_h",
+      "sockets": {
+        "+X": "v_00",
+        "-X": "v_01",
+        "+Y": "f",
+        "-Y": "f",
+        "+Z": "f",
+        "-Z": "f"
+      },
+      "symmetries": ["rotateY"],
+      "assets": {
+        "model": "assets/models/facade/edge_roof_flat.gltf"
+      }
+    },
+    {
+      "label": "edge_leaf_00_01_v",
+      "sockets": {
+        "+X": "f",
+        "-X": "f",
+        "+Y": "v_01",
+        "-Y": "v_00",
+        "+Z": "f",
+        "-Z": "f"
+      },
+      "symmetries": [],
+      "assets": {
+        "model": "assets/models/facade/edge_roof_flat.gltf"
+      }
+    },
+    {
+      "label": "edge_leaf_01_00_v",
+      "sockets": {
+        "+X": "f",
+        "-X": "f",
+        "+Y": "v_00",
+        "-Y": "v_01",
+        "+Z": "f",
+        "-Z": "f"
+      },
+      "symmetries": [],
+      "assets": {
+        "model": "assets/models/facade/edge_roof_flat.gltf"
+      }
+    },
+    {
+      "label": "quad_leaf_wall",
+      "sockets": {
+        "+X": "e",
+        "-X": "e",
+        "+Y": "e",
+        "-Y": "e",
+        "+Z": "x",
+        "-Z": "x"
+      },
+      "symmetries": ["rotateY"],
+      "assets": {
+        "model": "assets/models/facade/edge_roof_flat.gltf"
+      }
+    },
+    {
+      "label": "quad_leaf_floor",
+      "sockets": {
+        "+X": "e",
+        "-X": "e",
+        "+Y": "x",
+        "-Y": "x",
+        "+Z": "e",
+        "-Z": "e"
+      },
+      "symmetries": [],
+      "assets": {
+        "model": "assets/models/facade/edge_roof_flat.gltf"
+      }
+    }
+  ],
+  "semantic_dag": {
+    "vertex": {
+      "vertex_leaf_00": null,
+      "vertex_leaf_01": null
+    },
+    "edge": {
+      "edge_leaf_00_h": null,
+      "edge_leaf_01_h": null,
+      "edge_leaf_00_01_h": null,
+      "edge_leaf_00_v": null,
+      "edge_leaf_01_v": null,
+      "edge_leaf_01_00_v": null,
+      "edge_leaf_00_01_v": null
+    },
+    "quad": {
+      "quad_leaf_wall": null,
+      "quad_leaf_floor": null
+    }
+  },
+  "constraints": [
+    [
+      { "node": "quad_leaf_wall", "socket": "e" },
+      {
+        "node": "edge_leaf_00_v",
+        "socket": "f"
+      }
+    ],
+    [
+      { "node": "quad_leaf_wall", "socket": "e" },
+      {
+        "node": "edge_leaf_01_v",
+        "socket": "f"
+      }
+    ],
+    [
+      { "node": "quad_leaf_wall", "socket": "e" },
+      {
+        "node": "edge_leaf_00_01_v",
+        "socket": "f"
+      }
+    ],
+    [
+      { "node": "quad_leaf_wall", "socket": "e" },
+      {
+        "node": "edge_leaf_01_00_v",
+        "socket": "f"
+      }
+    ],
+
+    [
+      { "node": "quad_leaf_wall", "socket": "e" },
+      {
+        "node": "edge_leaf_00_h",
+        "socket": "f"
+      }
+    ],
+    [
+      { "node": "quad_leaf_wall", "socket": "e" },
+      {
+        "node": "edge_leaf_01_h",
+        "socket": "f"
+      }
+    ],
+    [
+      { "node": "quad_leaf_wall", "socket": "e" },
+      {
+        "node": "edge_leaf_00_01_h",
+        "socket": "f"
+      }
+    ],
+
+    [
+      { "node": "quad_leaf_floor", "socket": "e" },
+      {
+        "node": "edge_leaf_00_h",
+        "socket": "f"
+      }
+    ],
+    [
+      { "node": "quad_leaf_floor", "socket": "e" },
+      {
+        "node": "edge_leaf_01_h",
+        "socket": "f"
+      }
+    ],
+    [
+      { "node": "quad_leaf_floor", "socket": "e" },
+      {
+        "node": "edge_leaf_00_01_h",
+        "socket": "f"
+      }
+    ],
+
+    [
+      {
+        "node": "vertex_leaf_00",
+        "socket": "v_00"
+      },
+      {
+        "node": "edge_leaf_00_h",
+        "socket": "v_00"
+      }
+    ],
+    [
+      {
+        "node": "vertex_leaf_01",
+        "socket": "v_01"
+      },
+      {
+        "node": "edge_leaf_01_h",
+        "socket": "v_01"
+      }
+    ],
+    [
+      {
+        "node": "vertex_leaf_00",
+        "socket": "v_00"
+      },
+      {
+        "node": "edge_leaf_00_01_h",
+        "socket": "v_00"
+      }
+    ],
+    [
+      {
+        "node": "vertex_leaf_01",
+        "socket": "v_01"
+      },
+      {
+        "node": "edge_leaf_00_01_h",
+        "socket": "v_01"
+      }
+    ],
+    [
+      {
+        "node": "vertex_leaf_00",
+        "socket": "v_00"
+      },
+      {
+        "node": "edge_leaf_00_01_v",
+        "socket": "v_00"
+      }
+    ],
+    [
+      {
+        "node": "vertex_leaf_01",
+        "socket": "v_01"
+      },
+      {
+        "node": "edge_leaf_00_01_v",
+        "socket": "v_01"
+      }
+    ],
+    [
+      {
+        "node": "vertex_leaf_00",
+        "socket": "v_00"
+      },
+      {
+        "node": "edge_leaf_01_00_v",
+        "socket": "v_00"
+      }
+    ],
+    [
+      {
+        "node": "vertex_leaf_01",
+        "socket": "v_01"
+      },
+      {
+        "node": "edge_leaf_01_00_v",
+        "socket": "v_01"
+      }
+    ]
+  ]
+}

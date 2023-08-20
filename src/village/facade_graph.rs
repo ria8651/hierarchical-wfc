@@ -869,6 +869,7 @@ impl FacadeTileset {
                     }
 
                     ConstraintNodeModel::NodeSocket { node, socket } => {
+                        dbg!(&node);
                         (*sematic_node_names_map.get(&node).unwrap(), Some(socket))
                     }
                 },
