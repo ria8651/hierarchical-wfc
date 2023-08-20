@@ -75,9 +75,9 @@ fn main() {
             wfc_ready_system,
             replay_generation_system,
             layout_init_system,
-            layout_debug_system,
+            // layout_debug_system,
             facade_init_system,
-            facade_debug_system,
+            // facade_debug_system,
         ),
     )
     .add_systems(Startup, setup);
@@ -267,39 +267,39 @@ fn facade_init_system(
             let facade_pass_data =
                 FacadePassData::from_layout(&parent_data.graph, &parent_settings);
 
-            // // Create debug meshes
-            // commands
-            //     .spawn((
-            //         MaterialMeshBundle {
-            //             mesh: meshes
-            //                 .add(facade_pass_data.debug_vertex_mesh(shape::Cube::new(0.3).into())),
-            //             material: materials.add(Color::rgb(0.8, 0.6, 0.6).into()),
-            //             visibility: Visibility::Visible,
-            //             ..Default::default()
-            //         },
-            //         // DebugArcs,
-            //     ))
-            //     .set_parent(entity);
+            // Create debug meshes
+            commands
+                .spawn((
+                    MaterialMeshBundle {
+                        mesh: meshes
+                            .add(facade_pass_data.debug_vertex_mesh(shape::Cube::new(0.3).into())),
+                        material: materials.add(Color::rgb(0.8, 0.6, 0.6).into()),
+                        visibility: Visibility::Visible,
+                        ..Default::default()
+                    },
+                    // DebugArcs,
+                ))
+                .set_parent(entity);
 
-            // commands
-            //     .spawn((MaterialMeshBundle {
-            //         mesh: meshes
-            //             .add(facade_pass_data.debug_edge_mesh(shape::Cube::new(0.3).into())),
-            //         material: materials.add(Color::rgb(0.6, 0.8, 0.6).into()),
-            //         visibility: Visibility::Visible,
-            //         ..Default::default()
-            //     },))
-            //     .set_parent(entity);
+            commands
+                .spawn((MaterialMeshBundle {
+                    mesh: meshes
+                        .add(facade_pass_data.debug_edge_mesh(shape::Cube::new(0.3).into())),
+                    material: materials.add(Color::rgb(0.6, 0.8, 0.6).into()),
+                    visibility: Visibility::Visible,
+                    ..Default::default()
+                },))
+                .set_parent(entity);
 
-            // commands
-            //     .spawn((MaterialMeshBundle {
-            //         mesh: meshes
-            //             .add(facade_pass_data.debug_quad_mesh(shape::Cube::new(0.3).into())),
-            //         material: materials.add(Color::rgb(0.6, 0.6, 0.8).into()),
-            //         visibility: Visibility::Visible,
-            //         ..Default::default()
-            //     },))
-            //     .set_parent(entity);
+            commands
+                .spawn((MaterialMeshBundle {
+                    mesh: meshes
+                        .add(facade_pass_data.debug_quad_mesh(shape::Cube::new(0.3).into())),
+                    material: materials.add(Color::rgb(0.6, 0.6, 0.8).into()),
+                    visibility: Visibility::Visible,
+                    ..Default::default()
+                },))
+                .set_parent(entity);
 
             let tileset = FacadeTileset::from_asset("semantics/edge_directional.json");
             let mut wfc_graph = facade_pass_data.create_wfc_graph(&tileset);
@@ -310,15 +310,6 @@ fn facade_init_system(
                 rng: StdRng::from_entropy(),
                 weights: tileset.get_weights(),
             };
-
-            // dbg!(wfc);
-
-            // WaveFunctionCollapse::collapse(
-            //     &mut wfc_graph,
-            //     &tileset.get_constraints(),
-            //     &tileset.get_weights(),
-            //     &mut StdRng::from_entropy(),
-            // );
 
             commands
                 .entity(entity)
@@ -631,7 +622,7 @@ fn ui_system(
                             settings: *layout_settings,
                         },
                         PassDebugSettings {
-                            blocks: true,
+                            blocks: false,
                             arcs: true,
                         },
                         WfcPassReadyMarker,

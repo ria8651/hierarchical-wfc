@@ -64,8 +64,7 @@ pub struct FacadeEdge {
     pub pos: IVec3,
     pub from: usize,
     pub to: usize,
-    pub left: usize,
-    pub right: usize,
+    pub quads: Box<[usize]>,
     pub tangent: usize,
     pub cotangent: usize,
 }
@@ -88,8 +87,8 @@ pub struct FacadePassData {
 
 impl FacadePassData {
     pub fn create_wfc_graph(&self, tileset: &FacadeTileset) -> WfcGraph<Superposition> {
-        let vertex_superposition = tileset.superposition_from_string("vertex".to_string());
-        let edge_superposition = tileset.superposition_from_string("edge".to_string());
+        let vertex_superposition = tileset.superposition_from_semantic_name("vertex".to_string());
+        let edge_superposition = tileset.superposition_from_semantic_name("edge".to_string());
         // let quad_superposition = tileset.superposition_from_string("quad".to_string());
 
         let num_verts = self.vertices.len();
@@ -242,6 +241,42 @@ impl FacadePassData {
         vertex_mesh_builder.build()
     }
 
+    fn edge_configuration(from: usize, to: usize, direction: usize) -> usize {
+        // Vertex configuration bits
+        // 0: +x +y +z
+        // 1: -x +y +z
+        // 2: +x -y +z
+        // 3: -x -y +z
+        // 4: +x +y -z
+        // 5: -x +y -z
+        // 6: +x -y -z
+        // 7: -x -y -z
+
+        // Order so edge is from - to +
+        let (from, to) = if direction.rem_euclid(2) == 0 {
+            (from, to)
+        } else {
+            (to, from)
+        };
+
+        // x: from[2n] & to[2n+1]          : from & (to>>1) .3.2.1.0
+        // y: from[0,1,4,5] & to[2,3,6,7]  : from & (to>>2) ..32..01
+        // z: from[0,1,2,3] & to[4,5,6,7]  : from & (to>>4) ....3210
+
+        match direction {
+            0..=1 => from & (to >> 1),
+            2..=3 => from & (to >> 2),
+            4..=5 => from & (to >> 4),
+            _ => unreachable!(),
+        }
+    }
+
+    fn edge_occluded(edge_configuration: usize) -> bool {
+        (edge_configuration ^ 0b01010101 == 0)
+            || (edge_configuration ^ 0b00110011 == 0)
+            || (edge_configuration ^ 0b00001111 == 0)
+    }
+
     pub fn from_layout(
         layout_data: &WfcGraph<usize>,
         layout_settings: &LayoutGraphSettings,
@@ -264,10 +299,13 @@ impl FacadePassData {
         let mut new_node_indices: Vec<Option<usize>> = Vec::new();
         let mut new_node_index: usize = 0;
 
+        let mut vertex_configurations: Vec<usize> = Vec::new();
+
         for (index, pos) in node_pos.clone().enumerate() {
-            let mut connected = 0;
+            let mut connected: i32 = 0;
+            let mut vertex_configuration: usize = 0;
             for delta in
-                itertools::iproduct!(-1..=0, -1..=0, -1..=0).map(|(x, y, z)| ivec3(x, y, z))
+                itertools::iproduct!(-1..=0, -1..=0, -1..=0).map(|(z, y, x)| ivec3(x, y, z))
             {
                 let pos = pos + delta;
                 if (0..size.x).contains(&pos.x)
@@ -277,12 +315,16 @@ impl FacadePassData {
                     let index = pos.dot(ivec3(1, size.x, size.x * size.y)) as usize;
 
                     let tile = layout_data.nodes[index];
+                    vertex_configuration <<= 1;
                     if (0..=8).contains(&tile) {
+                        vertex_configuration += 1;
                         connected += 1;
                     }
                 }
             }
             if 0 < connected && connected < 8 {
+                println!("{:08b}", vertex_configuration);
+                vertex_configurations.push(vertex_configuration);
                 new_node_indices.push(Some(new_node_index));
                 new_node_index += 1;
                 nodes[index as usize] = true;
@@ -291,7 +333,7 @@ impl FacadePassData {
             }
         }
 
-        // Create list of verts with neighbours
+        // Create list of verts and edges without face data
         let mut vertices: Vec<FacadeVertex> = Vec::with_capacity(new_node_index);
         let mut edges: Vec<FacadeEdge> = Vec::new();
 
@@ -299,10 +341,23 @@ impl FacadePassData {
             if let Some(u) = new_node_indices[u] {
                 let neighbours: [Option<usize>; 6] = DIRECTIONS
                     .into_iter()
-                    .map(|dir: IVec3| {
+                    .enumerate()
+                    .map(|(direction_index, dir)| {
                         if ivec3_in_bounds(u_pos + dir, IVec3::ZERO, size + 1) {
                             let v = ivec3_to_index(u_pos + dir, size + 1);
-                            new_node_indices[v]
+                            if let Some(v) = new_node_indices[v] {
+                                if Self::edge_occluded(Self::edge_configuration(
+                                    vertex_configurations[u],
+                                    vertex_configurations[v],
+                                    direction_index,
+                                )) {
+                                    None
+                                } else {
+                                    Some(v)
+                                }
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
@@ -319,20 +374,18 @@ impl FacadePassData {
                     ]
                     .into_iter()
                     .enumerate()
-                    .map(|(index, neighbour)| {
+                    .filter_map(|(index, neighbour)| {
                         if let Some(v) = neighbour.1 {
                             Some((index, neighbour.0, v))
                         } else {
                             None
                         }
                     })
-                    .filter_map(|item| item)
                     .map(|(_, dir, v)| FacadeEdge {
                         from: u,
                         to: v,
                         pos: 2 * u_pos + dir,
-                        left: 0,
-                        right: 0,
+                        quads: Box::new([]),
                         tangent: FacadeTileset::ivec3_to_direction(dir).unwrap(),
                         cotangent: 0,
                     }),
@@ -367,9 +420,10 @@ impl FacadePassData {
 
         // Create list of quads
         let mut quads: Vec<FacadeQuad> = Vec::new();
+        let mut edge_quads = vec![Vec::new(); edges.len()];
         for (u, vertex) in vertices.iter().enumerate() {
             'quad_loop: for steps in [[0usize, 2, 1, 3], [2, 4, 3, 5], [4, 0, 5, 1]].into_iter() {
-                let mut pos = IVec3::ZERO;
+                let mut pos: IVec3 = IVec3::ZERO;
                 let mut quad_edges: [usize; 4] = [0; 4];
                 let mut quad_vertices: [usize; 4] = [0; 4];
                 let mut v = u;
@@ -387,6 +441,9 @@ impl FacadePassData {
                     }
                 }
 
+                for e in quad_edges {
+                    edge_quads[e].push(quads.len());
+                }
                 quads.push(FacadeQuad {
                     pos,
                     verts: quad_vertices,
@@ -395,6 +452,18 @@ impl FacadePassData {
             }
         }
 
+        for (edge_index, edge_quads) in edge_quads.into_iter().enumerate() {
+            // assert!(
+            //     edge_quads.len() <= 2,
+            //     "Degenerate facade edge with >2 faces"
+            // );
+            println!("{:?}", edge_quads);
+            edges[edge_index].quads = edge_quads.into_boxed_slice();
+        }
+
+        // dbg!(&quads);
+        // dbg!(&edges);
+
         Self {
             vertices,
             edges,
@@ -402,12 +471,6 @@ impl FacadePassData {
         }
     }
 }
-
-// #[derive(Reflect, Clone, Copy)]
-// #[reflect(Default)]
-// pub struct FacadeGraphSettings;
-
-// impl FacadeGraphSettings {}
 
 impl Default for FacadePassSettings {
     fn default() -> Self {
@@ -423,19 +486,6 @@ const DIRECTIONS: [IVec3; 6] = [
     IVec3::Z,
     IVec3::NEG_Z,
 ];
-
-// pub fn create_facade_graph<F: Clone>(
-//     data: &FacadePassData,
-//     tileset: &FacadeTileset,
-//     _settings: &FacadePassSettings,
-// ) -> WfcGraph<Superposition> {
-//     // let tileset = FacadeTileset::from_asset("semantics/facade.json");
-//     WfcGraph {
-//         nodes: data.init_tiles(tileset),
-//         order: Vec::new(),
-//         neighbors: data.init_neighbours(),
-//     }
-// }
 
 #[derive(Component, Debug)]
 pub struct FacadeTileset {
@@ -643,7 +693,6 @@ impl FacadeTileset {
         }
 
         // Build constraints for all DAG nodes
-
         let mut constraints: Box<[((usize, Option<String>), (usize, Option<String>))]> =
             vec![((0, None), (0, None)); 2 * model.constraints.len()].into_boxed_slice();
 
@@ -944,7 +993,7 @@ impl FacadeTileset {
             .clone()
     }
 
-    pub fn superposition_from_string(&self, semantic_string: String) -> Superposition {
+    pub fn superposition_from_semantic_name(&self, semantic_string: String) -> Superposition {
         let node = *self.sematic_node_names.get(&semantic_string).unwrap();
         let transformed_nodes = &self.associated_transformed_nodes[node];
 
