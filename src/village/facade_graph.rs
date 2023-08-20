@@ -1,10 +1,7 @@
-use std::{
-    collections::{HashMap, HashSet},
-    ops::Add,
-};
+use std::collections::{HashMap, HashSet};
 
 use crate::{
-    json::tileset::{ConstraintNodeModel, DagNodeModel, SemanticNodeModel, TileSetModel},
+    json::tileset::{ConstraintNodeModel, DagNodeModel, TileSetModel},
     tools::{
         index_tools::{ivec3_in_bounds, ivec3_to_index},
         MeshBuilder,
@@ -18,40 +15,6 @@ use bevy::{
 use itertools::Itertools;
 
 use super::LayoutGraphSettings;
-
-pub enum VertexVariants {
-    FlatTop,      // Vertex between edges on the same plane
-    FlatSide,     //
-    FlatBottom,   //
-    TopCorner,    // Vertex is located in corner on block
-    BottomCorner, //
-    TopEdge,      // Vertex is located between exactly two blocks
-    BottomEdge,   //
-    GutterJoin,   // Between two blocks meeting the floor
-    GutterBend,   // Located on bottom corner of one block and top corner of 4 blocks
-    GutterOutlet, // Vertex located on the edge of one wall and the intersection of another wall with the floor
-                  //     | /
-                  //  ---O---
-                  //     |
-}
-
-pub enum EdgeVariants {
-    FlatTop,
-    FlatSide,
-    FlatBottom,
-
-    CornerTop,
-    CornerSide,
-    CornerBottom,
-
-    Gutter, // Bottom of wall meets floor
-}
-
-pub enum FaceVariants {
-    Top,
-    Side,
-    Bottom,
-}
 
 pub struct FacadeVertex {
     pub pos: IVec3,
@@ -99,112 +62,103 @@ impl FacadePassData {
         vec4(0.1, 0.1, 0.1, 1.0),
     ];
 
-    pub fn create_wfc_graph(&self, tileset: &FacadeTileset) -> WfcGraph<Superposition> {
+    fn get_vertex_neighbours(&self) -> Vec<Vec<Neighbour>> {
+        self.vertices
+            .iter()
+            .map(|vert| {
+                vert.edges
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, edge)| {
+                        if let Some(edge) = edge {
+                            Some(Neighbour {
+                                arc_type: index,
+                                index: edge + self.vertices.len(),
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect_vec()
+            })
+            .collect_vec()
+    }
+
+    fn get_edge_neighbours(&self) -> Vec<Vec<Neighbour>> {
+        self.edges
+            .iter()
+            .map(|edge| {
+                let mut neighbours = vec![
+                    Neighbour {
+                        arc_type: FacadeTileset::get_matching_direction(edge.tangent),
+                        index: edge.from,
+                    },
+                    Neighbour {
+                        arc_type: edge.tangent,
+                        index: edge.to,
+                    },
+                ];
+                neighbours.extend(edge.quads.iter().map(|(direction, quad)| Neighbour {
+                    arc_type: *direction,
+                    index: self.vertices.len() + self.edges.len() + quad,
+                }));
+                neighbours
+            })
+            .collect_vec()
+    }
+
+    fn get_quad_neighbours(&self) -> Vec<Vec<Neighbour>> {
+        self.quads
+            .iter()
+            .map(|quad| {
+                quad.edges
+                    .iter()
+                    .enumerate()
+                    .map(|(index, edge)| Neighbour {
+                        arc_type: [
+                            quad.cotangent + 1,
+                            quad.tangent,
+                            quad.cotangent,
+                            quad.tangent + 1,
+                        ][index],
+                        index: self.vertices.len() + *edge,
+                    })
+                    .collect_vec()
+            })
+            .collect_vec()
+    }
+
+    fn get_nodes(&self, tileset: &FacadeTileset) -> Vec<Superposition> {
         let vertex_superposition = tileset.superposition_from_semantic_name("vertex".to_string());
         let edge_superposition = tileset.superposition_from_semantic_name("edge".to_string());
-        // let quad_superposition = tileset.superposition_from_string("quad".to_string());
+        let quad_superposition = tileset.superposition_from_semantic_name("quad".to_string());
+        [
+            self.vertices
+                .iter()
+                .map(|_| vertex_superposition.clone())
+                .collect_vec(),
+            self.edges
+                .iter()
+                .map(|_| edge_superposition.clone())
+                .collect_vec(),
+            self.quads
+                .iter()
+                .map(|_| quad_superposition.clone())
+                .collect_vec(),
+        ]
+        .into_iter()
+        .flat_map(|v| v.into_iter())
+        .collect_vec()
+    }
 
-        let num_verts = self.vertices.len();
-        let num_edges = self.edges.len();
-        let num_quads = self.quads.len();
-
+    pub fn create_wfc_graph(&self, tileset: &FacadeTileset) -> WfcGraph<Superposition> {
         WfcGraph {
-            nodes: [
-                self.vertices
-                    .iter()
-                    .map(|_| vertex_superposition.clone())
-                    .collect_vec(),
-                self.edges
-                    .iter()
-                    .map(|_| edge_superposition.clone())
-                    .collect_vec(),
-                // self.quads
-                //     .iter()
-                //     .map(|_| quad_superposition.clone())
-                //     .collect_vec(),
-            ]
-            .into_iter()
-            .flat_map(|v| v.into_iter())
-            .collect_vec(),
+            nodes: FacadePassData::get_nodes(&self, tileset),
             order: Vec::new(),
             neighbors: [
-                self.vertices
-                    .iter()
-                    .map(|vert| {
-                        vert.edges
-                            .iter()
-                            .enumerate()
-                            .filter_map(|(index, edge)| {
-                                if let Some(edge) = edge {
-                                    Some(Neighbour {
-                                        arc_type: index,
-                                        index: edge + num_verts,
-                                    })
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect_vec()
-                    })
-                    .collect_vec(),
-                self.edges
-                    .iter()
-                    .map(|edge| {
-                        vec![
-                            Neighbour {
-                                arc_type: FacadeTileset::get_matching_direction(edge.tangent),
-                                index: edge.from,
-                            },
-                            Neighbour {
-                                arc_type: edge.tangent,
-                                index: edge.to,
-                            },
-                            // Neighbour {
-                            //     arc_type: 0,
-                            //     index: num_verts + num_edges + edge.left,
-                            // },
-                            // Neighbour {
-                            //     arc_type: 0,
-                            //     index: num_verts + num_edges + edge.right,
-                            // },
-                        ]
-                    })
-                    .collect_vec(),
-                // self.quads
-                //     .iter()
-                //     .map(|quad| {
-                //         let tangent =
-                //             (self.edges[quad.edges[1]].pos - self.edges[quad.edges[0]].pos);
-                //         let tangent = tangent.signum()
-                //             * [IVec3::X, IVec3::Y, IVec3::Z][tangent.max_element() as usize];
-                //         let tangent = FacadeTileset::ivec3_to_direction(tangent).unwrap();
-
-                //         let cotangent =
-                //             (self.edges[quad.edges[3]].pos - self.edges[quad.edges[1]].pos);
-                //         let cotangent = cotangent.signum()
-                //             * [IVec3::X, IVec3::Y, IVec3::Z][cotangent.max_element() as usize];
-                //         let cotangent = FacadeTileset::ivec3_to_direction(cotangent).unwrap();
-
-                //         vec![
-                //             Neighbour {
-                //                 arc_type: FacadeTileset::get_matching_direction(tangent),
-                //                 index: quad.edges[0] + num_verts,
-                //             },
-                //             Neighbour {
-                //                 arc_type: tangent,
-                //                 index: quad.edges[1] + num_verts,
-                //             },
-                //             // Neighbour {
-                //             //     arc_type: FacadeTileset::get_matching_direction(cotangent),
-                //             //     index: quad.edges[2] + num_verts,
-                //             // },
-                //             // Neighbour {
-                //             //     arc_type: cotangent,
-                //             //     index: quad.edges[3] + num_verts,
-                //             // },
-                //         ]
-                //     })
-                //     .collect_vec(),
+                FacadePassData::get_vertex_neighbours(&self),
+                FacadePassData::get_edge_neighbours(&self),
+                FacadePassData::get_quad_neighbours(&self),
             ]
             .into_iter()
             .flat_map(|v| v.into_iter())
