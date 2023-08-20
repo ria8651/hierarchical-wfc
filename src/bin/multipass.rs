@@ -393,6 +393,7 @@ fn facade_debug_system(
             commands
                 .entity(entity)
                 .insert(ReplayPassProgress::default());
+
             let ok_cube: Mesh = shape::Cube::new(0.25).into();
             let error_cube: Mesh = shape::Cube::new(0.5).into();
 
