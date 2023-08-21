@@ -1,0 +1,177 @@
+{
+  "directions": ["+X", "-X", "+Y", "-Y", "+Z", "-Z"],
+  "symmetries": {
+    "rotateY": {
+      "+X": "+Z",
+      "-X": "-Z",
+      "+Z": "-X",
+      "-Z": "+X"
+    }
+  },
+  "semantic_nodes": [
+    {
+      "label": "vertex_leaf",
+      "sockets": {
+        "+X": "v",
+        "-X": "v",
+        "+Y": "v",
+        "-Y": "v",
+        "+Z": "v",
+        "-Z": "v"
+      },
+      "symmetries": [],
+      "assets": {}
+    },
+    {
+      "label": "edge_leaf_h_flat",
+      "sockets": {
+        "+X": "v",
+        "-X": "v",
+        "+Z": "f",
+        "-Z": "f"
+      },
+      "symmetries": ["rotateY"],
+      "assets": {}
+    },
+    {
+      "label": "edge_leaf_h_edge",
+      "sockets": {
+        "+X": "v",
+        "-X": "v",
+        "+Y": "f",
+        "-Y": "f",
+        "+Z": "f",
+        "-Z": "f"
+      },
+      "symmetries": ["rotateY"],
+      "assets": {
+        "model": "models/frame_test/edge_lip.gltf"
+      }
+    },
+    {
+      "label": "edge_leaf_v_flat",
+      "sockets": {
+        "+X": "f",
+        "-X": "f",
+        "+Y": "v",
+        "-Y": "v"
+      },
+      "symmetries": [],
+      "assets": {
+        "model": "models/frame_test/pillar_face.gltf"
+      }
+    },
+    {
+      "label": "edge_leaf_v_edge",
+      "sockets": {
+        "+X": "f",
+        "+Y": "v",
+        "-Y": "v",
+        "+Z": "f"
+      },
+      "symmetries": ["rotateY"],
+      "assets": {
+        "model": "models/frame_test/pillar_corner.gltf"
+      }
+    },
+    {
+      "label": "quad_leaf_wall",
+      "sockets": {
+        "+X": "e",
+        "-X": "e",
+        "+Y": "e",
+        "-Y": "e"
+      },
+      "symmetries": ["rotateY"],
+      "assets": {}
+    },
+    {
+      "label": "quad_leaf_floor",
+      "sockets": {
+        "+X": "e",
+        "-X": "e",
+        "+Z": "e",
+        "-Z": "e"
+      },
+      "symmetries": [],
+      "assets": {}
+    }
+  ],
+  "semantic_dag": {
+    "vertex": {
+      "vertex_leaf": null
+    },
+    "edge": {
+      "edge_leaf_h_flat": null,
+      "edge_leaf_h_edge": null,
+      "edge_leaf_v_flat": null,
+      "edge_leaf_v_edge": null
+    },
+    "quad": {
+      "quad_leaf_wall": null,
+      "quad_leaf_floor": null
+    }
+  },
+  "constraints": [
+    [
+      { "node": "quad_leaf_wall", "socket": "e" },
+      {
+        "node": "edge_leaf_h_flat",
+        "socket": "f"
+      }
+    ],
+    [
+      { "node": "quad_leaf_wall", "socket": "e" },
+      {
+        "node": "edge_leaf_h_edge",
+        "socket": "f"
+      }
+    ],
+    [
+      { "node": "quad_leaf_wall", "socket": "e" },
+      {
+        "node": "edge_leaf_v_flat",
+        "socket": "f"
+      }
+    ],
+    [
+      { "node": "quad_leaf_wall", "socket": "e" },
+      {
+        "node": "edge_leaf_v_edge",
+        "socket": "f"
+      }
+    ],
+
+    [
+      { "node": "quad_leaf_floor", "socket": "e" },
+      {
+        "node": "edge_leaf_h_flat",
+        "socket": "f"
+      }
+    ],
+    [
+      { "node": "quad_leaf_floor", "socket": "e" },
+      {
+        "node": "edge_leaf_h_edge",
+        "socket": "f"
+      }
+    ],
+
+    [
+      { "node": "edge_leaf_h_flat", "socket": "v" },
+      { "node": "vertex_leaf", "socket": "v" }
+    ],
+    [
+      { "node": "edge_leaf_h_edge", "socket": "v" },
+      { "node": "vertex_leaf", "socket": "v" }
+    ],
+    [
+      { "node": "edge_leaf_v_flat", "socket": "v" },
+      { "node": "vertex_leaf", "socket": "v" }
+    ],
+    [
+      { "node": "edge_leaf_v_edge", "socket": "v" },
+      { "node": "vertex_leaf", "socket": "v" }
+    ]
+  ]
+}

@@ -1,5 +1,5 @@
-use bevy::asset::ChangeWatcher;
-use std::time::Duration;
+use bevy::{asset::ChangeWatcher, gltf::Gltf};
+use std::{collections::HashMap, time::Duration};
 
 use bevy::{
     math::{vec3, vec4},
@@ -31,7 +31,7 @@ use hierarchical_wfc::{
             wfc_collapse_system, wfc_ready_system, WfcEntityMarker, WfcFCollapsedData,
             WfcInitialData, WfcParentPasses, WfcPassReadyMarker, WfcPendingParentMarker,
         },
-        Superposition, TileSet, WaveFunctionCollapse, WfcGraph,
+        TileSet, WfcGraph,
     },
 };
 use rand::{rngs::StdRng, SeedableRng};
@@ -65,7 +65,7 @@ fn main() {
     ))
     .add_plugins(MaterialPlugin::<DebugLineMaterial>::default())
     .add_plugins(MaterialPlugin::<TilePbrMaterial>::default())
-    .add_plugin(BillboardPlugin)
+    .add_plugins(BillboardPlugin)
     .add_plugins(bevy_egui::EguiPlugin)
     .add_systems(
         Update,
@@ -78,6 +78,7 @@ fn main() {
             // layout_debug_system,
             facade_init_system,
             facade_debug_system,
+            facade_mesh_system,
         ),
     )
     .add_systems(Startup, setup);
@@ -316,7 +317,7 @@ fn facade_init_system(
             //     ))
             //     .set_parent(entity);
 
-            let tileset = FacadeTileset::from_asset("semantics/quad_mesh_test.json");
+            let tileset = FacadeTileset::from_asset("semantics/frame_test.json");
             let wfc_graph = facade_pass_data.create_wfc_graph(&tileset);
 
             let wfc = WfcInitialData {
@@ -335,6 +336,7 @@ fn facade_init_system(
                         arcs: true,
                     },
                     GenerateDebugMarker,
+                    GenerateMeshMarker,
                 ))
                 .insert((facade_pass_data, tileset, wfc))
                 .insert(SpatialBundle::default());
@@ -373,6 +375,63 @@ fn replay_generation_system(
 #[derive(Component)]
 struct DebugBlocks {
     material_handle: Handle<TilePbrMaterial>,
+}
+
+#[derive(Component)]
+struct GenerateMeshMarker;
+
+fn facade_mesh_system(
+    mut commands: Commands,
+    mut query: Query<
+        (Entity, &FacadePassData, &WfcFCollapsedData, &FacadeTileset),
+        With<GenerateMeshMarker>,
+    >,
+    mut meshes: ResMut<Assets<Mesh>>,
+    asset_server: Res<AssetServer>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    for (entity, facade_pass_data, collapsed_data, tileset) in query.iter_mut() {
+        dbg!("CREATING MODELS!");
+        let models = tileset
+            .assets
+            .paths_by_type
+            .get("model")
+            .unwrap_or(&vec![])
+            .iter()
+            .map(|model_id| &tileset.assets.assets[*model_id].1)
+            .map(|path| {
+                (
+                    path,
+                    asset_server.load(format!("{}#Scene0", path).to_string()),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+
+        for (index, (path, handle)) in models.iter().enumerate() {
+            dbg!(path);
+            commands.spawn(SceneBundle {
+                scene: handle.clone(),
+                transform: Transform::from_translation(3.0 * Vec3::X * index as f32),
+                ..Default::default()
+            });
+        }
+        for (edge_id, edge) in facade_pass_data.edges.iter().enumerate() {
+            let node = collapsed_data.graph.nodes[edge_id + facade_pass_data.vertices.len()];
+            let position = edge.pos.as_vec3() * vec3(2.0, 3.0, 2.0) * 0.5;
+            if node != 404 && tileset.get_leaf_semantic_name(node) == "edge_leaf_vertical_corner" {
+                commands.spawn(SceneBundle {
+                    scene: models
+                        .get(&"models/frame_test/pillar_corner.gltf".to_string())
+                        .unwrap()
+                        .clone(),
+                    transform: Transform::from_translation(position),
+                    ..Default::default()
+                });
+            }
+        }
+
+        commands.entity(entity).remove::<GenerateMeshMarker>();
+    }
 }
 
 fn facade_debug_system(

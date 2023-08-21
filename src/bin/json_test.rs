@@ -10,7 +10,7 @@ use rand::{rngs::StdRng, SeedableRng};
 
 fn main() {
     let data = FacadePassData::from_layout(&test_graph(), &test_settings());
-    let tileset = FacadeTileset::from_asset("semantics/quad_mesh_test.json");
+    let tileset = FacadeTileset::from_asset("semantics/frame_test.json");
     let mut wfc_graph = data.create_wfc_graph(&tileset);
 
     dbg!(tileset.superposition_from_semantic_name("vertex".to_string()));
@@ -19,12 +19,15 @@ fn main() {
 
     dbg!(&wfc_graph.nodes);
 
-    WaveFunctionCollapse::collapse(
-        &mut wfc_graph,
-        &tileset.get_constraints(),
-        &tileset.get_weights(),
-        &mut StdRng::from_entropy(),
-    );
+    // WaveFunctionCollapse::collapse(
+    //     &mut wfc_graph,
+    //     &tileset.get_constraints(),
+    //     &tileset.get_weights(),
+    //     &mut StdRng::from_entropy(),
+    // );
+
+    let binding = tileset.superposition_from_semantic_name("edge_leaf_h_flat".to_string());
+    let tile: Vec<usize> = binding.tile_iter().collect();
 }
 
 fn test_graph() -> WfcGraph<usize> {

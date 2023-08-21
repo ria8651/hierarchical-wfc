@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    json::tileset::{ConstraintNodeModel, DagNodeModel, TileSetModel},
+    json::tileset::{self, ConstraintNodeModel, DagNodeModel, TileSetModel},
     tools::{
         index_tools::{ivec3_in_bounds, ivec3_to_index},
         MeshBuilder,
@@ -151,18 +151,43 @@ impl FacadePassData {
         .collect_vec()
     }
 
+    fn fit_node_directions(
+        &self,
+        nodes: &mut Vec<Superposition>,
+        neighbours: &Vec<Vec<Neighbour>>,
+        tileset: &FacadeTileset,
+    ) {
+        for (node_index, node) in nodes.iter_mut().enumerate() {
+            let directions = neighbours[node_index]
+                .iter()
+                .map(|neighbour| 1 << neighbour.arc_type)
+                .reduce(|a, b| a | b)
+                .unwrap();
+
+            println!("{} Fitting: {:06b}", node_index, &directions);
+
+            *node =
+                Superposition::intersect(node, &tileset.superposition_from_directions(directions));
+        }
+    }
+
     pub fn create_wfc_graph(&self, tileset: &FacadeTileset) -> WfcGraph<Superposition> {
+        let mut nodes = FacadePassData::get_nodes(&self, tileset);
+        let neighbors = [
+            FacadePassData::get_vertex_neighbours(&self),
+            FacadePassData::get_edge_neighbours(&self),
+            FacadePassData::get_quad_neighbours(&self),
+        ]
+        .into_iter()
+        .flat_map(|v| v.into_iter())
+        .collect_vec();
+
+        Self::fit_node_directions(self, &mut nodes, &neighbors, tileset);
+
         WfcGraph {
-            nodes: FacadePassData::get_nodes(&self, tileset),
+            nodes,
             order: Vec::new(),
-            neighbors: [
-                FacadePassData::get_vertex_neighbours(&self),
-                FacadePassData::get_edge_neighbours(&self),
-                FacadePassData::get_quad_neighbours(&self),
-            ]
-            .into_iter()
-            .flat_map(|v| v.into_iter())
-            .collect_vec(),
+            neighbors,
         }
     }
 
@@ -645,14 +670,15 @@ const DIRECTIONS: [IVec3; 6] = [
 
 #[derive(Component, Debug)]
 pub struct FacadeTileset {
-    tile_count: usize,
-    arc_types: usize,
-    leaf_sources: Box<[usize]>,
-    transformed_nodes: Box<[TransformedDagNode]>,
-    constraints: Vec<Vec<Superposition>>,
-    sematic_node_names: HashMap<String, usize>,
-    associated_transformed_nodes: Box<[Box<[usize]>]>,
-    leaf_families: Box<[(usize, Superposition)]>,
+    pub assets: TilesetAssets,
+    pub tile_count: usize,
+    pub arc_types: usize,
+    pub leaf_sources: Box<[usize]>,
+    pub transformed_nodes: Box<[TransformedDagNode]>,
+    pub constraints: Vec<Vec<Superposition>>,
+    pub sematic_node_names: HashMap<String, usize>,
+    pub associated_transformed_nodes: Box<[Box<[usize]>]>,
+    pub leaf_families: Box<[(usize, Superposition)]>,
 }
 
 impl TileSet for FacadeTileset {
@@ -685,18 +711,25 @@ impl TileSet for FacadeTileset {
 
 #[derive(Debug)]
 struct SemanticNode {
-    sockets: Box<[String]>,
+    sockets: Box<[Option<String>]>,
     symmetries: Box<[usize]>,
     assets: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone)]
-struct TransformedDagNode {
-    source_node: usize,
-    parents: Vec<usize>,
-    children: Vec<usize>,
-    symmetry: Box<[usize]>,
-    sockets: Box<[String]>,
+pub struct TransformedDagNode {
+    pub source_node: usize,
+    pub parents: Vec<usize>,
+    pub children: Vec<usize>,
+    pub symmetry: Box<[usize]>,
+    pub sockets: Box<[Option<String>]>,
+}
+
+#[derive(Debug)]
+pub struct TilesetAssets {
+    pub assets: Vec<(String, String)>,
+    pub type_by_path: HashMap<String, usize>,
+    pub paths_by_type: HashMap<String, Vec<usize>>,
 }
 
 impl FacadeTileset {
@@ -756,6 +789,34 @@ impl FacadeTileset {
     }
 
     fn from_model(model: TileSetModel) -> Self {
+        let assets = {
+            let mut assets: Vec<(String, String)> = Vec::new();
+            let mut type_by_path: HashMap<String, usize> = HashMap::new();
+            let mut paths_by_type: HashMap<String, Vec<usize>> = HashMap::new();
+
+            // Process assets
+            for node in model.semantic_nodes.iter() {
+                for (asset_type, asset_path) in node.assets.iter() {
+                    if let Some(_) = type_by_path.get(asset_path) {
+                    } else {
+                        type_by_path.insert(asset_path.clone(), assets.len());
+
+                        paths_by_type
+                            .entry(asset_type.clone())
+                            .or_default()
+                            .push(assets.len());
+
+                        assets.push((asset_type.clone(), asset_path.clone()));
+                    }
+                }
+            }
+            TilesetAssets {
+                assets,
+                paths_by_type,
+                type_by_path,
+            }
+        };
+
         // Process data for symmetries and directions
         let directions: Box<[String]> = model.directions.into();
         let identity_symmetry = Self::identity_symmetry(directions.len());
@@ -799,11 +860,12 @@ impl FacadeTileset {
             .map(|node| SemanticNode {
                 sockets: directions
                     .iter()
-                    .map(|dir| match node.sockets.get(dir) {
-                        Some(string) => string.clone(),
-                        None => "".to_string(),
+                    .map(|dir| {
+                        node.sockets
+                            .get(dir)
+                            .and_then(|socket| Some(socket.clone()))
                     })
-                    .collect::<Box<[String]>>(),
+                    .collect::<Box<[Option<String>]>>(),
                 symmetries: node
                     .symmetries
                     .iter()
@@ -895,8 +957,10 @@ impl FacadeTileset {
                         let source_socket = &transformed_source.sockets[source_direction];
                         let target_socket = &transformed_target.sockets[target_direction];
 
-                        if (Some(source_socket) == source.1.as_ref() || source.1 == None)
-                            && (Some(target_socket) == target.1.as_ref() || target.1 == None)
+                        if source_socket.is_some()
+                            && target_socket.is_some()
+                            && (source_socket == &source.1 || source.1 == None)
+                            && (source_socket == &target.1 || target.1 == None)
                         {
                             allowed_neighbours[*transformed_source_index][source_direction]
                                 .add_tile(*transformed_target_index);
@@ -956,13 +1020,6 @@ impl FacadeTileset {
                             }
                         }
                         new_sp
-                        // Superposition::from_iter(transformed_leaves.iter().filter_map(|leaf| {
-                        //     if sp.contains(*leaf) {
-                        //         Some(*leaf)
-                        //     } else {
-                        //         None
-                        //     }
-                        // }))
                     })
                     .collect::<Vec<_>>()
             })
@@ -1009,6 +1066,7 @@ impl FacadeTileset {
         }
 
         Self {
+            assets,
             arc_types: directions.len(),
             tile_count: transformed_leaves.len(),
             leaf_sources: transformed_leaves.into_boxed_slice(),
@@ -1085,13 +1143,13 @@ impl FacadeTileset {
             .map(|i| (*i, transformed_nodes[*i].sockets.clone()))
             .collect_vec();
 
-        let mut socket_configurations: HashSet<Box<[String]>> = HashSet::new();
+        let mut socket_configurations: HashSet<Box<[Option<String>]>> = HashSet::new();
         socket_configurations.extend(existing_socket_configurations.iter().map(|v| v.1.clone()));
         for sym in node_symmetries.iter() {
             let sockets = sym
                 .iter()
-                .map(|i| semantic_node.sockets[*i].to_string())
-                .collect::<Box<[String]>>();
+                .map(|i| semantic_node.sockets[*i].clone())
+                .collect::<Box<[Option<String>]>>();
             if socket_configurations.insert(sockets.clone()) {
                 let self_location_transformed_nodes = transformed_nodes.len();
                 transformed_nodes.push(TransformedDagNode {
@@ -1169,5 +1227,30 @@ impl FacadeTileset {
             },
         );
         Superposition::from_iter_sized(possible_leaves, self.leaf_sources.len())
+    }
+
+    pub fn superposition_from_directions(&self, directions: usize) -> Superposition {
+        let mut sp = Superposition::empty_sized(self.leaf_sources.len());
+        for (leaf_id, node_id) in self.leaf_sources.iter().enumerate() {
+            let node = &self.transformed_nodes[*node_id];
+            let leaf_directions = node
+                .sockets
+                .iter()
+                .enumerate()
+                .map(|(index, socket)| (socket.is_some() as usize) << index)
+                .reduce(|last, next| last | next)
+                .unwrap();
+            println!(
+                "{}: {:06b}",
+                self.get_leaf_semantic_name(leaf_id),
+                leaf_directions
+            );
+            if leaf_directions == directions {
+                sp.add_tile(leaf_id);
+            }
+        }
+        println!("Resulting format: {}\n", sp);
+
+        sp
     }
 }
