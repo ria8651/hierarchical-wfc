@@ -15,6 +15,8 @@ pub enum ConstraintNodeModel {
 pub struct SemanticNodeModel {
     pub label: String,
     pub sockets: HashMap<String, String>,
+    #[serde(default)]
+    pub optional: Vec<String>,
     pub symmetries: Vec<String>,
     pub assets: HashMap<String, String>,
 }
@@ -23,6 +25,7 @@ impl Default for SemanticNodeModel {
         Self {
             label: "".to_string(),
             sockets: HashMap::new(),
+            optional: Vec::new(),
             symmetries: Vec::new(),
             assets: HashMap::new(),
         }

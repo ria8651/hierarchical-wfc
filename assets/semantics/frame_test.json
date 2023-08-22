@@ -19,9 +19,11 @@
         "+Z": "v",
         "-Z": "v"
       },
+      "optional": ["+X", "-X", "+Y", "-Y", "+Z", "-Z"],
       "symmetries": [],
       "assets": {}
     },
+
     {
       "label": "edge_leaf_h_flat",
       "sockets": {
@@ -113,6 +115,9 @@
     }
   },
   "constraints": [
+    ["quad", "edge"],
+    ["quad", "vertex"],
+    ["vertex", "edge"],
     [
       { "node": "quad_leaf_wall", "socket": "e" },
       {

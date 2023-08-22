@@ -711,9 +711,10 @@ impl TileSet for FacadeTileset {
 
 #[derive(Debug)]
 struct SemanticNode {
-    sockets: Box<[Option<String>]>,
-    symmetries: Box<[usize]>,
     assets: HashMap<String, String>,
+    symmetries: Box<[usize]>,
+    sockets: Box<[Option<String>]>,
+    optional: Box<[bool]>,
 }
 
 #[derive(Debug, Clone)]
@@ -723,6 +724,7 @@ pub struct TransformedDagNode {
     pub children: Vec<usize>,
     pub symmetry: Box<[usize]>,
     pub sockets: Box<[Option<String>]>,
+    pub required: usize,
 }
 
 #[derive(Debug)]
@@ -871,6 +873,10 @@ impl FacadeTileset {
                     .iter()
                     .map(|sym| symmetry_names[sym])
                     .collect::<Box<[usize]>>(),
+                optional: directions
+                    .iter()
+                    .map(|dir| node.optional.contains(dir))
+                    .collect::<Box<[bool]>>(),
                 assets: node.assets.clone(),
             })
             .collect::<Box<[SemanticNode]>>();
@@ -940,6 +946,7 @@ impl FacadeTileset {
             constraints[2 * index + 1] = (constraint.1, constraint.0);
         }
 
+        // Compute allowed neighbours
         let mut allowed_neighbours: Box<[Box<[Superposition]>]> = vec![
                 vec![Superposition::empty_sized(transformed_nodes.len()); directions.len()]
                     .into_boxed_slice();
@@ -1150,6 +1157,11 @@ impl FacadeTileset {
                 .iter()
                 .map(|i| semantic_node.sockets[*i].clone())
                 .collect::<Box<[Option<String>]>>();
+            let required = sym
+                .iter()
+                .map(|i| ((!semantic_node.optional[*i].clone()) as usize) << *i)
+                .reduce(|p, n| p | n)
+                .unwrap();
             if socket_configurations.insert(sockets.clone()) {
                 let self_location_transformed_nodes = transformed_nodes.len();
                 transformed_nodes.push(TransformedDagNode {
@@ -1158,6 +1170,7 @@ impl FacadeTileset {
                     children: vec![],
                     symmetry: sym.clone(),
                     sockets,
+                    required,
                 });
                 associated_transformed_nodes[node].push(self_location_transformed_nodes);
                 if let Some(parent) = parent {
@@ -1245,7 +1258,7 @@ impl FacadeTileset {
                 self.get_leaf_semantic_name(leaf_id),
                 leaf_directions
             );
-            if leaf_directions == directions {
+            if leaf_directions & node.required == directions & node.required {
                 sp.add_tile(leaf_id);
             }
         }

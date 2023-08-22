@@ -569,7 +569,6 @@ fn facade_debug_system(
                     }
                 }
             }
-
             for (index, quad) in facade_pass_data.quads.iter().enumerate() {
                 let transform =
                     Transform::from_translation(quad.pos.as_vec3() * vec3(2.0, 3.0, 2.0) * 0.25);
