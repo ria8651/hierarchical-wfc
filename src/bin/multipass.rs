@@ -72,7 +72,7 @@ fn main() {
             }),
         SwitchingCameraPlugin,
         RapierPhysicsPlugin::<NoUserData>::default(),
-        // DefaultInspectorConfigPlugin,
+        DefaultInspectorConfigPlugin,
     ))
     .add_plugins(MaterialPlugin::<DebugLineMaterial>::default())
     .add_plugins(MaterialPlugin::<TilePbrMaterial>::default())
