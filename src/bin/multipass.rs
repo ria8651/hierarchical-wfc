@@ -1,4 +1,8 @@
-use bevy::{asset::ChangeWatcher, gltf::Gltf};
+use bevy::{
+    asset::ChangeWatcher,
+    gltf::Gltf,
+    window::{Cursor, PresentMode},
+};
 use std::{collections::HashMap, time::Duration};
 
 use bevy::{
@@ -58,10 +62,17 @@ fn main() {
             .set(LogPlugin {
                 filter: "info,wgpu_core=error,wgpu_hal=error,naga=error,mygame=debug".into(),
                 level: bevy::log::Level::DEBUG,
+            })
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    present_mode: PresentMode::Fifo,
+                    ..Default::default()
+                }),
+                ..Default::default()
             }),
         SwitchingCameraPlugin,
         RapierPhysicsPlugin::<NoUserData>::default(),
-        DefaultInspectorConfigPlugin,
+        // DefaultInspectorConfigPlugin,
     ))
     .add_plugins(MaterialPlugin::<DebugLineMaterial>::default())
     .add_plugins(MaterialPlugin::<TilePbrMaterial>::default())
