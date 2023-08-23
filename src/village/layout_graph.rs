@@ -31,9 +31,9 @@ impl LayoutGraphSettings {
 impl Default for LayoutGraphSettings {
     fn default() -> Self {
         Self {
-            x_size: 10,
-            y_size: 1,
-            z_size: 10,
+            x_size: 16,
+            y_size: 6,
+            z_size: 16,
             periodic: false,
         }
     }
