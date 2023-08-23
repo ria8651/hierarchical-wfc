@@ -62,6 +62,20 @@ impl FacadePassData {
         vec4(0.1, 0.1, 0.1, 1.0),
     ];
 
+    pub fn get_node_pos(&self, node: usize) -> Vec3 {
+        vec3(2.0, 3.0, 2.0) * {
+            if node < self.vertices.len() {
+                1.0 * self.vertices[node].pos.as_vec3()
+            } else if node < self.vertices.len() + self.edges.len() {
+                0.5 * self.edges[node - self.vertices.len()].pos.as_vec3()
+            } else {
+                0.25 * self.quads[node - self.vertices.len() - self.edges.len()]
+                    .pos
+                    .as_vec3()
+            }
+        }
+    }
+
     fn get_vertex_neighbours(&self) -> Vec<Vec<Neighbour>> {
         self.vertices
             .iter()
@@ -184,9 +198,21 @@ impl FacadePassData {
 
         Self::fit_node_directions(self, &mut nodes, &neighbors, tileset);
 
+        let order = nodes
+            .iter()
+            .enumerate()
+            .filter_map(|(node_id, node)| {
+                if node.count_bits() <= 1 {
+                    Some(node_id)
+                } else {
+                    None
+                }
+            })
+            .collect_vec();
+
         WfcGraph {
             nodes,
-            order: Vec::new(),
+            order,
             neighbors,
         }
     }
@@ -670,7 +696,7 @@ const DIRECTIONS: [IVec3; 6] = [
 
 #[derive(Component, Debug)]
 pub struct FacadeTileset {
-    pub assets: TilesetAssets,
+    pub assets: HashMap<String, TilesetAssets>,
     pub tile_count: usize,
     pub arc_types: usize,
     pub leaf_sources: Box<[usize]>,
@@ -711,7 +737,6 @@ impl TileSet for FacadeTileset {
 
 #[derive(Debug)]
 struct SemanticNode {
-    assets: HashMap<String, String>,
     symmetries: Box<[usize]>,
     sockets: Box<[Option<String>]>,
     optional: Box<[bool]>,
@@ -729,9 +754,8 @@ pub struct TransformedDagNode {
 
 #[derive(Debug)]
 pub struct TilesetAssets {
-    pub assets: Vec<(String, String)>,
-    pub type_by_path: HashMap<String, usize>,
-    pub paths_by_type: HashMap<String, Vec<usize>>,
+    pub path: String,
+    pub nodes: Vec<Option<String>>,
 }
 
 impl FacadeTileset {
@@ -791,34 +815,6 @@ impl FacadeTileset {
     }
 
     fn from_model(model: TileSetModel) -> Self {
-        let assets = {
-            let mut assets: Vec<(String, String)> = Vec::new();
-            let mut type_by_path: HashMap<String, usize> = HashMap::new();
-            let mut paths_by_type: HashMap<String, Vec<usize>> = HashMap::new();
-
-            // Process assets
-            for node in model.semantic_nodes.iter() {
-                for (asset_type, asset_path) in node.assets.iter() {
-                    if let Some(_) = type_by_path.get(asset_path) {
-                    } else {
-                        type_by_path.insert(asset_path.clone(), assets.len());
-
-                        paths_by_type
-                            .entry(asset_type.clone())
-                            .or_default()
-                            .push(assets.len());
-
-                        assets.push((asset_type.clone(), asset_path.clone()));
-                    }
-                }
-            }
-            TilesetAssets {
-                assets,
-                paths_by_type,
-                type_by_path,
-            }
-        };
-
         // Process data for symmetries and directions
         let directions: Box<[String]> = model.directions.into();
         let identity_symmetry = Self::identity_symmetry(directions.len());
@@ -877,9 +873,31 @@ impl FacadeTileset {
                     .iter()
                     .map(|dir| node.optional.contains(dir))
                     .collect::<Box<[bool]>>(),
-                assets: node.assets.clone(),
             })
             .collect::<Box<[SemanticNode]>>();
+
+        // Load assets
+        let assets = model
+            .assets
+            .iter()
+            .map(|(asset_type, asset)| {
+                let mut node_assets: Vec<Option<String>> = vec![None; semantic_nodes.len()];
+
+                asset.nodes.iter().for_each(|(node_name, path)| {
+                    let node_id = sematic_node_names_map
+                        .get(node_name)
+                        .expect("Asset with invalid semantic node name!");
+                    node_assets[*node_id] = Some(path.clone());
+                });
+                (
+                    asset_type.clone(),
+                    TilesetAssets {
+                        path: asset.path.clone(),
+                        nodes: node_assets,
+                    },
+                )
+            })
+            .collect::<HashMap<String, TilesetAssets>>();
 
         // Traverse DAG to build in new format and extract information
         let mut leaf_nodes: Vec<usize> = Vec::new();
@@ -961,8 +979,10 @@ impl FacadeTileset {
                     for (source_direction, _) in directions.iter().enumerate() {
                         let target_direction = Self::get_matching_direction(source_direction);
 
-                        let source_socket = &transformed_source.sockets[source_direction];
-                        let target_socket = &transformed_target.sockets[target_direction];
+                        let source_socket: &Option<String> =
+                            &transformed_source.sockets[source_direction];
+                        let target_socket: &Option<String> =
+                            &transformed_target.sockets[target_direction];
 
                         if source_socket.is_some()
                             && target_socket.is_some()

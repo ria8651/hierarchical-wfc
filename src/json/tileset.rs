@@ -18,7 +18,6 @@ pub struct SemanticNodeModel {
     #[serde(default)]
     pub optional: Vec<String>,
     pub symmetries: Vec<String>,
-    pub assets: HashMap<String, String>,
 }
 impl Default for SemanticNodeModel {
     fn default() -> Self {
@@ -27,7 +26,6 @@ impl Default for SemanticNodeModel {
             sockets: HashMap::new(),
             optional: Vec::new(),
             symmetries: Vec::new(),
-            assets: HashMap::new(),
         }
     }
 }
@@ -41,12 +39,19 @@ pub enum DagNodeModel {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct AssetModel {
+    pub path: String,
+    pub nodes: HashMap<String, String>,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct TileSetModel {
     pub directions: Vec<String>,
     pub symmetries: HashMap<String, HashMap<String, String>>,
     pub semantic_nodes: Vec<SemanticNodeModel>,
     pub constraints: Vec<[ConstraintNodeModel; 2]>,
     pub semantic_dag: DagNodeModel,
+    pub assets: HashMap<String, AssetModel>,
 }
 
 impl TileSetModel {

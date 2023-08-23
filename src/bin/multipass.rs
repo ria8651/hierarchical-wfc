@@ -391,42 +391,46 @@ fn facade_mesh_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (entity, facade_pass_data, collapsed_data, tileset) in query.iter_mut() {
-        dbg!("CREATING MODELS!");
-        let models = tileset
-            .assets
-            .paths_by_type
-            .get("model")
-            .unwrap_or(&vec![])
-            .iter()
-            .map(|model_id| &tileset.assets.assets[*model_id].1)
-            .map(|path| {
-                (
-                    path,
-                    asset_server.load(format!("{}#Scene0", path).to_string()),
-                )
-            })
-            .collect::<HashMap<_, _>>();
+        for (node_index, node) in collapsed_data.graph.nodes.iter().enumerate() {
+            let node = *node;
+            // let node = collapsed_data.graph.nodes
+            //     [edge_id + facade_pass_data.vertices.len() + facade_pass_data.edges.len()];
 
-        for (index, (path, handle)) in models.iter().enumerate() {
-            dbg!(path);
-            commands.spawn(SceneBundle {
-                scene: handle.clone(),
-                transform: Transform::from_translation(3.0 * Vec3::X * index as f32),
-                ..Default::default()
-            });
-        }
-        for (edge_id, edge) in facade_pass_data.edges.iter().enumerate() {
-            let node = collapsed_data.graph.nodes[edge_id + facade_pass_data.vertices.len()];
-            let position = edge.pos.as_vec3() * vec3(2.0, 3.0, 2.0) * 0.5;
-            if node != 404 && tileset.get_leaf_semantic_name(node) == "edge_leaf_vertical_corner" {
-                commands.spawn(SceneBundle {
-                    scene: models
-                        .get(&"models/frame_test/pillar_corner.gltf".to_string())
-                        .unwrap()
-                        .clone(),
-                    transform: Transform::from_translation(position),
-                    ..Default::default()
-                });
+            if node != 404 {
+                let transformed_id = tileset.leaf_sources[node];
+                let transformed_node = &tileset.transformed_nodes[transformed_id];
+                let symmetry = &transformed_node.symmetry;
+                const DIRECTIONS: [Vec4; 6] = [
+                    Vec4::X,
+                    Vec4::NEG_X,
+                    Vec4::Y,
+                    Vec4::NEG_Y,
+                    Vec4::Z,
+                    Vec4::NEG_Z,
+                ];
+
+                let position = facade_pass_data.get_node_pos(node_index);
+                // let position = edge.pos.as_vec3() * vec3(2.0, 3.0, 2.0) * 0.25;
+                let transform = Transform::from_matrix(Mat4::from_cols(
+                    DIRECTIONS[symmetry[0]],
+                    DIRECTIONS[symmetry[2]],
+                    DIRECTIONS[symmetry[4]],
+                    position.extend(1.0),
+                ));
+
+                let models = tileset.assets.get("models").unwrap();
+                // TODO: Less indirection here!
+                if let Some(model) = &models.nodes[transformed_node.source_node] {
+                    let path = format!("{}/{}", models.path, model);
+                    commands.spawn((
+                        SceneBundle {
+                            scene: asset_server.load(path),
+                            transform,
+                            ..Default::default()
+                        },
+                        WfcEntityMarker,
+                    ));
+                }
             }
         }
 
@@ -458,6 +462,8 @@ fn facade_debug_system(
             commands
                 .entity(entity)
                 .insert(ReplayPassProgress::default());
+
+            let enable_text = true;
 
             let ok_cube: Mesh = shape::Cube::new(0.25).into();
             let error_cube: Mesh = shape::Cube::new(0.5).into();
@@ -497,29 +503,30 @@ fn facade_debug_system(
                         collapsed_data.graph.order[index] as u32,
                     ),
                     id => {
-                        commands.spawn((
-                            BillboardTextBundle {
-                                transform: transform
-                                    .with_scale(Vec3::ONE * 0.0025)
-                                    .with_translation(transform.translation + 0.25 * Vec3::Y),
-                                text: Text::from_sections([TextSection {
-                                    value: format!(
-                                        "{} [{}]",
-                                        tileset.get_leaf_semantic_name(id),
-                                        id
-                                    ),
-                                    style: TextStyle {
-                                        font_size: 60.0,
-                                        font: fira_code_handle.clone(),
-                                        color: Color::rgb(0.9, 0.4, 0.4),
-                                    },
-                                }])
-                                .with_alignment(TextAlignment::Center),
-                                ..default()
-                            },
-                            WfcEntityMarker,
-                        ));
-
+                        if enable_text {
+                            commands.spawn((
+                                BillboardTextBundle {
+                                    transform: transform
+                                        .with_scale(Vec3::ONE * 0.0025)
+                                        .with_translation(transform.translation + 0.25 * Vec3::Y),
+                                    text: Text::from_sections([TextSection {
+                                        value: format!(
+                                            "{} [{}]",
+                                            tileset.get_leaf_semantic_name(id),
+                                            id
+                                        ),
+                                        style: TextStyle {
+                                            font_size: 60.0,
+                                            font: fira_code_handle.clone(),
+                                            color: Color::rgb(0.9, 0.4, 0.4),
+                                        },
+                                    }])
+                                    .with_alignment(TextAlignment::Center),
+                                    ..default()
+                                },
+                                WfcEntityMarker,
+                            ));
+                        }
                         vertex_mesh_builder.add_mesh(
                             &ok_cube,
                             transform,
@@ -538,28 +545,30 @@ fn facade_debug_system(
                         collapsed_data.graph.order[index] as u32,
                     ),
                     id => {
-                        commands.spawn((
-                            BillboardTextBundle {
-                                transform: transform
-                                    .with_scale(Vec3::ONE * 0.0025)
-                                    .with_translation(transform.translation + 0.25 * Vec3::Y),
-                                text: Text::from_sections([TextSection {
-                                    value: format!(
-                                        "{} [{}]",
-                                        tileset.get_leaf_semantic_name(id),
-                                        id
-                                    ),
-                                    style: TextStyle {
-                                        font_size: 60.0,
-                                        font: fira_code_handle.clone(),
-                                        color: Color::rgb(0.4, 0.9, 0.4),
-                                    },
-                                }])
-                                .with_alignment(TextAlignment::Center),
-                                ..default()
-                            },
-                            WfcEntityMarker,
-                        ));
+                        if enable_text {
+                            commands.spawn((
+                                BillboardTextBundle {
+                                    transform: transform
+                                        .with_scale(Vec3::ONE * 0.0025)
+                                        .with_translation(transform.translation + 0.25 * Vec3::Y),
+                                    text: Text::from_sections([TextSection {
+                                        value: format!(
+                                            "{} [{}]",
+                                            tileset.get_leaf_semantic_name(id),
+                                            id
+                                        ),
+                                        style: TextStyle {
+                                            font_size: 60.0,
+                                            font: fira_code_handle.clone(),
+                                            color: Color::rgb(0.4, 0.9, 0.4),
+                                        },
+                                    }])
+                                    .with_alignment(TextAlignment::Center),
+                                    ..default()
+                                },
+                                WfcEntityMarker,
+                            ));
+                        }
 
                         edge_mesh_builder.add_mesh(
                             &ok_cube,
@@ -581,29 +590,30 @@ fn facade_debug_system(
                         collapsed_data.graph.order[index] as u32,
                     ),
                     id => {
-                        commands.spawn((
-                            BillboardTextBundle {
-                                transform: transform
-                                    .with_scale(Vec3::ONE * 0.0025)
-                                    .with_translation(transform.translation + 0.25 * Vec3::Y),
-                                text: Text::from_sections([TextSection {
-                                    value: format!(
-                                        "{} [{}]",
-                                        tileset.get_leaf_semantic_name(id),
-                                        id
-                                    ),
-                                    style: TextStyle {
-                                        font_size: 60.0,
-                                        font: fira_code_handle.clone(),
-                                        color: Color::rgb(0.4, 0.4, 0.9),
-                                    },
-                                }])
-                                .with_alignment(TextAlignment::Center),
-                                ..default()
-                            },
-                            WfcEntityMarker,
-                        ));
-
+                        if enable_text {
+                            commands.spawn((
+                                BillboardTextBundle {
+                                    transform: transform
+                                        .with_scale(Vec3::ONE * 0.0025)
+                                        .with_translation(transform.translation + 0.25 * Vec3::Y),
+                                    text: Text::from_sections([TextSection {
+                                        value: format!(
+                                            "{} [{}]",
+                                            tileset.get_leaf_semantic_name(id),
+                                            id
+                                        ),
+                                        style: TextStyle {
+                                            font_size: 60.0,
+                                            font: fira_code_handle.clone(),
+                                            color: Color::rgb(0.4, 0.4, 0.9),
+                                        },
+                                    }])
+                                    .with_alignment(TextAlignment::Center),
+                                    ..default()
+                                },
+                                WfcEntityMarker,
+                            ));
+                        }
                         quad_mesh_builder.add_mesh(
                             &ok_cube,
                             transform,
