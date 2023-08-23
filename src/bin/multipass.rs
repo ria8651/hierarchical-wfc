@@ -332,8 +332,8 @@ fn facade_init_system(
                 .remove::<WfcPassReadyMarker>()
                 .insert((
                     PassDebugSettings {
-                        blocks: true,
-                        arcs: true,
+                        blocks: false,
+                        arcs: false,
                     },
                     GenerateDebugMarker,
                     GenerateMeshMarker,
@@ -467,7 +467,7 @@ fn facade_debug_system(
                 .entity(entity)
                 .insert(ReplayPassProgress::default());
 
-            let enable_text = true;
+            let enable_text = false;
 
             let ok_cube: Mesh = shape::Cube::new(0.25).into();
             let error_cube: Mesh = shape::Cube::new(0.5).into();

@@ -178,7 +178,7 @@ impl FacadePassData {
                 .reduce(|a, b| a | b)
                 .unwrap();
 
-            println!("{} Fitting: {:06b}", node_index, &directions);
+            // println!("{} Fitting: {:06b}", node_index, &directions);
 
             *node =
                 Superposition::intersect(node, &tileset.superposition_from_directions(directions));
@@ -553,7 +553,7 @@ impl FacadePassData {
                                     vertex_configurations[v],
                                     direction_index,
                                 )) {
-                                    dbg!("Occluded edge");
+                                    // dbg!("Occluded edge");
                                     None
                                 } else {
                                     Some(v)
@@ -841,7 +841,7 @@ impl FacadeTileset {
         let semantic_node_names: Vec<String> =
             Vec::from_iter(model.semantic_nodes.iter().map(|node| node.label.clone()));
 
-        dbg!(&semantic_node_names);
+        // dbg!(&semantic_node_names);
 
         // Process semantic nodes
         let sematic_node_names_map = semantic_node_names
@@ -850,7 +850,7 @@ impl FacadeTileset {
             .map(|(index, key)| (key.clone(), index))
             .collect::<HashMap<String, usize>>();
 
-        dbg!(&sematic_node_names_map);
+        // dbg!(&sematic_node_names_map);
 
         let semantic_nodes = model
             .semantic_nodes
@@ -955,7 +955,7 @@ impl FacadeTileset {
                     }
 
                     ConstraintNodeModel::NodeSocket { node, socket } => {
-                        dbg!(&node);
+                        // dbg!(&node);
                         (*sematic_node_names_map.get(&node).unwrap(), Some(socket))
                     }
                 },
@@ -997,7 +997,13 @@ impl FacadeTileset {
             }
         }
 
-        // Flatten constraints to concrete leaf nodes
+        // Flatten constraints to concrete leaf nodes, this does not flatten properly:
+        //    (a) <- allows -> (b)
+        //   /  \
+        // (c)  (d)
+        // Will add only (c) -- allows -> (b), (d) -- allows (b)
+        // We must restore symmetry later!
+
         Self::traverse_flatten_constraints(0, &mut allowed_neighbours, &transformed_nodes);
 
         let transformed_leaves = leaf_nodes
@@ -1034,7 +1040,7 @@ impl FacadeTileset {
         }
 
         // Strip out non-leaves
-        let leaf_allowed_neighbours = transformed_leaves
+        let mut leaf_allowed_neighbours = transformed_leaves
             .iter()
             .map(|leaf| {
                 allowed_neighbours[*leaf]
@@ -1052,45 +1058,54 @@ impl FacadeTileset {
             })
             .collect::<Vec<_>>();
 
+        // Restore symmetry to constraints
+        for (from, allowed) in leaf_allowed_neighbours.clone().iter().enumerate() {
+            for (dir, _) in directions.iter().enumerate() {
+                for to in allowed[dir].tile_iter() {
+                    leaf_allowed_neighbours[to][Self::get_matching_direction(dir)].add_tile(from);
+                }
+            }
+        }
+
         // dbg!(&semantic_nodes);
-        dbg!(&semantic_node_names);
-        dbg!(&associated_transformed_nodes);
-        dbg!(&transformed_leaves);
-        dbg!(&leaf_families);
+        // dbg!(&semantic_node_names);
+        // dbg!(&associated_transformed_nodes);
+        // dbg!(&transformed_leaves);
+        // dbg!(&leaf_families);
 
-        println!("\nExtracted Constraints:");
-        for (from, to) in constraints.iter() {
-            let none = "None".to_string();
-            println!(
-                "\t{} ({}) -> {} ({})",
-                semantic_node_names[transformed_nodes[from.0].source_node],
-                from.1.as_ref().unwrap_or(&none),
-                semantic_node_names[transformed_nodes[to.0].source_node],
-                to.1.as_ref().unwrap_or(&none)
-            );
-        }
+        // println!("\nExtracted Constraints:");
+        // for (from, to) in constraints.iter() {
+        //     let none = "None".to_string();
+        //     println!(
+        //         "\t{} ({}) -> {} ({})",
+        //         semantic_node_names[transformed_nodes[from.0].source_node],
+        //         from.1.as_ref().unwrap_or(&none),
+        //         semantic_node_names[transformed_nodes[to.0].source_node],
+        //         to.1.as_ref().unwrap_or(&none)
+        //     );
+        // }
 
-        println!("\nGenerated allowed neighbours:");
-        for (index, allowed) in allowed_neighbours.iter().enumerate() {
-            println!(
-                "\t{}",
-                semantic_node_names[transformed_nodes[index].source_node]
-            );
-            for (dir, allowed) in allowed.iter().enumerate() {
-                println!("\t\t{}: {}", dir, allowed);
-            }
-        }
+        // println!("\nGenerated allowed neighbours:");
+        // for (index, allowed) in allowed_neighbours.iter().enumerate() {
+        //     println!(
+        //         "\t{}",
+        //         semantic_node_names[transformed_nodes[index].source_node]
+        //     );
+        //     for (dir, allowed) in allowed.iter().enumerate() {
+        //         println!("\t\t{}: {}", dir, allowed);
+        //     }
+        // }
 
-        println!("\nExtracted allowed leaf neighbours:");
-        for (index, allowed) in leaf_allowed_neighbours.iter().enumerate() {
-            println!(
-                "\t{}",
-                semantic_node_names[transformed_nodes[transformed_leaves[index]].source_node]
-            );
-            for (dir, allowed) in allowed.iter().enumerate() {
-                println!("\t\t{}: {}", dir, allowed);
-            }
-        }
+        // println!("\nExtracted allowed leaf neighbours:");
+        // for (index, allowed) in leaf_allowed_neighbours.iter().enumerate() {
+        //     println!(
+        //         "\t{}",
+        //         semantic_node_names[transformed_nodes[transformed_leaves[index]].source_node]
+        //     );
+        //     for (dir, allowed) in allowed.iter().enumerate() {
+        //         println!("\t\t{}: {}", dir, allowed);
+        //     }
+        // }
 
         Self {
             assets,
@@ -1273,16 +1288,16 @@ impl FacadeTileset {
                 .map(|(index, socket)| (socket.is_some() as usize) << index)
                 .reduce(|last, next| last | next)
                 .unwrap();
-            println!(
-                "{}: {:06b}",
-                self.get_leaf_semantic_name(leaf_id),
-                leaf_directions
-            );
+            // println!(
+            //     "{}: {:06b}",
+            //     self.get_leaf_semantic_name(leaf_id),
+            //     leaf_directions
+            // );
             if leaf_directions & node.required == directions & node.required {
                 sp.add_tile(leaf_id);
             }
         }
-        println!("Resulting format: {}\n", sp);
+        // println!("Resulting format: {}\n", sp);
 
         sp
     }

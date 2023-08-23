@@ -303,6 +303,7 @@
       "path": "models/frame_test",
       "nodes": {
         "quad_leaf_side": "quad_side.gltf#Scene0",
+        "quad_arrow_slit": "quad_arrow_slit.gltf#Scene0",
         "quad_leaf_flat": "quad_flat.gltf#Scene0",
         "edge_leaf_top": "edge_top.gltf#Scene0",
         "edge_leaf_pillar": "edge_pillar.gltf#Scene0",

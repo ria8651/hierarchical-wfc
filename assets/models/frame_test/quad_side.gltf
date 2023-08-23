@@ -60,14 +60,14 @@
 		{
 			"bufferView":0,
 			"componentType":5126,
-			"count":4,
+			"count":8,
 			"max":[
-				0,
+				0.05000000074505806,
 				1.5,
 				0.9999999403953552
 			],
 			"min":[
-				0,
+				-0.05000000074505806,
 				-1.5,
 				-0.9999999403953552
 			],
@@ -76,52 +76,52 @@
 		{
 			"bufferView":1,
 			"componentType":5126,
-			"count":4,
+			"count":8,
 			"type":"VEC2"
 		},
 		{
 			"bufferView":2,
 			"componentType":5126,
-			"count":4,
+			"count":8,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":3,
 			"componentType":5123,
-			"count":6,
+			"count":12,
 			"type":"SCALAR"
 		}
 	],
 	"bufferViews":[
 		{
 			"buffer":0,
-			"byteLength":48,
+			"byteLength":96,
 			"byteOffset":0,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":32,
-			"byteOffset":48,
+			"byteLength":64,
+			"byteOffset":96,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":48,
-			"byteOffset":80,
+			"byteLength":96,
+			"byteOffset":160,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":12,
-			"byteOffset":128,
+			"byteLength":24,
+			"byteOffset":256,
 			"target":34963
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":140,
-			"uri":"data:application/octet-stream;base64,AAAAAAAAwL///3+/AAAAAAAAwD///3+/AAAAAAAAwL///38/AAAAAAAAwD///38/AACAPwAAAAAAAAAAAAAAAAAAgD8AAIA/AAAAAAAAgD8AAIA/AAAAAAAAAIAAAIA/AAAAAAAAAIAAAIA/AAAAAAAAAIAAAIA/AAAAAAAAAIADAAIAAAADAAAAAQA="
+			"byteLength":280,
+			"uri":"data:application/octet-stream;base64,zcxMvQAAwL///3+/zcxMvQAAwD///3+/zcxMvQAAwL///38/zcxMvQAAwD///38/zcxMPQAAwL///3+/zcxMPQAAwD///3+/zcxMPQAAwL///38/zcxMPQAAwD///38/AACAPwAAAAAAAAAAAAAAAAAAgD8AAIA/AAAAAAAAgD8AAIA/AAAAAAAAAAAAAAAAAACAPwAAgD8AAAAAAACAPwAAgL8AAAAAAAAAgAAAgL8AAAAAAAAAgAAAgL8AAAAAAAAAgAAAgL8AAAAAAAAAgAAAgD8AAAAAAAAAgAAAgD8AAAAAAAAAgAAAgD8AAAAAAAAAgAAAgD8AAAAAAAAAgAMAAQAAAAMAAAACAAcABgAEAAcABAAFAA=="
 		}
 	]
 }
