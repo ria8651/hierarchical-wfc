@@ -1,0 +1,94 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v3.6.6",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [0]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "Cube.004"
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Cube.004",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "TEXCOORD_0": 1,
+            "NORMAL": 2
+          },
+          "indices": 3
+        }
+      ]
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 16,
+      "max": [0.2828426957130432, 1.4999998807907104, 0.2828426957130432],
+      "min": [-0.2828426957130432, -1.4999998807907104, -0.2828426957130432],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 16,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 16,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 24,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 192,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 128,
+      "byteOffset": 192,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 192,
+      "byteOffset": 320,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 512,
+      "target": 34963
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 560,
+      "uri": "data:application/octet-stream;base64,AAAAAP//v7/C0JA+AAAAAP//v7/C0JA+AAAAAP//vz/C0JA+AAAAAP//vz/C0JA+wtCQvv//v78AAACAwtCQvv//v78AAACAwtCQvv//vz8AAACAwtCQvv//vz8AAACAwtCQPv//v78AAACAwtCQPv//v78AAACAwtCQPv//vz8AAACAwtCQPv//vz8AAACAAAAAAP//v7/C0JC+AAAAAP//v7/C0JC+AAAAAP//vz/C0JC+AAAAAP//vz/C0JC+AADAPgAAAAAAAMA+AACAPwAAID8AAAAAAAAgPwAAgD8AAMA+AABAPwAAwD4AAEA/AAAgPwAAQD8AACA/AABAPwAAwD4AAIA+AADAPgAAgD4AACA/AACAPgAAID8AAIA+AADAPgAAAD8AAMA+AAAAPwAAID8AAAA/AAAgPwAAAD+BBDU/AAAAAIEENT+BBDW/AAAAAIEENT+BBDU/AAAAAIEENT+BBDW/AAAAAIEENT+BBDW/AAAAAIEENb+BBDW/AAAAAIEENT+BBDW/AAAAAIEENb+BBDW/AAAAAIEENT+BBDU/AAAAAIEENb+BBDU/AAAAAIEENT+BBDU/AAAAAIEENb+BBDU/AAAAAIEENT+BBDW/AAAAAIEENb+BBDU/AAAAAIEENb+BBDW/AAAAAIEENb+BBDU/AAAAAIEENb8BAAMABwABAAcABQAEAAYADgAEAA4ADAANAA8ACgANAAoACAAJAAsAAgAJAAIAAAA="
+    }
+  ]
+}
