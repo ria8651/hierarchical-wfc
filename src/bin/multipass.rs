@@ -411,12 +411,16 @@ fn facade_mesh_system(
 
                 let position = facade_pass_data.get_node_pos(node_index);
                 // let position = edge.pos.as_vec3() * vec3(2.0, 3.0, 2.0) * 0.25;
-                let transform = Transform::from_matrix(Mat4::from_cols(
-                    DIRECTIONS[symmetry[0]],
-                    DIRECTIONS[symmetry[2]],
-                    DIRECTIONS[symmetry[4]],
-                    position.extend(1.0),
-                ));
+                let transform = Transform::from_matrix(
+                    Mat4::from_cols(
+                        DIRECTIONS[symmetry[0]],
+                        DIRECTIONS[symmetry[2]],
+                        DIRECTIONS[symmetry[4]],
+                        Vec4::W,
+                    )
+                    .inverse(),
+                )
+                .with_translation(position);
 
                 let models = tileset.assets.get("models").unwrap();
                 // TODO: Less indirection here!

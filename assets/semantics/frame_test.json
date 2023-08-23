@@ -62,6 +62,16 @@
       "symmetries": []
     },
     {
+      "label": "vertex_foundation",
+      "sockets": {
+        "+X": "a",
+        "-X": "a",
+        "+Y": "a",
+        "-Z": "a"
+      },
+      "symmetries": ["rotateY"]
+    },
+    {
       "label": "edge_leaf",
       "sockets": {
         "+X": "a",
@@ -103,7 +113,37 @@
       "symmetries": ["rotateY"]
     },
     {
+      "label": "edge_leaf_foundation",
+      "sockets": {
+        "+X": "a",
+        "-X": "a",
+        "+Y": "a",
+        "-Z": "a"
+      },
+      "symmetries": ["rotateY"]
+    },
+    {
+      "label": "quad_side",
+      "sockets": {
+        "+X": "a",
+        "-X": "a",
+        "+Y": "a",
+        "-Y": "a"
+      },
+      "symmetries": ["rotateY"]
+    },
+    {
       "label": "quad_leaf_side",
+      "sockets": {
+        "+X": "a",
+        "-X": "a",
+        "+Y": "a",
+        "-Y": "a"
+      },
+      "symmetries": ["rotateY"]
+    },
+    {
+      "label": "quad_arrow_slit",
       "sockets": {
         "+X": "a",
         "-X": "a",
@@ -129,22 +169,27 @@
       "vertex_leaf_flat": null,
       "vertex_leaf_top": null,
       "vertex_leaf_top_corner": null,
-      "vertex_leaf_pillar": null
+      "vertex_leaf_pillar": null,
+      "vertex_foundation": null
     },
     "edge": {
       "edge_leaf": null,
       "edge_leaf_top": null,
       "edge_leaf_flat": null,
-      "edge_leaf_pillar": null
+      "edge_leaf_pillar": null,
+      "edge_leaf_foundation": null
     },
     "quad": {
-      "quad_leaf_side": null,
+      "quad_side": {
+        "quad_leaf_side": null,
+        "quad_arrow_slit": null
+      },
       "quad_leaf_flat": null
     }
   },
   "constraints": [
     [
-      { "node": "quad_leaf_side", "socket": "a" },
+      { "node": "quad_side", "socket": "a" },
       { "node": "edge_leaf", "socket": "a" }
     ],
     [
@@ -152,11 +197,11 @@
       { "node": "edge_leaf", "socket": "a" }
     ],
     [
-      { "node": "quad_leaf_side", "socket": "a" },
+      { "node": "quad_side", "socket": "a" },
       { "node": "edge_leaf_pillar", "socket": "a" }
     ],
     [
-      { "node": "quad_leaf_side", "socket": "a" },
+      { "node": "quad_side", "socket": "a" },
       { "node": "edge_leaf_top", "socket": "a" }
     ],
     [
@@ -164,7 +209,7 @@
       { "node": "edge_leaf_top", "socket": "a" }
     ],
     [
-      { "node": "quad_leaf_side", "socket": "a" },
+      { "node": "quad_side", "socket": "a" },
       { "node": "edge_leaf_flat", "socket": "a" }
     ],
     [
@@ -222,6 +267,35 @@
     [
       { "node": "vertex_leaf_pillar", "socket": "a" },
       { "node": "edge_leaf", "socket": "a" }
+    ],
+
+    [
+      { "node": "edge_leaf_foundation", "socket": "a" },
+      { "node": "vertex_leaf_pillar", "socket": "a" }
+    ],
+    [
+      { "node": "edge_leaf_foundation", "socket": "a" },
+      { "node": "quad_side", "socket": "a" }
+    ],
+    [
+      { "node": "edge_leaf_foundation", "socket": "a" },
+      { "node": "vertex_foundation", "socket": "a" }
+    ],
+    [
+      { "node": "edge_leaf", "socket": "a" },
+      { "node": "vertex_foundation", "socket": "a" }
+    ],
+    [
+      { "node": "edge_leaf_foundation", "socket": "a" },
+      { "node": "vertex_leaf_pillar", "socket": "a" }
+    ],
+    [
+      { "node": "edge_leaf_foundation", "socket": "a" },
+      { "node": "quad_leaf_flat", "socket": "a" }
+    ],
+    [
+      { "node": "vertex_foundation", "socket": "a" },
+      { "node": "edge_leaf_flat", "socket": "a" }
     ]
   ],
   "assets": {
@@ -232,7 +306,8 @@
         "quad_leaf_flat": "quad_flat.gltf#Scene0",
         "edge_leaf_top": "edge_top.gltf#Scene0",
         "edge_leaf_pillar": "edge_pillar.gltf#Scene0",
-        "vertex_leaf_top_corner": "vertex_corner_top.gltf#Scene0"
+        "vertex_leaf_top_corner": "vertex_corner_top.gltf#Scene0",
+        "edge_leaf_foundation": "edge_foundation.gltf#Scene0"
       }
     }
   }
