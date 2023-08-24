@@ -203,7 +203,7 @@ struct Vertex {
 @vertex
 fn vertex(vertex: Vertex) -> MeshVertexOutput {
     var out: MeshVertexOutput;
-        if (vertex.order > material.order_cut_off){
+        if (vertex.order >= material.order_cut_off){
             out.position = vec4<f32>(2.0);
         return out;
     }

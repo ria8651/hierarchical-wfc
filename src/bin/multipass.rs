@@ -80,17 +80,23 @@ fn main() {
     .add_plugins(bevy_egui::EguiPlugin)
     .add_systems(
         Update,
+        (ui_system,)
+            .in_set(UpdateSystems::Ui)
+            .after(UpdateSystems::Wfc),
+    )
+    .add_systems(
+        Update,
         (
-            ui_system,
             wfc_collapse_system,
             wfc_ready_system,
             replay_generation_system,
             layout_init_system,
-            // layout_debug_system,
+            layout_debug_system,
             facade_init_system,
             facade_debug_system,
             facade_mesh_system,
-        ),
+        )
+            .in_set(UpdateSystems::Wfc),
     )
     .add_systems(Startup, setup);
     #[cfg(not(target_arch = "wasm32"))]
@@ -100,6 +106,12 @@ fn main() {
         std::fs::write("render-graph.dot", dot).expect("Failed to write render-graph.dot");
     }
     app.run();
+}
+
+#[derive(SystemSet, Hash, Debug, Eq, PartialEq, Clone)]
+enum UpdateSystems {
+    Wfc,
+    Ui,
 }
 
 fn setup(
@@ -186,6 +198,7 @@ fn layout_init_system(
         let mut entity_commands = commands.entity(entity);
         entity_commands.remove::<WfcPassReadyMarker>();
         entity_commands.insert(WfcInitialData {
+            label: Some("Layout".to_string()),
             graph,
             constraints,
             weights: tileset.get_weights(),
@@ -241,24 +254,6 @@ fn create_debug_mesh(
         None
     };
     (physical_mesh, non_physical_mesh, physical_mesh_collider)
-}
-
-#[derive(Component)]
-struct ReplayPassProgress {
-    progress: f32,
-    duration: f32,
-    playing: bool,
-    current: usize,
-}
-impl Default for ReplayPassProgress {
-    fn default() -> Self {
-        Self {
-            progress: 1.0,
-            duration: 2.0,
-            playing: false,
-            current: 0,
-        }
-    }
 }
 
 fn facade_init_system(
@@ -332,6 +327,7 @@ fn facade_init_system(
             let wfc_graph = facade_pass_data.create_wfc_graph(&tileset);
 
             let wfc = WfcInitialData {
+                label: Some("Facade".to_string()),
                 graph: wfc_graph,
                 constraints: tileset.get_constraints(),
                 rng: StdRng::from_entropy(),
@@ -343,42 +339,92 @@ fn facade_init_system(
                 .remove::<WfcPassReadyMarker>()
                 .insert((
                     PassDebugSettings {
-                        blocks: false,
-                        arcs: false,
+                        blocks: true,
+                        arcs: true,
                     },
                     GenerateDebugMarker,
                     GenerateMeshMarker,
+                    WfcEntityMarker,
                 ))
                 .insert((facade_pass_data, tileset, wfc))
                 .insert(SpatialBundle::default());
         }
     }
 }
+
+#[derive(Component)]
+struct ReplayPassProgress {
+    remainder: f32,
+    current: usize,
+    length: usize,
+    duration: f32,
+    playing: bool,
+}
+impl Default for ReplayPassProgress {
+    fn default() -> Self {
+        Self {
+            remainder: 0.0,
+            current: 0,
+            length: 0,
+            duration: 2.5,
+            playing: false,
+        }
+    }
+}
+
+#[derive(Component)]
+struct ReplayOrder(usize);
+
 fn replay_generation_system(
-    mut q_passes: Query<(&mut ReplayPassProgress, &WfcFCollapsedData, &Children)>,
+    mut commands: Commands,
+    mut q_passes: Query<(
+        &mut ReplayPassProgress,
+        &WfcFCollapsedData,
+        Option<&ReplayTileMapMaterials>,
+        &Children,
+    )>,
     q_blocks: Query<&mut DebugBlocks>,
+    q_tiles: Query<(Entity, &ReplayOrder)>,
     time: Res<Time>,
     mut tile_materials: ResMut<Assets<TilePbrMaterial>>,
 ) {
-    for (mut progress, collapsed_data, children) in q_passes.iter_mut() {
-        progress.current = (collapsed_data.graph.order.len() as f32 * progress.progress) as usize;
-
+    for (mut progress, collapsed_data, materials, children) in q_passes.iter_mut() {
         for DebugBlocks { material_handle } in q_blocks.iter_many(children) {
             if let Some(material) = tile_materials.get_mut(&material_handle) {
                 material.order_cut_off = progress.current as u32;
             };
         }
 
-        for (_handle, material) in tile_materials.iter_mut() {
-            material.order_cut_off = progress.current as u32;
+        for (tile_entity, ReplayOrder(tile_order)) in q_tiles.iter_many(children) {
+            commands
+                .entity(tile_entity)
+                .insert(if tile_order >= &progress.current {
+                    Visibility::Hidden
+                } else {
+                    Visibility::Visible
+                });
+        }
+
+        if let Some(ReplayTileMapMaterials(materials)) = materials {
+            for material in materials.iter() {
+                tile_materials
+                    .get_mut(material)
+                    .expect("Entity with non-existent tilemap material")
+                    .order_cut_off = progress.current as u32;
+            }
         }
 
         if progress.playing {
-            if progress.progress > 1.0 {
+            progress.remainder +=
+                time.delta_seconds() * (progress.length as f32 / progress.duration);
+            progress.current += progress.remainder as usize;
+            progress.remainder = progress.remainder.rem_euclid(1.0);
+
+            if progress.current >= progress.length {
+                progress.current = progress.length;
                 progress.playing = false;
-                progress.progress = 1.0;
+                progress.remainder = 0.0;
             }
-            progress.progress += time.delta_seconds() / progress.duration;
         }
     }
 }
@@ -397,9 +443,7 @@ fn facade_mesh_system(
         (Entity, &FacadePassData, &WfcFCollapsedData, &FacadeTileset),
         With<GenerateMeshMarker>,
     >,
-    mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (entity, facade_pass_data, collapsed_data, tileset) in query.iter_mut() {
         for (node_index, node) in collapsed_data.graph.nodes.iter().enumerate() {
@@ -437,14 +481,17 @@ fn facade_mesh_system(
                 // TODO: Less indirection here!
                 if let Some(model) = &models.nodes[transformed_node.source_node] {
                     let path = format!("{}/{}", models.path, model);
-                    commands.spawn((
-                        SceneBundle {
-                            scene: asset_server.load(path),
-                            transform,
-                            ..Default::default()
-                        },
-                        WfcEntityMarker,
-                    ));
+                    commands
+                        .spawn((
+                            WfcEntityMarker,
+                            SceneBundle {
+                                scene: asset_server.load(path),
+                                transform,
+                                ..Default::default()
+                            },
+                            ReplayOrder(collapsed_data.graph.order[node_index]),
+                        ))
+                        .set_parent(entity);
                 }
             }
         }
@@ -452,6 +499,9 @@ fn facade_mesh_system(
         commands.entity(entity).remove::<GenerateMeshMarker>();
     }
 }
+
+#[derive(Component)]
+struct ReplayTileMapMaterials(Vec<Handle<TilePbrMaterial>>);
 
 fn facade_debug_system(
     mut commands: Commands,
@@ -467,16 +517,17 @@ fn facade_debug_system(
     >,
     mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     mut tile_materials: ResMut<Assets<TilePbrMaterial>>,
 ) {
     let fira_code_handle = asset_server.load("fonts/FiraCode-Bold.ttf");
 
     for (entity, facade_pass_data, collapsed_data, tileset, debug_settings) in query.iter_mut() {
         if debug_settings.blocks {
-            commands
-                .entity(entity)
-                .insert(ReplayPassProgress::default());
+            commands.entity(entity).insert(ReplayPassProgress {
+                length: collapsed_data.graph.order.len(),
+                current: collapsed_data.graph.order.len(),
+                ..Default::default()
+            });
 
             let enable_text = false;
 
@@ -520,6 +571,7 @@ fn facade_debug_system(
                     id => {
                         if enable_text {
                             commands.spawn((
+                                WfcEntityMarker,
                                 BillboardTextBundle {
                                     transform: transform
                                         .with_scale(Vec3::ONE * 0.0025)
@@ -539,7 +591,6 @@ fn facade_debug_system(
                                     .with_alignment(TextAlignment::Center),
                                     ..default()
                                 },
-                                WfcEntityMarker,
                             ));
                         }
                         vertex_mesh_builder.add_mesh(
@@ -562,6 +613,7 @@ fn facade_debug_system(
                     id => {
                         if enable_text {
                             commands.spawn((
+                                WfcEntityMarker,
                                 BillboardTextBundle {
                                     transform: transform
                                         .with_scale(Vec3::ONE * 0.0025)
@@ -581,7 +633,6 @@ fn facade_debug_system(
                                     .with_alignment(TextAlignment::Center),
                                     ..default()
                                 },
-                                WfcEntityMarker,
                             ));
                         }
 
@@ -607,6 +658,7 @@ fn facade_debug_system(
                     id => {
                         if enable_text {
                             commands.spawn((
+                                WfcEntityMarker,
                                 BillboardTextBundle {
                                     transform: transform
                                         .with_scale(Vec3::ONE * 0.0025)
@@ -626,7 +678,6 @@ fn facade_debug_system(
                                     .with_alignment(TextAlignment::Center),
                                     ..default()
                                 },
-                                WfcEntityMarker,
                             ));
                         }
                         quad_mesh_builder.add_mesh(
@@ -641,51 +692,59 @@ fn facade_debug_system(
             // Create debug meshes
             commands
                 .spawn((
+                    WfcEntityMarker, // DebugArcs,
                     MaterialMeshBundle {
                         mesh: meshes.add(vertex_mesh_builder.build()),
-                        material: vertex_material,
+                        material: vertex_material.clone(),
                         visibility: Visibility::Visible,
                         ..Default::default()
                     },
-                    // DebugArcs,
                 ))
                 .set_parent(entity);
 
             commands
                 .spawn((
+                    WfcEntityMarker,
                     MaterialMeshBundle {
                         mesh: meshes.add(edge_mesh_builder.build()),
-                        material: edge_material,
+                        material: edge_material.clone(),
                         visibility: Visibility::Visible,
                         ..Default::default()
                     },
-                    // DebugArcs,
                 ))
                 .set_parent(entity);
 
             commands
                 .spawn((
+                    WfcEntityMarker,
                     MaterialMeshBundle {
                         mesh: meshes.add(quad_mesh_builder.build()),
-                        material: quad_material,
+                        material: quad_material.clone(),
                         visibility: Visibility::Visible,
                         ..Default::default()
                     },
-                    // DebugArcs,
                 ))
                 .set_parent(entity);
 
             commands
                 .spawn((
+                    WfcEntityMarker,
                     MaterialMeshBundle {
                         mesh: meshes.add(error_mesh_builder.build()),
-                        material: error_material,
+                        material: error_material.clone(),
                         visibility: Visibility::Visible,
                         ..Default::default()
                     },
-                    // DebugArcs,
                 ))
                 .set_parent(entity);
+            commands.entity(entity).insert(ReplayTileMapMaterials {
+                0: vec![
+                    error_material,
+                    vertex_material,
+                    edge_material,
+                    quad_material,
+                ],
+            });
         }
         if debug_settings.arcs {}
 
@@ -707,7 +766,11 @@ fn layout_debug_system(
         commands
             .entity(entity)
             .insert(SpatialBundle::default())
-            .insert(ReplayPassProgress::default())
+            .insert(ReplayPassProgress {
+                length: collapsed_data.graph.order.len(),
+                current: collapsed_data.graph.order.len(),
+                ..Default::default()
+            })
             .remove::<GenerateDebugMarker>();
         if debug_settings.blocks {
             let (solid, air, collider) =
@@ -719,6 +782,7 @@ fn layout_debug_system(
             });
 
             let mut physics_mesh_commands = commands.spawn((
+                WfcEntityMarker,
                 MaterialMeshBundle {
                     material: material.clone(),
                     mesh: meshes.add(solid),
@@ -735,6 +799,7 @@ fn layout_debug_system(
             physics_mesh_commands.set_parent(entity);
             commands
                 .spawn((
+                    WfcEntityMarker,
                     MaterialMeshBundle {
                         material: material.clone(),
                         mesh: meshes.add(air),
@@ -746,6 +811,9 @@ fn layout_debug_system(
                     },
                 ))
                 .set_parent(entity);
+            commands
+                .entity(entity)
+                .insert(ReplayTileMapMaterials { 0: vec![material] });
         }
         if debug_settings.arcs {}
     }
@@ -755,7 +823,11 @@ fn ui_system(
     type_registry: ResMut<AppTypeRegistry>,
     mut contexts: bevy_egui::EguiContexts,
     mut commands: Commands,
-    mut q_passes: Query<(&mut ReplayPassProgress, &WfcFCollapsedData, &Children)>,
+    mut q_passes: Query<(
+        &mut ReplayPassProgress,
+        &WfcFCollapsedData,
+        Option<&Children>,
+    )>,
     wfc_entities: Query<Entity, With<WfcEntityMarker>>,
     mut q_cameras: Query<(
         &mut SwitchingCameraController,
@@ -765,107 +837,174 @@ fn ui_system(
     mut layout_settings: Local<LayoutGraphSettings>,
 ) {
     egui::Window::new("Settings and Controls").show(contexts.ctx_mut(), |ui| {
-        ui.collapsing("WFC Settings", |ui| {
-            // let mut settings = *layout_settings;
-            ui.heading("Settings for layout graph");
-            ui.add(egui::DragValue::new(&mut layout_settings.x_size));
-            ui.add(egui::DragValue::new(&mut layout_settings.y_size));
-            ui.add(egui::DragValue::new(&mut layout_settings.z_size));
-            if ui.button("Generate").clicked() {
-                for entity in wfc_entities.iter() {
-                    commands.entity(entity).despawn_recursive();
-                }
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.collapsing("WFC Settings", |ui| {
+                ui.label("Layout size");
+                ui.horizontal(|ui| {
+                    ui.label(
+                        egui::RichText::new("x:")
+                            .monospace()
+                            .color(egui::Rgba::from_rgb(0.8, 0.2, 0.2)),
+                    );
+                    ui.add(egui::DragValue::new(&mut layout_settings.x_size));
+                    ui.label(
+                        egui::RichText::new("y:")
+                            .monospace()
+                            .color(egui::Rgba::from_rgb(0.2, 0.8, 0.2)),
+                    );
+                    ui.add(egui::DragValue::new(&mut layout_settings.y_size));
+                    ui.label(
+                        egui::RichText::new("z:")
+                            .monospace()
+                            .color(egui::Rgba::from_rgb(0.2, 0.2, 0.8)),
+                    );
+                    ui.add(egui::DragValue::new(&mut layout_settings.z_size));
+                });
+                ui.add_space(12.0);
+                if ui.button("Generate").clicked() {
+                    for entity in wfc_entities.iter() {
+                        commands.entity(entity).despawn_recursive();
+                    }
 
-                let layout_entity = commands
-                    .spawn((
+                    let layout_entity = commands
+                        .spawn((
+                            WfcEntityMarker,
+                            WfcPassReadyMarker,
+                            GenerateDebugMarker,
+                            LayoutPass {
+                                settings: *layout_settings,
+                            },
+                            PassDebugSettings {
+                                blocks: true,
+                                arcs: true,
+                            },
+                        ))
+                        .id();
+
+                    commands.spawn((
                         WfcEntityMarker,
-                        LayoutPass {
-                            settings: *layout_settings,
-                        },
-                        PassDebugSettings {
-                            blocks: false,
-                            arcs: true,
-                        },
-                        WfcPassReadyMarker,
-                        GenerateDebugMarker,
-                    ))
-                    .id();
-
-                commands.spawn((
-                    WfcEntityMarker,
-                    FacadePassSettings,
-                    WfcPendingParentMarker,
-                    WfcParentPasses(vec![layout_entity]),
-                ));
-            }
-            if ui.button("Clear").clicked() {
-                for entity in wfc_entities.iter() {
-                    commands.entity(entity).despawn_recursive();
+                        FacadePassSettings,
+                        WfcPendingParentMarker,
+                        WfcParentPasses(vec![layout_entity]),
+                    ));
                 }
-            }
-        });
+                if ui.button("Reset").clicked() {
+                    for entity in wfc_entities.iter() {
+                        commands.entity(entity).despawn_recursive();
+                    }
+                }
+            });
 
-        ui.collapsing("Replay Generation", |ui| {
-            for (index, (mut replay_pass, _data, _children)) in q_passes.iter_mut().enumerate() {
-                ui.collapsing(format!("{}", index), |ui| {
-                    if replay_pass.playing {
-                        if ui.button("Pause").clicked() {
-                            replay_pass.playing = false;
+            ui.collapsing("Replay Generation", |ui| {
+                ui.horizontal(|ui| {
+                    if ui.button("Hide all").clicked() {
+                        for (_, (mut replay_pass, _data, _children)) in
+                            q_passes.iter_mut().enumerate()
+                        {
+                            replay_pass.current = 0;
                         }
-                    } else {
-                        if ui.button("Play").clicked() {
-                            replay_pass.playing = true;
-                            if replay_pass.progress >= 1.0 {
-                                replay_pass.progress = 0.0;
+                    }
+                    if ui.button("Show all").clicked() {
+                        for (_, (mut replay_pass, _data, _children)) in
+                            q_passes.iter_mut().enumerate()
+                        {
+                            replay_pass.current = replay_pass.length;
+                        }
+                    }
+                });
+                for (_, (mut replay_pass, data, _children)) in q_passes.iter_mut().enumerate() {
+                    ui.collapsing(
+                        format!("{}", data.label.as_deref().unwrap_or("Unnamed Pass")),
+                        |ui| {
+                            ui.horizontal(|ui| {
+                                if replay_pass.playing {
+                                    if ui.button("Pause").clicked() {
+                                        replay_pass.playing = false;
+                                    }
+                                } else {
+                                    if ui.button("Play").clicked() {
+                                        replay_pass.playing = true;
+                                        if replay_pass.current >= replay_pass.length {
+                                            replay_pass.current = 0;
+                                        }
+                                    }
+                                }
+                                if replay_pass.current == 0 {
+                                    if ui.button("Show").clicked() {
+                                        replay_pass.current = replay_pass.length;
+                                    }
+                                } else {
+                                    if ui.button("Hide").clicked() {
+                                        replay_pass.current = 0;
+                                    }
+                                }
+                            });
+                            let progress = (replay_pass.current as f32
+                                / (replay_pass.length as f32).max(1.0))
+                            .clamp(0.0, 1.0);
+
+                            let mut updated_progress = progress.clone();
+                            ui.add(
+                                egui::Slider::new(&mut updated_progress, 0f32..=1f32)
+                                    .show_value(false),
+                            );
+                            if progress != updated_progress {
+                                replay_pass.current = ((replay_pass.length as f32).max(0.0)
+                                    * updated_progress.clamp(0.0, 1.0))
+                                    as usize;
+                            }
+                            ui.horizontal(|ui| {
+                                ui.label("Duration:");
+                                ui.add(
+                                    egui::DragValue::new(&mut replay_pass.duration)
+                                        .suffix("s")
+                                        .speed(0.1),
+                                );
+                            });
+                        },
+                    );
+                }
+            });
+
+            ui.collapsing("Cameras", |ui| {
+                for (mut camera_controller, projection, fps_settings) in q_cameras.iter_mut() {
+                    egui::ComboBox::from_label("Camera Controller")
+                        .selected_text(match camera_controller.selected {
+                            CameraController::PanOrbit => "Pan Orbit",
+                            CameraController::Fps => "First Person",
+                        })
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut camera_controller.selected,
+                                CameraController::PanOrbit,
+                                "Pan Orbit",
+                            );
+                            ui.selectable_value(
+                                &mut camera_controller.selected,
+                                CameraController::Fps,
+                                "First Person",
+                            );
+                        });
+                    match camera_controller.selected {
+                        CameraController::Fps => {
+                            if let Some(mut settings) = fps_settings {
+                                reflect_inspector::ui_for_value(
+                                    settings.as_mut(),
+                                    ui,
+                                    &type_registry.read(),
+                                );
                             }
                         }
+                        CameraController::PanOrbit => {}
                     }
-                    ui.label("Progress");
-                    ui.add(
-                        egui::Slider::new(&mut replay_pass.progress, 0f32..=1f32).show_value(false),
-                    );
-                    ui.label("Duration");
-                    ui.add(
-                        egui::DragValue::new(&mut replay_pass.duration).clamp_range(0f32..=20f32),
-                    );
-                });
-            }
-        });
 
-        ui.collapsing("Cameras", |ui| {
-            for (mut camera_controller, projection, fps_settings) in q_cameras.iter_mut() {
-                egui::ComboBox::from_label("Camera Controller")
-                    .selected_text(match camera_controller.selected {
-                        CameraController::PanOrbit => "Pan Orbit",
-                        CameraController::Fps => "First Person",
-                    })
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(
-                            &mut camera_controller.selected,
-                            CameraController::PanOrbit,
-                            "Pan Orbit",
-                        );
-                        ui.selectable_value(
-                            &mut camera_controller.selected,
-                            CameraController::Fps,
-                            "First Person",
-                        );
-                    });
-                match camera_controller.selected {
-                    CameraController::Fps => {
-                        if let Some(mut settings) = fps_settings {
-                            reflect_inspector::ui_for_value(
-                                settings.as_mut(),
-                                ui,
-                                &type_registry.read(),
-                            );
-                        }
-                    }
-                    CameraController::PanOrbit => {}
+                    reflect_inspector::ui_for_value(
+                        projection.into_inner(),
+                        ui,
+                        &type_registry.read(),
+                    );
                 }
-
-                reflect_inspector::ui_for_value(projection.into_inner(), ui, &type_registry.read());
-            }
-        });
+            });
+        })
     });
 }

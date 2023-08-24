@@ -8,6 +8,7 @@ use bevy::{
         ScreenSpaceAmbientOcclusionSettings,
     },
     prelude::*,
+    render::camera::CameraOutputMode,
 };
 
 use crate::camera_controllers::fps::FpsCameraBundle;

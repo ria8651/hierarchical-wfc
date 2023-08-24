@@ -99,7 +99,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var model = mesh.model;
 #endif // SKINNED
 
-    if vertex.order > material.order_cut_off {
+    if vertex.order >= material.order_cut_off {
         out.clip_position = vec4<f32>(2.0);
         return out;
     }

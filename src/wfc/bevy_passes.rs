@@ -7,6 +7,7 @@ pub struct WfcEntityMarker;
 
 #[derive(Component, Debug)]
 pub struct WfcInitialData {
+    pub label: Option<String>,
     pub graph: WfcGraph<Superposition>,
     pub constraints: Vec<Vec<Superposition>>,
     pub weights: Vec<u32>,
@@ -15,6 +16,7 @@ pub struct WfcInitialData {
 
 #[derive(Component)]
 pub struct WfcFCollapsedData {
+    pub label: Option<String>,
     pub graph: WfcGraph<usize>,
 }
 
@@ -58,6 +60,7 @@ pub fn wfc_collapse_system(
     for (entity, mut initial_data) in query.iter_mut() {
         dbg!("Collapsing Entity");
         let WfcInitialData {
+            label,
             graph,
             constraints,
             weights,
@@ -69,7 +72,10 @@ pub fn wfc_collapse_system(
         entity_commands.remove::<WfcInitialData>();
         match graph.validate() {
             Ok(result) => {
-                entity_commands.insert(WfcFCollapsedData { graph: result });
+                entity_commands.insert(WfcFCollapsedData {
+                    label: Option::take(label),
+                    graph: result,
+                });
             }
             Err(_) => {}
         };
