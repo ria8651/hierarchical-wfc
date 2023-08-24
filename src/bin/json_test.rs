@@ -1,15 +1,15 @@
-use bevy::prelude::dbg;
+
 use hierarchical_wfc::{
     village::{
         facade_graph::{FacadePassData, FacadeTileset},
         LayoutGraphSettings,
     },
-    wfc::{Neighbour, TileSet, WaveFunctionCollapse, WfcGraph},
+    wfc::{Neighbour, TileSet, WfcGraph},
 };
-use rand::{rngs::StdRng, SeedableRng};
+
 
 fn main() {
-    let data = FacadePassData::from_layout(&test_graph(), &test_settings());
+    let _data = FacadePassData::from_layout(&test_graph(), &test_settings());
     let tileset = FacadeTileset::from_asset("semantics/frame_test.json");
     // let mut wfc_graph = data.create_wfc_graph(&tileset);
 

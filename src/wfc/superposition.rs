@@ -9,6 +9,7 @@ pub struct Superposition {
     pub bits: [u32; TILE_U32S],
     pub num_bits: Option<usize>,
 }
+#[allow(dead_code)]
 impl Superposition {
     /// Cell fill with ones up to size
     pub fn filled(size: usize) -> Self {

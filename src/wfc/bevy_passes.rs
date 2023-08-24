@@ -29,6 +29,7 @@ pub struct WfcPendingParentMarker;
 #[derive(Component)]
 pub struct WfcPassReadyMarker;
 
+#[allow(dead_code)]
 pub fn wfc_ready_system(
     mut commands: Commands,
     q_pending: Query<(Entity, &WfcParentPasses), With<WfcPendingParentMarker>>,
@@ -52,7 +53,7 @@ pub fn wfc_ready_system(
         }
     }
 }
-
+#[allow(dead_code)]
 pub fn wfc_collapse_system(
     mut commands: Commands,
     mut query: Query<(Entity, &mut WfcInitialData)>,

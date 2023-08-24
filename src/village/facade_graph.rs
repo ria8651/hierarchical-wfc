@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    json::tileset::{self, ConstraintNodeModel, DagNodeModel, TileSetModel},
+    json::tileset::{ConstraintNodeModel, DagNodeModel, TileSetModel},
     tools::{
         index_tools::{ivec3_in_bounds, ivec3_to_index},
         MeshBuilder,
@@ -718,7 +718,7 @@ impl TileSet for FacadeTileset {
         self.arc_types
     }
 
-    fn create_graph(&self, settings: &Self::GraphSettings) -> WfcGraph<Superposition> {
+    fn create_graph(&self, _settings: &Self::GraphSettings) -> WfcGraph<Superposition> {
         todo!()
     }
 
@@ -822,7 +822,7 @@ impl FacadeTileset {
             .symmetries
             .iter()
             .enumerate()
-            .map(|(index, (key, value))| (key.clone(), index))
+            .map(|(index, (key, _value))| (key.clone(), index))
             .collect::<HashMap<String, usize>>();
         let symmetries = model
             .symmetries

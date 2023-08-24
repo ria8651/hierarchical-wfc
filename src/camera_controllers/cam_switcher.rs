@@ -8,7 +8,6 @@ use bevy::{
         ScreenSpaceAmbientOcclusionSettings,
     },
     prelude::*,
-    render::camera::CameraOutputMode,
 };
 use bevy_atmosphere::prelude::*;
 

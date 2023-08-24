@@ -1,12 +1,11 @@
 use bevy::{
     asset::ChangeWatcher,
-    gltf::Gltf,
-    window::{Cursor, PresentMode},
+    window::{PresentMode},
 };
-use std::{collections::HashMap, time::Duration};
+use std::{time::Duration};
 
 use bevy::{
-    math::{vec3, vec4},
+    math::{vec3},
     prelude::{AssetPlugin, PluginGroup, *},
     render::render_resource::{AddressMode, FilterMode, SamplerDescriptor},
 };
