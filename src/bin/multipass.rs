@@ -73,11 +73,11 @@ fn main() {
         SwitchingCameraPlugin,
         RapierPhysicsPlugin::<NoUserData>::default(),
         DefaultInspectorConfigPlugin,
+        MaterialPlugin::<DebugLineMaterial>::default(),
+        MaterialPlugin::<TilePbrMaterial>::default(),
+        BillboardPlugin,
+        bevy_egui::EguiPlugin,
     ))
-    .add_plugins(MaterialPlugin::<DebugLineMaterial>::default())
-    .add_plugins(MaterialPlugin::<TilePbrMaterial>::default())
-    .add_plugins(BillboardPlugin)
-    .add_plugins(bevy_egui::EguiPlugin)
     .add_systems(
         Update,
         (ui_system,)
@@ -114,6 +114,9 @@ enum UpdateSystems {
     Ui,
 }
 
+#[derive(Component)]
+struct GroundPlane;
+
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -143,6 +146,7 @@ fn setup(
 
     // plane
     commands.spawn((
+        GroundPlane,
         PbrBundle {
             mesh: meshes.add(ground_mesh),
 
@@ -388,7 +392,7 @@ fn replay_generation_system(
     time: Res<Time>,
     mut tile_materials: ResMut<Assets<TilePbrMaterial>>,
 ) {
-    for (mut progress, collapsed_data, materials, children) in q_passes.iter_mut() {
+    for (mut progress, _collapsed_data, materials, children) in q_passes.iter_mut() {
         for DebugBlocks { material_handle } in q_blocks.iter_many(children) {
             if let Some(material) = tile_materials.get_mut(&material_handle) {
                 material.order_cut_off = progress.current as u32;
@@ -835,7 +839,45 @@ fn ui_system(
         Option<&mut FpsCameraSettings>,
     )>,
     mut layout_settings: Local<LayoutGraphSettings>,
+    mut q_ground: Query<&mut Handle<Mesh>, With<GroundPlane>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut gizmos: Gizmos,
+    mut config: ResMut<GizmoConfig>,
 ) {
+    // Bounding box
+    {
+        config.line_width = 2.0;
+        let origin = vec3(-2.0, 0.0, -2.0);
+        let max = vec3(2.0, 3.0, 2.0)
+            * vec3(
+                layout_settings.x_size as f32 + 2.0,
+                layout_settings.y_size as f32 + 1.0,
+                layout_settings.z_size as f32 + 2.0,
+            );
+        let e_x = max * Vec3::X;
+        let e_y = max * Vec3::Y;
+        let e_z = max * Vec3::Z;
+
+        let bound_color = Color::rgb(0.95, 0.95, 0.95);
+
+        gizmos.line(origin, origin + e_x, Color::rgb(0.9, 0.2, 0.2));
+        gizmos.line(origin, origin + e_y, Color::rgb(0.2, 0.9, 0.2));
+        gizmos.line(origin, origin + e_z, Color::rgb(0.2, 0.2, 0.9));
+
+        gizmos.line(origin + e_x, origin + e_x + e_y, bound_color);
+        gizmos.line(origin + e_x, origin + e_x + e_z, bound_color);
+
+        gizmos.line(origin + e_y, origin + e_y + e_z, bound_color);
+        gizmos.line(origin + e_y, origin + e_y + e_x, bound_color);
+
+        gizmos.line(origin + e_z, origin + e_z + e_x, bound_color);
+        gizmos.line(origin + e_z, origin + e_z + e_y, bound_color);
+
+        gizmos.line(origin + e_x + e_y + e_z, origin + e_x + e_y, bound_color);
+        gizmos.line(origin + e_x + e_y + e_z, origin + e_y + e_z, bound_color);
+        gizmos.line(origin + e_x + e_y + e_z, origin + e_z + e_x, bound_color);
+    }
+
     egui::Window::new("Settings and Controls").show(contexts.ctx_mut(), |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.collapsing("WFC Settings", |ui| {
@@ -860,6 +902,7 @@ fn ui_system(
                     );
                     ui.add(egui::DragValue::new(&mut layout_settings.z_size));
                 });
+
                 ui.add_space(12.0);
                 if ui.button("Generate").clicked() {
                     for entity in wfc_entities.iter() {
@@ -887,6 +930,41 @@ fn ui_system(
                         WfcPendingParentMarker,
                         WfcParentPasses(vec![layout_entity]),
                     ));
+
+                    if let Ok(ground) = q_ground.get_single_mut() {
+                        let padding = vec3(10.0, 0.0, 10.0);
+                        let start = vec3(-1.5, 0.0, -1.5) - padding;
+                        let end = vec3(
+                            2.0 * layout_settings.x_size as f32,
+                            0.0,
+                            2.0 * layout_settings.z_size as f32,
+                        ) + vec3(0.5, 0.0, 0.5)
+                            + padding;
+
+                        let mut ground_mesh = Mesh::new(
+                            bevy::render::render_resource::PrimitiveTopology::TriangleStrip,
+                        );
+                        ground_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0., 1., 0.]; 4]);
+                        ground_mesh.insert_attribute(
+                            Mesh::ATTRIBUTE_UV_0,
+                            vec![
+                                [0.5 * start.x, 0.5 * start.z],
+                                [0.5 * start.x, 0.5 * end.z],
+                                [0.5 * end.x, 0.5 * start.z],
+                                [0.5 * end.x, 0.5 * end.z],
+                            ],
+                        );
+                        ground_mesh.insert_attribute(
+                            Mesh::ATTRIBUTE_POSITION,
+                            vec![
+                                vec3(start.x, 0.0, start.z),
+                                vec3(start.x, 0.0, end.z),
+                                vec3(end.x, 0.0, start.z),
+                                vec3(end.x, 0.0, end.z),
+                            ],
+                        );
+                        let _ = meshes.set(ground.id(), ground_mesh);
+                    }
                 }
                 if ui.button("Reset").clicked() {
                     for entity in wfc_entities.iter() {

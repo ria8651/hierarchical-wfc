@@ -10,6 +10,7 @@ use bevy::{
     prelude::*,
     render::camera::CameraOutputMode,
 };
+use bevy_atmosphere::prelude::*;
 
 use crate::camera_controllers::fps::FpsCameraBundle;
 
@@ -24,10 +25,13 @@ impl Plugin for SwitchingCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_camera)
             .insert_resource(Msaa::Off)
-            .add_plugins(TemporalAntiAliasPlugin)
             .add_systems(Update, switching_system)
-            .add_plugins(FpsCameraPlugin)
-            .add_plugins(PanOrbitCameraPlugin);
+            .add_plugins((
+                TemporalAntiAliasPlugin,
+                FpsCameraPlugin,
+                PanOrbitCameraPlugin,
+                AtmospherePlugin,
+            ));
     }
 }
 
@@ -73,6 +77,9 @@ pub fn spawn_camera(mut commands: Commands) {
             ContrastAdaptiveSharpeningSettings {
                 enabled: false,
                 ..default()
+            },
+            AtmosphereCamera {
+                ..Default::default()
             },
         ))
         .insert(ScreenSpaceAmbientOcclusionBundle {

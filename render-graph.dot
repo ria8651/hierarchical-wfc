@@ -89,5 +89,7 @@ digraph "RenderGraph" {
 		"_core_3d__core_3dui_pass":"title:e" -> "_core_3d__core_3dupscaling":"title:w" ["color"="white"]
 	}
 	
+	"_bevy_atmosphere" ["label"=<<TABLE STYLE="rounded"><TR><TD PORT="title" BORDER="0" COLSPAN="2">bevy_atmosphere<BR/><FONT COLOR="red" POINT-SIZE="10">AtmosphereNode</FONT></TD></TR></TABLE>>, "color"="white", "fillcolor"="white"]
 	"_camera_driver" ["label"=<<TABLE STYLE="rounded"><TR><TD PORT="title" BORDER="0" COLSPAN="2">camera_driver<BR/><FONT COLOR="red" POINT-SIZE="10">CameraDriverNode</FONT></TD></TR></TABLE>>, "color"="white", "fillcolor"="white"]
+	"_bevy_atmosphere":"title:e" -> "_camera_driver":"title:w" ["color"="white"]
 }
