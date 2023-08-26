@@ -1,11 +1,8 @@
-use bevy::{
-    asset::ChangeWatcher,
-    window::{PresentMode},
-};
-use std::{time::Duration};
+use bevy::{asset::ChangeWatcher, window::PresentMode};
+use std::time::Duration;
 
 use bevy::{
-    math::{vec3},
+    math::vec3,
     prelude::{AssetPlugin, PluginGroup, *},
     render::render_resource::{AddressMode, FilterMode, SamplerDescriptor},
 };
@@ -611,7 +608,7 @@ fn facade_debug_system(
                     404 => error_mesh_builder.add_mesh(
                         &error_cube,
                         transform,
-                        collapsed_data.graph.order[index] as u32,
+                        collapsed_data.graph.order[index + facade_pass_data.vertices.len()] as u32,
                     ),
                     id => {
                         if enable_text {
@@ -642,7 +639,8 @@ fn facade_debug_system(
                         edge_mesh_builder.add_mesh(
                             &ok_cube,
                             transform,
-                            collapsed_data.graph.order[index] as u32,
+                            collapsed_data.graph.order[index + facade_pass_data.vertices.len()]
+                                as u32,
                         )
                     }
                 }
@@ -656,7 +654,9 @@ fn facade_debug_system(
                     404 => error_mesh_builder.add_mesh(
                         &error_cube,
                         transform,
-                        collapsed_data.graph.order[index] as u32,
+                        collapsed_data.graph.order
+                            [index + facade_pass_data.vertices.len() + facade_pass_data.edges.len()]
+                            as u32,
                     ),
                     id => {
                         if enable_text {
@@ -686,7 +686,9 @@ fn facade_debug_system(
                         quad_mesh_builder.add_mesh(
                             &ok_cube,
                             transform,
-                            collapsed_data.graph.order[index] as u32,
+                            collapsed_data.graph.order[index
+                                + facade_pass_data.vertices.len()
+                                + facade_pass_data.edges.len()] as u32,
                         )
                     }
                 }
