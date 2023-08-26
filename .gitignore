@@ -1,3 +1,4 @@
 /target
-trace-*
+/Cargo.lock
 /web/hierarchical-wfc*
+trace-*

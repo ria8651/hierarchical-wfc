@@ -6,11 +6,8 @@ use ui::UiPlugin;
 
 mod basic_tileset;
 mod carcassonne_tileset;
-mod graph;
 mod graph_grid;
-mod tileset;
 mod ui;
-mod wfc;
 
 fn main() {
     #[cfg(target_arch = "wasm32")]

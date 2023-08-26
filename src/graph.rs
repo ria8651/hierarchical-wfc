@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bevy::prelude::*;
-use rand::{distributions::WeightedIndex, Rng, prelude::Distribution};
+use rand::{distributions::WeightedIndex, prelude::Distribution, Rng};
 
 pub const TILE_U32S: usize = 4;
 
@@ -67,7 +67,7 @@ impl Cell {
                 }
             }
         }
-        
+
         let selected = weighted_rng.sample(rng);
         self.0 = [0; TILE_U32S];
         self.add_tile(selected);

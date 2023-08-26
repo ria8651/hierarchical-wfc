@@ -1,10 +1,6 @@
 use crate::{
-    basic_tileset::BasicTileset,
-    carcassonne_tileset::CarcassonneTileset,
-    graph::{Cell, Graph},
+    basic_tileset::BasicTileset, carcassonne_tileset::CarcassonneTileset,
     graph_grid::GridGraphSettings,
-    tileset::TileSet,
-    wfc::GraphWfc,
 };
 use bevy::prelude::*;
 use bevy_inspector_egui::{
@@ -16,6 +12,7 @@ use bevy_inspector_egui::{
     reflect_inspector::ui_for_value,
     DefaultInspectorConfigPlugin,
 };
+use hierarchical_wfc::{Cell, Graph, GraphWfc, TileSet};
 use rand::{rngs::StdRng, SeedableRng};
 
 pub struct UiPlugin;
@@ -28,7 +25,7 @@ impl Plugin for UiPlugin {
             .register_type::<UiState>()
             .register_type::<TileSetUi>()
             .register_type::<GridGraphSettings>()
-            .add_systems(Update, (ui, render_grid_graph, propagate).chain());
+            .add_systems(Update, (ui, propagate, render_grid_graph).chain());
     }
 }
 
@@ -47,7 +44,7 @@ struct UiState {
     #[reflect(ignore)]
     graph_dirty: bool,
     #[reflect(ignore)]
-    render_dirty: bool,
+    render_dirty: RenderState,
     #[reflect(ignore)]
     tile_entities: Vec<Entity>,
 }
@@ -63,10 +60,18 @@ impl Default for UiState {
             image_handles: Vec::new(),
             graph: None,
             graph_dirty: false,
-            render_dirty: false,
+            render_dirty: Default::default(),
             tile_entities: Vec::new(),
         }
     }
+}
+
+#[derive(Default, PartialEq, Eq)]
+enum RenderState {
+    #[default]
+    Init,
+    Dirty,
+    Done,
 }
 
 #[derive(Reflect)]
@@ -104,9 +109,6 @@ fn ui(
             let handle = contexts.add_image(bevy_handle.clone_weak());
             ui_state.image_handles.push((handle, bevy_handle));
         }
-
-        ui_state.graph_dirty = false;
-        ui_state.render_dirty = false;
     }
 
     SidePanel::new(Side::Left, Id::new("left_panel"))
@@ -145,7 +147,7 @@ fn ui(
                                             SpriteBundle {
                                                 transform: Transform::from_translation(
                                                     ((pos + 0.5) / settings.width as f32 - 0.5)
-                                                        .extend(0.0),
+                                                        .extend(-0.5),
                                                 ),
                                                 sprite: Sprite {
                                                     custom_size: Some(Vec2::splat(
@@ -168,7 +170,7 @@ fn ui(
                             ui_state.graph = Some(graph);
 
                             ui_state.graph_dirty = true;
-                            ui_state.render_dirty = true;
+                            ui_state.render_dirty = RenderState::Init;
                         }
                     });
 
@@ -222,7 +224,9 @@ fn propagate(mut ui_state: ResMut<UiState>) {
         ui_state.graph = Some(graph);
         collapse_span.exit();
 
-        ui_state.render_dirty = true;
+        if ui_state.render_dirty != RenderState::Init {
+            ui_state.render_dirty = RenderState::Dirty;
+        }
     }
 }
 
@@ -233,7 +237,7 @@ fn render_grid_graph(
 ) {
     let render_span = info_span!("wfc_render").entered();
     if let Some(graph) = &ui_state.graph {
-        if ui_state.render_dirty {
+        if ui_state.render_dirty == RenderState::Dirty {
             let tileset = match &ui_state.picked_tileset {
                 TileSetUi::BasicTileset(_) => Box::new(BasicTileset::default())
                     as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
@@ -266,7 +270,10 @@ fn render_grid_graph(
                 }
             }
 
-            ui_state.render_dirty = false;
+            ui_state.render_dirty = RenderState::Done;
+        }
+        if ui_state.render_dirty == RenderState::Init {
+            ui_state.render_dirty = RenderState::Dirty;
         }
     }
     render_span.exit();

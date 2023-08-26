@@ -1,5 +1,5 @@
-use crate::graph::{Graph, Neighbor};
 use bevy::prelude::*;
+use hierarchical_wfc::{Graph, Neighbor};
 
 #[derive(Reflect)]
 #[reflect(Default)]

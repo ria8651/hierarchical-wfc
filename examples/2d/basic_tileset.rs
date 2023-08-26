@@ -1,9 +1,5 @@
-use crate::{
-    graph::{Cell, Graph},
-    graph_grid::{self, GridGraphSettings},
-    tileset::TileSet,
-    wfc::Direction,
-};
+use crate::graph_grid::{self, GridGraphSettings};
+use hierarchical_wfc::{Cell, Direction, Graph, TileSet};
 
 #[derive(Default)]
 pub struct BasicTileset;
