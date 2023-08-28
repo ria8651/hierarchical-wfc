@@ -9,7 +9,7 @@ use bevy::{
     },
     prelude::*,
 };
-use bevy_atmosphere::prelude::*;
+// use bevy_atmosphere::prelude::*;
 
 use super::fps::FpsCameraBundle;
 
@@ -29,7 +29,7 @@ impl Plugin for SwitchingCameraPlugin {
                 TemporalAntiAliasPlugin,
                 FpsCameraPlugin,
                 PanOrbitCameraPlugin,
-                AtmospherePlugin,
+                // AtmospherePlugin,
             ));
     }
 }
@@ -81,9 +81,9 @@ pub fn spawn_camera(mut commands: Commands) {
                 enabled: false,
                 ..default()
             },
-            AtmosphereCamera {
-                ..Default::default()
-            },
+            // AtmosphereCamera {
+            //     ..Default::default()
+            // },
             MainCamera,
         ))
         .insert(ScreenSpaceAmbientOcclusionBundle {
