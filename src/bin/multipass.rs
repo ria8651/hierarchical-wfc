@@ -1,5 +1,5 @@
 use bevy::{asset::ChangeWatcher, ecs::system::SystemState, window::PresentMode};
-use bevy_render::{render_resource::TextureDescriptor, texture::ImageSampler};
+use bevy_render::texture::ImageSampler;
 use std::time::Duration;
 
 use bevy::{
@@ -141,29 +141,12 @@ fn set_ground_sampler(
     mut ev_asset: EventReader<AssetEvent<Image>>,
     mut assets: ResMut<Assets<Image>>,
     map_img: Res<GroundTexture>,
-    mut q_ground_plane: Query<&mut Handle<StandardMaterial>, With<GroundPlane>>,
+    q_ground_plane: Query<&mut Handle<StandardMaterial>, With<GroundPlane>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for ev in ev_asset.iter() {
-        dbg!(&ev);
-
-        // match ev {
-        //     AssetEvent::Created { handle } => {
-        //         if let Some(texture) = assets.get_mut(&handle) {
-        //             texture.sampler_descriptor = ImageSampler::nearest();
-        //         }
-        //         if let Some(texture) = assets.get_mut(&handle) {
-        //             dbg!(&texture.sampler_descriptor);
-        //         }
-        //     }
-        //     _ => {}
-        // }
-
         match ev {
             AssetEvent::Created { handle } => {
-                // WARNING: this mutable access will cause another
-                // AssetEvent (Modified) to be emitted!
-
                 if *handle == map_img.handle {
                     let texture = assets.get_mut(handle).unwrap();
                     texture.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
