@@ -55,3 +55,47 @@ debug-assertions = false
 overflow-checks = false
 incremental = false
 codegen-units = 16
+
+
+[patch.crates-io]
+bevy = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_a11y = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_animation = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_app = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_asset = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_audio = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_core = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_core_pipeline = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_derive = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_diagnostic = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_dylib = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_dynamic_plugin = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_ecs = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_ecs_compile_fail_tests = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_encase_derive = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_gilrs = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_gizmos = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_gltf = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_hierarchy = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_input = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_internal = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_log = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_macros_compile_fail_tests = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_macro_utils = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_math = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_mikktspace = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_pbr = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_ptr = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_reflect = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_reflect_compile_fail_tests = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_render = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_scene = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_sprite = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_tasks = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_text = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_time = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_transform = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_ui = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_utils = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_window = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+bevy_winit = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
