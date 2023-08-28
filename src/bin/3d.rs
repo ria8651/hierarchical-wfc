@@ -14,7 +14,7 @@ use bevy_rapier3d::prelude::{
     Collider, ComputedColliderShape, NoUserData, RapierPhysicsPlugin, RigidBody,
 };
 use hierarchical_wfc::{
-    camera_controllers::{
+    camera_plugin::{
         cam_switcher::{CameraController, SwitchingCameraController, SwitchingCameraPlugin},
         fps::FpsCameraSettings,
     },

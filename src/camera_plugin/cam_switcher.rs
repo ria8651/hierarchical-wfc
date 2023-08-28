@@ -11,7 +11,7 @@ use bevy::{
 };
 use bevy_atmosphere::prelude::*;
 
-use crate::camera_controllers::fps::FpsCameraBundle;
+use super::fps::FpsCameraBundle;
 
 use super::{
     fps::{FpsCamera, FpsCameraPlugin, FpsCharacterBundle},
@@ -53,6 +53,9 @@ impl Default for CameraController {
     }
 }
 
+#[derive(Component)]
+pub struct MainCamera;
+
 pub fn spawn_camera(mut commands: Commands) {
     let translation = Vec3::new(-2.0, 2.5, 5.0);
     let radius = translation.length();
@@ -62,6 +65,7 @@ pub fn spawn_camera(mut commands: Commands) {
             Camera3dBundle {
                 camera: Camera {
                     hdr: true,
+
                     ..Default::default()
                 },
                 tonemapping: bevy::core_pipeline::tonemapping::Tonemapping::AcesFitted,
@@ -80,6 +84,7 @@ pub fn spawn_camera(mut commands: Commands) {
             AtmosphereCamera {
                 ..Default::default()
             },
+            MainCamera,
         ))
         .insert(ScreenSpaceAmbientOcclusionBundle {
             settings: ScreenSpaceAmbientOcclusionSettings {
@@ -87,10 +92,10 @@ pub fn spawn_camera(mut commands: Commands) {
                 ..Default::default()
             },
             ..Default::default()
-        })
-        .insert(TemporalAntiAliasBundle {
-            ..Default::default()
         });
+    // .insert(TemporalAntiAliasBundle {
+    //     ..Default::default()
+    // });
 }
 
 fn switching_system(
