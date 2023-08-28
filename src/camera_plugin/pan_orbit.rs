@@ -4,12 +4,11 @@ use std::time::{Duration, Instant};
 
 use bevy::{
     self,
-    input::mouse::{MouseMotion, MouseWheel},
+    input::mouse::MouseWheel,
     prelude::*,
-    window::{CursorGrabMode, PrimaryWindow, Window},
+    window::{PrimaryWindow, Window},
 };
 use bevy_rapier3d::prelude::{RapierContext, Real};
-use bevy_render::camera::Viewport;
 
 use super::cam_switcher::MainCamera;
 

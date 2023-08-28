@@ -1,5 +1,5 @@
 use bevy::{asset::ChangeWatcher, ecs::system::SystemState, window::PresentMode};
-use egui_dock::NodeIndex;
+use bevy_render::{render_resource::TextureDescriptor, texture::ImageSampler};
 use std::time::Duration;
 
 use bevy::{
@@ -17,9 +17,7 @@ use bevy_rapier3d::prelude::{
 };
 use hierarchical_wfc::{
     camera_plugin::{
-        cam_switcher::{
-            CameraController, MainCamera, SwitchingCameraController, SwitchingCameraPlugin,
-        },
+        cam_switcher::{CameraController, SwitchingCameraController, SwitchingCameraPlugin},
         fps::FpsCameraSettings,
     },
     materials::{debug_arc_material::DebugLineMaterial, tile_pbr_material::TilePbrMaterial},
@@ -52,7 +50,7 @@ fn main() {
             })
             .set(ImagePlugin {
                 default_sampler: SamplerDescriptor {
-                    mag_filter: FilterMode::Nearest,
+                    mag_filter: FilterMode::Linear,
                     min_filter: FilterMode::Linear,
                     address_mode_u: AddressMode::Repeat,
                     address_mode_v: AddressMode::Repeat,
@@ -91,6 +89,7 @@ fn main() {
             facade_init_system,
             facade_debug_system,
             facade_mesh_system,
+            set_ground_sampler,
         ),
     )
     .add_systems(Startup, (setup, init_inspector))
@@ -133,6 +132,60 @@ fn init_inspector(world: &mut World) {
     world.insert_resource(UiState::new(tree));
 }
 
+#[derive(Resource, Default)]
+struct GroundTexture {
+    handle: Handle<Image>,
+}
+
+fn set_ground_sampler(
+    mut ev_asset: EventReader<AssetEvent<Image>>,
+    mut assets: ResMut<Assets<Image>>,
+    map_img: Res<GroundTexture>,
+    mut q_ground_plane: Query<&mut Handle<StandardMaterial>, With<GroundPlane>>,
+    mut standard_materials: ResMut<Assets<StandardMaterial>>,
+) {
+    for ev in ev_asset.iter() {
+        dbg!(&ev);
+
+        // match ev {
+        //     AssetEvent::Created { handle } => {
+        //         if let Some(texture) = assets.get_mut(&handle) {
+        //             texture.sampler_descriptor = ImageSampler::nearest();
+        //         }
+        //         if let Some(texture) = assets.get_mut(&handle) {
+        //             dbg!(&texture.sampler_descriptor);
+        //         }
+        //     }
+        //     _ => {}
+        // }
+
+        match ev {
+            AssetEvent::Created { handle } => {
+                // WARNING: this mutable access will cause another
+                // AssetEvent (Modified) to be emitted!
+
+                if *handle == map_img.handle {
+                    let texture = assets.get_mut(handle).unwrap();
+                    texture.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
+                        mag_filter: FilterMode::Nearest,
+                        min_filter: FilterMode::Linear,
+                        address_mode_u: AddressMode::Repeat,
+                        address_mode_v: AddressMode::Repeat,
+                        address_mode_w: AddressMode::Repeat,
+                        ..Default::default()
+                    });
+                    let ground_material_handle = q_ground_plane.get_single().unwrap();
+                    let ground_material =
+                        standard_materials.get_mut(ground_material_handle).unwrap();
+                    ground_material.base_color_texture = Some(handle.clone());
+                }
+            }
+            AssetEvent::Modified { handle: _ } => {}
+            AssetEvent::Removed { handle: _ } => {}
+        }
+    }
+}
+
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -140,7 +193,10 @@ fn setup(
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut ambient_light: ResMut<AmbientLight>,
 ) {
-    let ground_texture = asset_server.load("textures/checker.png");
+    let ground_texture_handle = asset_server.load("textures/checker.png");
+    commands.insert_resource(GroundTexture {
+        handle: ground_texture_handle.clone(),
+    });
 
     let mut ground_mesh =
         Mesh::new(bevy::render::render_resource::PrimitiveTopology::TriangleStrip);
@@ -169,7 +225,7 @@ fn setup(
             transform: Transform::from_translation(vec3(0.5, 0.0, 0.5)),
             material: standard_materials.add(StandardMaterial {
                 // base_color: Color::rgb(0.3, 0.5, 0.3),`
-                base_color_texture: Some(ground_texture),
+                base_color_texture: Some(ground_texture_handle),
                 perceptual_roughness: 1.0,
                 ..Default::default()
             }),
@@ -859,7 +915,7 @@ impl EcsUiNode for EcsUiLayout {
         &mut self,
         world: &mut World,
         ui: &mut egui::Ui,
-        type_registry: &bevy_reflect::TypeRegistry,
+        _type_registry: &bevy_reflect::TypeRegistry,
     ) {
         let (
             mut commands,
@@ -1101,7 +1157,7 @@ impl EcsUiNode for EcsUiReplay {
         &mut self,
         world: &mut World,
         ui: &mut egui::Ui,
-        type_registry: &bevy_reflect::TypeRegistry,
+        _type_registry: &bevy_reflect::TypeRegistry,
     ) {
         let mut q_passes = self.system_state.get_mut(world);
 

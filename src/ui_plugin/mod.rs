@@ -1,5 +1,5 @@
 use bevy::{prelude::*, window::PrimaryWindow};
-use bevy_egui::{EguiContext, EguiSet};
+use bevy_egui::EguiContext;
 use bevy_reflect::TypeRegistry;
 use bevy_render::camera::Viewport;
 use egui_dock::{DockArea, Style, Tree};
