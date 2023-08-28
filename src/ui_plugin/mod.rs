@@ -25,14 +25,14 @@ fn show_ui_system(world: &mut World) {
     };
     let mut egui_context = egui_context.clone();
 
-    world.resource_scope::<UiState, _>(|world, mut ui_state| {
+    world.resource_scope::<EcsUiState, _>(|world, mut ui_state| {
         ui_state.ui(world, egui_context.get_mut())
     });
 }
 
 // make camera only render to view not obstructed by UI
 fn set_camera_viewport(
-    ui_state: Res<UiState>,
+    ui_state: Res<EcsUiState>,
     primary_window: Query<&mut Window, With<PrimaryWindow>>,
     egui_settings: Res<bevy_egui::EguiSettings>,
     mut cameras: Query<&mut Camera, With<MainCamera>>,
@@ -56,13 +56,13 @@ fn set_camera_viewport(
 }
 
 #[derive(Resource)]
-pub struct UiState {
-    pub tree: Tree<EguiWindow>,
+pub struct EcsUiState {
+    pub tree: Tree<EcsUiTab>,
     viewport_rect: egui::Rect,
 }
 
-impl UiState {
-    pub fn new(tree: Tree<EguiWindow>) -> Self {
+impl EcsUiState {
+    pub fn new(tree: Tree<EcsUiTab>) -> Self {
         // let mut tree = Tree::new(vec![EguiWindow::GameView]);
 
         Self {
@@ -86,9 +86,9 @@ impl UiState {
 }
 
 #[derive(Debug)]
-pub enum EguiWindow {
-    GameView,
-    ECS(Box<dyn EcsUiNode + Send + Sync>),
+pub enum EcsUiTab {
+    Viewport,
+    Ecs(Box<dyn EcsTab + Send + Sync>),
 }
 
 struct TabViewer<'a> {
@@ -96,32 +96,35 @@ struct TabViewer<'a> {
     viewport_rect: &'a mut egui::Rect,
 }
 
-pub trait EcsUiNode: std::fmt::Debug {
+pub trait EcsTab: std::fmt::Debug {
     fn ui(&mut self, world: &mut World, ui: &mut egui::Ui, type_registry: &TypeRegistry);
 }
 
 impl egui_dock::TabViewer for TabViewer<'_> {
-    type Tab = EguiWindow;
+    type Tab = EcsUiTab;
 
     fn ui(&mut self, ui: &mut egui_dock::egui::Ui, window: &mut Self::Tab) {
         let type_registry = self.world.resource::<AppTypeRegistry>().0.clone();
         let type_registry = type_registry.read();
 
         match window {
-            EguiWindow::GameView => {
+            EcsUiTab::Viewport => {
                 *self.viewport_rect = ui.clip_rect();
             }
-            EguiWindow::ECS(node) => {
+            EcsUiTab::Ecs(node) => {
                 node.ui(self.world, ui, &type_registry);
             }
         }
     }
 
     fn title(&mut self, window: &mut Self::Tab) -> egui_dock::egui::WidgetText {
-        format!("{window:?}").into()
+        match window {
+            Self::Tab::Viewport => "Viewport".into(),
+            Self::Tab::Ecs(node) => format!("{:?}", node).into(),
+        }
     }
 
     fn clear_background(&self, window: &Self::Tab) -> bool {
-        !matches!(window, EguiWindow::GameView)
+        !matches!(window, EcsUiTab::Viewport)
     }
 }

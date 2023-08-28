@@ -22,7 +22,7 @@ use hierarchical_wfc::{
     },
     materials::{debug_arc_material::DebugLineMaterial, tile_pbr_material::TilePbrMaterial},
     tools::MeshBuilder,
-    ui_plugin::{EcsUiNode, EcsUiPlugin, EguiWindow, UiState},
+    ui_plugin::{EcsTab, EcsUiPlugin, EcsUiState, EcsUiTab},
     village::{
         facade_graph::{FacadePassData, FacadePassSettings, FacadeTileset},
         layout_graph::LayoutGraphSettings,
@@ -116,20 +116,22 @@ fn wfc_despawn_invalid_system(
 struct GroundPlane;
 
 fn init_inspector(world: &mut World) {
-    let layout_settings_tab: Box<dyn EcsUiNode + Send + Sync> = EcsUiLayout::new(world);
-    let cameras_tab: Box<dyn EcsUiNode + Send + Sync> = EcsUiCameras::new(world);
-    let replay_tab: Box<dyn EcsUiNode + Send + Sync> = EcsUiReplay::new(world);
+    let mut tabs = vec![
+        EcsUiLayout::new(world),
+        EcsUiCameras::new(world),
+        EcsUiReplay::new(world),
+    ];
+    let total_tabs = tabs.len() as f32;
 
-    let mut tree = egui_dock::Tree::new(vec![EguiWindow::GameView]);
-    let [_viewport, side_bar] = tree.split_right(
-        egui_dock::NodeIndex::root(),
-        0.7,
-        vec![EguiWindow::ECS(layout_settings_tab)],
-    );
-    let [_, bottom_region] =
-        tree.split_below(side_bar, 1.0 / 3.0, vec![EguiWindow::ECS(cameras_tab)]);
-    tree.split_below(bottom_region, 1.0 / 2.0, vec![EguiWindow::ECS(replay_tab)]);
-    world.insert_resource(UiState::new(tree));
+    let mut tree = egui_dock::Tree::new(vec![EcsUiTab::Viewport]);
+    let [_viewport, mut side_bar] =
+        tree.split_right(egui_dock::NodeIndex::root(), 0.7, vec![tabs.pop().unwrap()]);
+
+    for (i, tab) in tabs.into_iter().enumerate() {
+        side_bar = tree.split_below(side_bar, 1.0 / (total_tabs - i as f32), vec![tab])[1];
+    }
+
+    world.insert_resource(EcsUiState::new(tree));
 }
 
 #[derive(Resource, Default)]
@@ -880,20 +882,20 @@ struct EcsUiLayout {
 }
 
 impl EcsUiLayout {
-    fn new(world: &mut World) -> Box<dyn EcsUiNode + Send + Sync + 'static> {
-        Box::new(Self {
+    fn new(world: &mut World) -> EcsUiTab {
+        EcsUiTab::Ecs(Box::new(Self {
             system_state: SystemState::new(world),
-        })
+        }))
     }
 }
 
 impl std::fmt::Debug for EcsUiLayout {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EcsUiLayout").finish()
+        f.debug_struct("Layout").finish()
     }
 }
 
-impl EcsUiNode for EcsUiLayout {
+impl EcsTab for EcsUiLayout {
     fn ui(
         &mut self,
         world: &mut World,
@@ -1051,20 +1053,20 @@ struct EcsUiCameras {
 }
 
 impl EcsUiCameras {
-    fn new(world: &mut World) -> Box<dyn EcsUiNode + Send + Sync + 'static> {
-        Box::new(Self {
+    fn new(world: &mut World) -> EcsUiTab {
+        EcsUiTab::Ecs(Box::new(Self {
             system_state: SystemState::new(world),
-        })
+        }))
     }
 }
 
 impl std::fmt::Debug for EcsUiCameras {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EcsUiCameras").finish()
+        f.debug_struct("Cameras").finish()
     }
 }
 
-impl EcsUiNode for EcsUiCameras {
+impl EcsTab for EcsUiCameras {
     fn ui(
         &mut self,
         world: &mut World,
@@ -1122,20 +1124,20 @@ struct EcsUiReplay {
 }
 
 impl EcsUiReplay {
-    fn new(world: &mut World) -> Box<dyn EcsUiNode + Send + Sync + 'static> {
-        Box::new(Self {
+    fn new(world: &mut World) -> EcsUiTab {
+        EcsUiTab::Ecs(Box::new(Self {
             system_state: SystemState::new(world),
-        })
+        }))
     }
 }
 
 impl std::fmt::Debug for EcsUiReplay {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EcsUiCameras").finish()
+        f.debug_struct("Replay").finish()
     }
 }
 
-impl EcsUiNode for EcsUiReplay {
+impl EcsTab for EcsUiReplay {
     fn ui(
         &mut self,
         world: &mut World,

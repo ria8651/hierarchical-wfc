@@ -319,6 +319,7 @@ name = "bevy"
 version = "0.11.2"
 source = "git+https://github.com/KiwiRobbie/bevy-viewport-fixes.git?branch=viewport-fixes#f65472462f9bbe34ce0a4bab6dd2fd57eebd6bde"
 dependencies = [
+ "bevy_dylib",
  "bevy_internal",
 ]
 
@@ -532,6 +533,14 @@ dependencies = [
  "bevy_time",
  "bevy_utils",
  "sysinfo",
+]
+
+[[package]]
+name = "bevy_dylib"
+version = "0.11.2"
+source = "git+https://github.com/KiwiRobbie/bevy-viewport-fixes.git?branch=viewport-fixes#f65472462f9bbe34ce0a4bab6dd2fd57eebd6bde"
+dependencies = [
+ "bevy_internal",
 ]
 
 [[package]]
@@ -4397,11 +4406,6 @@ name = "xml-rs"
 version = "0.8.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47430998a7b5d499ccee752b41567bc3afc57e1327dc855b1a2aa44ce29b5fa1"
-
-[[patch.unused]]
-name = "bevy_dylib"
-version = "0.11.2"
-source = "git+https://github.com/KiwiRobbie/bevy-viewport-fixes.git?branch=viewport-fixes#f65472462f9bbe34ce0a4bab6dd2fd57eebd6bde"
 
 [[patch.unused]]
 name = "bevy_dynamic_plugin"
