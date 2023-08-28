@@ -82,3 +82,6 @@ pub fn wfc_collapse_system(
         };
     }
 }
+
+#[derive(Component)]
+pub struct WfcInvalidatedMarker;

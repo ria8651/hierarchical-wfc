@@ -33,7 +33,8 @@ use hierarchical_wfc::{
     wfc::{
         bevy_passes::{
             wfc_collapse_system, wfc_ready_system, WfcEntityMarker, WfcFCollapsedData,
-            WfcInitialData, WfcParentPasses, WfcPassReadyMarker, WfcPendingParentMarker,
+            WfcInitialData, WfcInvalidatedMarker, WfcParentPasses, WfcPassReadyMarker,
+            WfcPendingParentMarker,
         },
         TileSet, WfcGraph,
     },
@@ -92,7 +93,8 @@ fn main() {
             facade_mesh_system,
         ),
     )
-    .add_systems(Startup, (setup, init_inspector));
+    .add_systems(Startup, (setup, init_inspector))
+    .add_systems(PostUpdate, wfc_despawn_invalid_system);
     #[cfg(not(target_arch = "wasm32"))]
     {
         let settings = bevy_mod_debugdump::render_graph::Settings::default();
@@ -100,6 +102,15 @@ fn main() {
         std::fs::write("render-graph.dot", dot).expect("Failed to write render-graph.dot");
     }
     app.run();
+}
+
+fn wfc_despawn_invalid_system(
+    mut commands: Commands,
+    q_invalid: Query<Entity, With<WfcInvalidatedMarker>>,
+) {
+    for entity in q_invalid.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
 }
 
 #[derive(SystemSet, Hash, Debug, Eq, PartialEq, Clone, Component)]
@@ -491,7 +502,6 @@ fn facade_mesh_system(
                     let path = format!("{}/{}", models.path, model);
                     commands
                         .spawn((
-                            WfcEntityMarker,
                             SceneBundle {
                                 scene: asset_server.load(path),
                                 transform,
@@ -704,51 +714,39 @@ fn facade_debug_system(
 
             // Create debug meshes
             commands
-                .spawn((
-                    WfcEntityMarker, // DebugArcs,
-                    MaterialMeshBundle {
-                        mesh: meshes.add(vertex_mesh_builder.build()),
-                        material: vertex_material.clone(),
-                        visibility: Visibility::Visible,
-                        ..Default::default()
-                    },
-                ))
+                .spawn((MaterialMeshBundle {
+                    mesh: meshes.add(vertex_mesh_builder.build()),
+                    material: vertex_material.clone(),
+                    visibility: Visibility::Visible,
+                    ..Default::default()
+                },))
                 .set_parent(entity);
 
             commands
-                .spawn((
-                    WfcEntityMarker,
-                    MaterialMeshBundle {
-                        mesh: meshes.add(edge_mesh_builder.build()),
-                        material: edge_material.clone(),
-                        visibility: Visibility::Visible,
-                        ..Default::default()
-                    },
-                ))
+                .spawn((MaterialMeshBundle {
+                    mesh: meshes.add(edge_mesh_builder.build()),
+                    material: edge_material.clone(),
+                    visibility: Visibility::Visible,
+                    ..Default::default()
+                },))
                 .set_parent(entity);
 
             commands
-                .spawn((
-                    WfcEntityMarker,
-                    MaterialMeshBundle {
-                        mesh: meshes.add(quad_mesh_builder.build()),
-                        material: quad_material.clone(),
-                        visibility: Visibility::Visible,
-                        ..Default::default()
-                    },
-                ))
+                .spawn((MaterialMeshBundle {
+                    mesh: meshes.add(quad_mesh_builder.build()),
+                    material: quad_material.clone(),
+                    visibility: Visibility::Visible,
+                    ..Default::default()
+                },))
                 .set_parent(entity);
 
             commands
-                .spawn((
-                    WfcEntityMarker,
-                    MaterialMeshBundle {
-                        mesh: meshes.add(error_mesh_builder.build()),
-                        material: error_material.clone(),
-                        visibility: Visibility::Visible,
-                        ..Default::default()
-                    },
-                ))
+                .spawn((MaterialMeshBundle {
+                    mesh: meshes.add(error_mesh_builder.build()),
+                    material: error_material.clone(),
+                    visibility: Visibility::Visible,
+                    ..Default::default()
+                },))
                 .set_parent(entity);
             commands.entity(entity).insert(ReplayTileMapMaterials {
                 0: vec![
@@ -795,7 +793,6 @@ fn layout_debug_system(
             });
 
             let mut physics_mesh_commands = commands.spawn((
-                WfcEntityMarker,
                 MaterialMeshBundle {
                     material: material.clone(),
                     mesh: meshes.add(solid),
@@ -812,7 +809,6 @@ fn layout_debug_system(
             physics_mesh_commands.set_parent(entity);
             commands
                 .spawn((
-                    WfcEntityMarker,
                     MaterialMeshBundle {
                         material: material.clone(),
                         mesh: meshes.add(air),
@@ -933,7 +929,7 @@ impl EcsUiNode for EcsUiLayout {
         ui.add_space(12.0);
         if ui.button("Generate").clicked() {
             for entity in wfc_entities.iter() {
-                commands.entity(entity).despawn_recursive();
+                commands.entity(entity).insert(WfcInvalidatedMarker);
             }
 
             let layout_entity = commands
@@ -994,7 +990,7 @@ impl EcsUiNode for EcsUiLayout {
         }
         if ui.button("Reset").clicked() {
             for entity in wfc_entities.iter() {
-                commands.entity(entity).despawn_recursive();
+                commands.entity(entity).insert(WfcInvalidatedMarker);
             }
         }
         self.system_state.apply(world);
