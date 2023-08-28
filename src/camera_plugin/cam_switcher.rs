@@ -92,10 +92,10 @@ pub fn spawn_camera(mut commands: Commands) {
                 ..Default::default()
             },
             ..Default::default()
+        })
+        .insert(TemporalAntiAliasBundle {
+            ..Default::default()
         });
-    // .insert(TemporalAntiAliasBundle {
-    //     ..Default::default()
-    // });
 }
 
 fn switching_system(
