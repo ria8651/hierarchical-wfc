@@ -124,22 +124,19 @@ fn fps_camera_track_character(
 }
 
 fn fps_manage_mouse(
-    mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
+    mut q_primary_window: Query<&mut Window, With<PrimaryWindow>>,
     mouse: Res<Input<MouseButton>>,
-    query: Query<With<FpsCamera>>,
+    q_camera: Query<With<FpsCamera>>,
 ) {
-    let mut window = primary_window.get_single_mut().unwrap();
-    if let Ok(_) = query.get_single() {
+    let mut primary_window = q_primary_window.get_single_mut().unwrap();
+    if let Ok(_) = q_camera.get_single() {
         if mouse.pressed(MouseButton::Left) {
-            window.cursor.grab_mode = CursorGrabMode::Locked;
-            window.cursor.visible = false;
+            primary_window.cursor.grab_mode = CursorGrabMode::Locked;
+            primary_window.cursor.visible = false;
         } else {
-            window.cursor.grab_mode = CursorGrabMode::None;
-            window.cursor.visible = true;
+            primary_window.cursor.grab_mode = CursorGrabMode::None;
+            primary_window.cursor.visible = true;
         }
-    } else {
-        window.cursor.grab_mode = CursorGrabMode::None;
-        window.cursor.visible = true;
     }
 }
 

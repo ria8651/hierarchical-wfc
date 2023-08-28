@@ -6,9 +6,12 @@ use bevy::{
     self,
     input::mouse::{MouseMotion, MouseWheel},
     prelude::*,
-    window::{PrimaryWindow, Window},
+    window::{CursorGrabMode, PrimaryWindow, Window},
 };
 use bevy_rapier3d::prelude::{RapierContext, Real};
+use bevy_render::camera::Viewport;
+
+use super::cam_switcher::MainCamera;
 
 pub struct PanOrbitCameraPlugin;
 
@@ -49,49 +52,101 @@ impl Default for DoubleClickTime {
     }
 }
 
+fn viewport_rect(window: &Window, camera: &Camera) -> Rect {
+    if let Some(viewport) = &camera.viewport {
+        let x_0 = viewport.physical_position.x as f32;
+        let y_0 = viewport.physical_position.y as f32;
+        let x_1 = x_0 + viewport.physical_size.x as f32;
+        let y_1 = y_0 + viewport.physical_size.y as f32;
+        Rect::new(x_0, y_0, x_1, y_1)
+    } else {
+        Rect::new(0.0, 0.0, window.width(), window.height())
+    }
+}
+
+#[derive(Default)]
+struct PreviousCursor {
+    position: Option<Vec2>,
+    dragging: bool,
+}
+
 /// Pan the camera with middle mouse click, zoom with scroll wheel, orbit with right mouse click.
 fn pan_orbit_camera(
-    primary_window: Query<&mut Window, With<PrimaryWindow>>,
-    mut ev_motion: EventReader<MouseMotion>,
+    mut q_primary_window: Query<&mut Window, With<PrimaryWindow>>,
+    // mut ev_motion: EventReader<MouseMotion>,
     mut ev_scroll: EventReader<MouseWheel>,
     input_mouse: Res<Input<MouseButton>>,
     mut double_click_time: Local<DoubleClickTime>,
-    mut query: Query<(
-        &mut PanOrbitCamera,
-        &mut Transform,
-        &Projection,
-        &Camera,
-        &GlobalTransform,
-    )>,
+    mut q_camera: Query<
+        (
+            &mut PanOrbitCamera,
+            &mut Transform,
+            &Projection,
+            &Camera,
+            &GlobalTransform,
+        ),
+        With<MainCamera>,
+    >,
     rapier_context: Res<RapierContext>,
+    mut previous_cursor: Local<PreviousCursor>,
 ) {
-    // change input mapping for orbit and panning here
     let orbit_button = MouseButton::Right;
     let pan_button = MouseButton::Middle;
+
+    let mut primary_window = q_primary_window.get_single_mut().unwrap();
+    let Ok((mut pan_orbit, mut transform, projection, camera, global_transform)) =
+        q_camera.get_single_mut()
+    else {
+        return;
+    };
+
+    let viewport_rect = viewport_rect(&primary_window, camera);
 
     let mut pan = Vec2::ZERO;
     let mut rotation_move = Vec2::ZERO;
     let mut scroll = 0.0;
     let mut orbit_button_changed = false;
 
-    if input_mouse.pressed(orbit_button) {
-        for ev in ev_motion.iter() {
-            rotation_move += ev.delta;
+    if let Some(cursor_pos) = primary_window.cursor_position() {
+        let mut dragging = false;
+        if let Some(last_pos) = previous_cursor.position.take() {
+            if previous_cursor.dragging || viewport_rect.contains(cursor_pos) {
+                if input_mouse.pressed(orbit_button) {
+                    rotation_move += cursor_pos - last_pos;
+                    dragging = true;
+                } else if input_mouse.pressed(pan_button) {
+                    // Pan only if we're not rotating at the moment
+                    pan += cursor_pos - last_pos;
+                    dragging = true;
+                } else {
+                }
+                for ev in ev_scroll.iter() {
+                    scroll += ev.y;
+                }
+            }
         }
-    } else if input_mouse.pressed(pan_button) {
-        // Pan only if we're not rotating at the moment
-        for ev in ev_motion.iter() {
-            pan += ev.delta;
+
+        previous_cursor.dragging = dragging;
+        if previous_cursor.dragging || viewport_rect.contains(cursor_pos) {
+            previous_cursor.position = Some(cursor_pos);
+        }
+
+        if dragging {
+            let viewport_size = viewport_rect.size();
+            let wrapped_pos = ((cursor_pos - viewport_rect.min) / viewport_size).fract()
+                * viewport_size
+                + viewport_rect.min;
+
+            primary_window.set_cursor_position(Some(wrapped_pos));
+            previous_cursor.position = Some(wrapped_pos);
         }
     }
-    for ev in ev_scroll.iter() {
-        scroll += ev.y;
-    }
+
     if input_mouse.just_released(orbit_button) || input_mouse.just_pressed(orbit_button) {
         orbit_button_changed = true;
     }
 
-    for (mut pan_orbit, mut transform, projection, camera, global_transform) in query.iter_mut() {
+    {
         let mut update_transform = false;
         if pan_orbit.initialised {
             if orbit_button_changed {
@@ -104,27 +159,29 @@ fn pan_orbit_camera(
             if input_mouse.just_pressed(MouseButton::Left) {
                 let now = Instant::now();
                 if now.duration_since(double_click_time.0) < Duration::from_millis(250) {
-                    if let Some(cursor_pos) = primary_window.get_single().unwrap().cursor_position()
-                    {
-                        if let Some(view_ray) =
-                            camera.viewport_to_world(global_transform, cursor_pos)
-                        {
-                            if let Some(hit) = rapier_context.cast_ray(
-                                view_ray.origin,
-                                view_ray.direction,
-                                Real::MAX,
-                                false,
-                                bevy_rapier3d::prelude::QueryFilter::only_fixed(),
-                            ) {
-                                let new_focus = view_ray.origin + view_ray.direction * hit.1;
+                    if let Some(cursor_pos) = primary_window.cursor_position() {
+                        let cursor_correction = viewport_rect.min;
+                        if viewport_rect.contains(cursor_pos) {
+                            if let Some(view_ray) = camera
+                                .viewport_to_world(global_transform, cursor_pos - cursor_correction)
+                            {
+                                if let Some(hit) = rapier_context.cast_ray(
+                                    view_ray.origin,
+                                    view_ray.direction,
+                                    Real::MAX,
+                                    false,
+                                    bevy_rapier3d::prelude::QueryFilter::only_fixed(),
+                                ) {
+                                    let new_focus = view_ray.origin + view_ray.direction * hit.1;
 
-                                let cam = global_transform.translation();
-                                let look = (pan_orbit.focus - cam).normalize();
-                                let delta = new_focus - pan_orbit.focus;
+                                    let cam = global_transform.translation();
+                                    let look = (pan_orbit.focus - cam).normalize();
+                                    let delta = new_focus - pan_orbit.focus;
 
-                                pan_orbit.radius += look.dot(delta); // Keep the camera on the same plane
-                                pan_orbit.focus = new_focus;
-                                update_transform = true;
+                                    pan_orbit.radius += look.dot(delta); // Keep the camera on the same plane
+                                    pan_orbit.focus = new_focus;
+                                    update_transform = true;
+                                }
                             }
                         }
                     }
@@ -135,7 +192,7 @@ fn pan_orbit_camera(
 
             if rotation_move.length_squared() > 0.0 {
                 update_transform = true;
-                let window = get_primary_window_size(&primary_window);
+                let window = get_primary_window_size(&q_primary_window);
                 let delta_x = {
                     let delta = rotation_move.x / window.x * std::f32::consts::PI * 2.0;
                     if pan_orbit.upside_down {
@@ -152,7 +209,7 @@ fn pan_orbit_camera(
             } else if pan.length_squared() > 0.0 {
                 update_transform = true;
                 // make panning distance independent of resolution and FOV,
-                let window = get_primary_window_size(&primary_window);
+                let window = get_primary_window_size(&q_primary_window);
                 if let Projection::Perspective(projection) = projection {
                     pan *= Vec2::new(projection.fov * projection.aspect_ratio, projection.fov)
                         / window;
@@ -204,7 +261,7 @@ fn pan_orbit_camera(
 
     // consume any remaining events, so they don't pile up if we don't need them
     // (and also to avoid Bevy warning us about not checking events every frame update)
-    ev_motion.clear();
+    // ev_motion.clear();
 }
 
 fn get_primary_window_size(windows: &Query<&mut Window, With<PrimaryWindow>>) -> Vec2 {
