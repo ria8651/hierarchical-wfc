@@ -1,5 +1,5 @@
 use crate::graph_grid::{self, GridGraphSettings};
-use hierarchical_wfc::{Cell, Direction, Graph, TileSet};
+use hierarchical_wfc::{WaveFunction, Direction, Graph, TileSet};
 
 #[derive(Default)]
 pub struct BasicTileset;
@@ -18,7 +18,7 @@ impl TileSet for BasicTileset {
         4
     }
 
-    fn get_constraints(&self) -> Vec<Vec<Cell>> {
+    fn get_constraints(&self) -> Vec<Vec<WaveFunction>> {
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum TileEdgeType {
             Air,
@@ -58,7 +58,7 @@ impl TileSet for BasicTileset {
             let mut allowed_neighbors_for_tile = Vec::with_capacity(self.directions());
             for (edge_index, edge) in edges.into_iter().enumerate() {
                 let direction = Direction::from(edge_index);
-                let mut cell = Cell::empty();
+                let mut cell = WaveFunction::empty();
 
                 if *edge == T::Air && tile != 0 {
                     // special case for air
@@ -96,8 +96,8 @@ impl TileSet for BasicTileset {
         paths
     }
 
-    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Cell> {
-        let cell = Cell::filled(self.tile_count());
+    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<WaveFunction> {
+        let cell = WaveFunction::filled(self.tile_count());
         graph_grid::create(settings, cell)
     }
 }

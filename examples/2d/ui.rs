@@ -12,8 +12,8 @@ use bevy_inspector_egui::{
     reflect_inspector::ui_for_value,
     DefaultInspectorConfigPlugin,
 };
-use hierarchical_wfc::{Cell, Graph, GraphWfc, TileSet};
-use rand::{rngs::StdRng, SeedableRng};
+use hierarchical_wfc::{CpuExecuter, Executer, Graph, Peasant, TileSet, WaveFunction};
+use rand::{rngs::SmallRng, SeedableRng};
 
 pub struct UiPlugin;
 
@@ -40,7 +40,7 @@ struct UiState {
     #[reflect(ignore)]
     image_handles: Vec<(TextureId, Handle<Image>)>,
     #[reflect(ignore)]
-    graph: Option<Graph<Cell>>,
+    graph: Option<Graph<WaveFunction>>,
     #[reflect(ignore)]
     graph_dirty: bool,
     #[reflect(ignore)]
@@ -206,22 +206,23 @@ fn propagate(mut ui_state: ResMut<UiState>) {
         let setup_constraints_span = info_span!("wfc_setup_constraints").entered();
         let constraints = tileset.get_constraints();
         let mut rng = if !ui_state.random_seed {
-            StdRng::seed_from_u64(ui_state.seed)
+            SmallRng::seed_from_u64(ui_state.seed)
         } else {
-            StdRng::from_entropy()
+            SmallRng::from_entropy()
         };
         setup_constraints_span.exit();
 
         let collapse_span = info_span!("wfc_collapse").entered();
-        let mut graph = ui_state.graph.as_ref().unwrap().clone();
-        ui_state.graph_dirty = GraphWfc::collapse(
-            &mut graph,
-            &constraints,
-            &ui_state.weights,
-            &mut rng,
-            ui_state.timeout,
-        );
-        ui_state.graph = Some(graph);
+        let graph = ui_state.graph.as_ref().unwrap().clone();
+        let mut peasant = Peasant {
+            graph: graph,
+            constraints: &constraints,
+            weights: &ui_state.weights,
+        };
+        let mut excecuter = CpuExecuter;
+        let result = excecuter.execute(&mut rng, &mut peasant);
+        ui_state.graph = Some(peasant.graph);
+        ui_state.graph_dirty = result;
         collapse_span.exit();
 
         if ui_state.render_dirty != RenderState::Init {
