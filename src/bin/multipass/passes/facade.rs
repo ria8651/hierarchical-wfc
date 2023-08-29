@@ -80,8 +80,13 @@ pub fn facade_mesh_system(
     asset_server: Res<AssetServer>,
 ) {
     for (entity, facade_pass_data, collapsed_data, tileset) in query.iter_mut() {
+        let mut ordering: Vec<usize> = vec![0; collapsed_data.graph.nodes.len()];
+        for (order, index) in collapsed_data.graph.order.iter().enumerate() {
+            ordering[*index] = order;
+        }
         for (node_index, node) in collapsed_data.graph.nodes.iter().enumerate() {
             let node = *node;
+
             // let node = collapsed_data.graph.nodes
             //     [edge_id + facade_pass_data.vertices.len() + facade_pass_data.edges.len()];
 
@@ -122,7 +127,7 @@ pub fn facade_mesh_system(
                                 transform,
                                 ..Default::default()
                             },
-                            ReplayOrder(collapsed_data.graph.order[node_index]),
+                            ReplayOrder(ordering[node_index]),
                         ))
                         .set_parent(entity);
                 }
@@ -152,6 +157,10 @@ pub fn facade_debug_system(
     let fira_code_handle = asset_server.load("fonts/FiraCode-Bold.ttf");
 
     for (entity, facade_pass_data, collapsed_data, tileset, debug_settings) in query.iter_mut() {
+        let mut ordering: Vec<usize> = vec![0; collapsed_data.graph.nodes.len()];
+        for (order, index) in collapsed_data.graph.order.iter().enumerate() {
+            ordering[*index] = order;
+        }
         if debug_settings.blocks {
             commands.entity(entity).insert(ReplayPassProgress {
                 length: collapsed_data.graph.order.len(),
@@ -193,11 +202,9 @@ pub fn facade_debug_system(
                 let transform =
                     Transform::from_translation(vert.pos.as_vec3() * vec3(2.0, 3.0, 2.0));
                 match collapsed_data.graph.nodes[index] {
-                    404 => error_mesh_builder.add_mesh(
-                        &error_cube,
-                        transform,
-                        collapsed_data.graph.order[index] as u32,
-                    ),
+                    404 => {
+                        error_mesh_builder.add_mesh(&error_cube, transform, ordering[index] as u32)
+                    }
                     id => {
                         if enable_text {
                             commands.spawn((
@@ -223,11 +230,7 @@ pub fn facade_debug_system(
                                 },
                             ));
                         }
-                        vertex_mesh_builder.add_mesh(
-                            &ok_cube,
-                            transform,
-                            collapsed_data.graph.order[index] as u32,
-                        )
+                        vertex_mesh_builder.add_mesh(&ok_cube, transform, ordering[index] as u32)
                     }
                 }
             }

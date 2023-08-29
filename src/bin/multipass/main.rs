@@ -2,7 +2,7 @@ use bevy::{asset::ChangeWatcher, window::PresentMode};
 use bevy_render::texture::ImageSampler;
 use passes::{
     facade_debug_system, facade_init_system, facade_mesh_system, layout_debug_system,
-    layout_init_system,
+    layout_init_system, layout_regenerate_system,
 };
 use replay::replay_generation_system;
 use std::time::Duration;
@@ -29,6 +29,7 @@ use hierarchical_wfc::{
 mod debug;
 mod generation;
 mod passes;
+mod regenerate;
 mod replay;
 mod tabs;
 
@@ -79,6 +80,7 @@ fn main() {
             wfc_ready_system,
             replay_generation_system,
             layout_init_system,
+            layout_regenerate_system,
             layout_debug_system,
             facade_init_system,
             facade_debug_system,
@@ -114,6 +116,7 @@ fn init_inspector(world: &mut World) {
         EcsUiLayout::tab_from_world(world),
         EcsUiCameras::tab_from_world(world),
         EcsUiReplay::tab_from_world(world),
+        EcsUiRegenerate::tab_from_world(world),
     ];
     let total_tabs = tabs.len() as f32;
 

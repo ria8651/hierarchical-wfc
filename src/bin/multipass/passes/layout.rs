@@ -1,25 +1,109 @@
-use bevy::prelude::*;
+use bevy::{math::vec3, prelude::*};
 
 use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, RigidBody};
 use hierarchical_wfc::{
     materials::tile_pbr_material::TilePbrMaterial,
     tools::MeshBuilder,
-    village::{layout_graph::LayoutGraphSettings, layout_pass::LayoutTileset},
+    village::{
+        facade_graph::FacadePassSettings, layout_graph::LayoutGraphSettings,
+        layout_pass::LayoutTileset,
+    },
     wfc::{
-        bevy_passes::{WfcFCollapsedData, WfcInitialData, WfcPassReadyMarker},
-        TileSet, WfcGraph,
+        bevy_passes::{
+            WfcEntityMarker, WfcFCollapsedData, WfcInitialData, WfcInvalidatedMarker,
+            WfcParentPasses, WfcPassReadyMarker, WfcPendingParentMarker,
+        },
+        Superposition, TileSet, WfcGraph,
     },
 };
+use itertools::Itertools;
 use rand::{rngs::StdRng, SeedableRng};
 
 use crate::{
     generation::GenerateDebugMarker,
+    regenerate::RegenerateSettings,
     replay::{DebugBlocks, ReplayPassProgress, ReplayTileMapMaterials},
 };
 
 #[derive(Component)]
 pub struct LayoutPass {
     pub settings: LayoutGraphSettings,
+}
+
+pub fn layout_regenerate_system(
+    mut commands: Commands,
+    q_regenerating_layouts: Query<(Entity, &WfcFCollapsedData, &LayoutPass, &RegenerateSettings)>,
+    q_existing_entities: Query<Entity, (With<WfcEntityMarker>, Without<RegenerateSettings>)>,
+) {
+    for (
+        layout_entity,
+        data,
+        LayoutPass {
+            settings: pass_settings,
+        },
+        RegenerateSettings { min, max },
+    ) in q_regenerating_layouts.iter()
+    {
+        let min = vec3(2.0, 3.0, 2.0) * *min;
+        let max = vec3(2.0, 3.0, 2.0) * *max;
+
+        let tileset = LayoutTileset;
+
+        let graph = WfcGraph {
+            nodes: data
+                .graph
+                .nodes
+                .iter()
+                .enumerate()
+                .map(|(i, tile)| {
+                    let pos = pass_settings.posf32_from_index(i);
+                    if min.cmplt(pos).all() && max.cmpgt(pos).all() {
+                        Superposition::filled(tileset.tile_count())
+                    } else {
+                        Superposition::single(*tile)
+                    }
+                })
+                .collect_vec(),
+            neighbors: data.graph.neighbors.clone(),
+            order: data
+                .graph
+                .order
+                .iter()
+                .copied()
+                .filter(|i| {
+                    let pos = pass_settings.posf32_from_index(*i);
+                    !(min.cmplt(pos).all() && max.cmpgt(pos).all())
+                })
+                .collect_vec(),
+        };
+        let constraints = tileset.get_constraints();
+
+        let rng = StdRng::from_entropy();
+
+        let mut entity_commands = commands.entity(layout_entity);
+        entity_commands.remove::<RegenerateSettings>();
+        entity_commands.remove::<WfcFCollapsedData>();
+        entity_commands.insert((
+            GenerateDebugMarker,
+            WfcInitialData {
+                label: Some("Layout".to_string()),
+                graph,
+                constraints,
+                weights: tileset.get_weights(),
+                rng,
+            },
+        ));
+
+        for entity in q_existing_entities.iter() {
+            commands.entity(entity).insert(WfcInvalidatedMarker);
+        }
+        commands.spawn((
+            WfcEntityMarker,
+            FacadePassSettings,
+            WfcPendingParentMarker,
+            WfcParentPasses(vec![layout_entity]),
+        ));
+    }
 }
 
 pub fn layout_init_system(
@@ -127,6 +211,7 @@ pub fn layout_debug_system(
             });
 
             let mut physics_mesh_commands = commands.spawn((
+                WfcEntityMarker,
                 MaterialMeshBundle {
                     material: material.clone(),
                     mesh: meshes.add(solid),
@@ -143,6 +228,7 @@ pub fn layout_debug_system(
             physics_mesh_commands.set_parent(entity);
             commands
                 .spawn((
+                    WfcEntityMarker,
                     MaterialMeshBundle {
                         material: material.clone(),
                         mesh: meshes.add(air),

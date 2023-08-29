@@ -52,7 +52,7 @@ impl EcsTab for EcsUiLayout {
     ) {
         let (
             mut commands,
-            wfc_entities,
+            q_wfc_entities,
             mut layout_settings,
             mut q_ground,
             mut meshes,
@@ -117,7 +117,7 @@ impl EcsTab for EcsUiLayout {
 
         ui.add_space(12.0);
         if ui.button("Generate").clicked() {
-            for entity in wfc_entities.iter() {
+            for entity in q_wfc_entities.iter() {
                 commands.entity(entity).insert(WfcInvalidatedMarker);
             }
 
@@ -177,8 +177,8 @@ impl EcsTab for EcsUiLayout {
                 let _ = meshes.set(ground.id(), ground_mesh);
             }
         }
-        if ui.button("Reset").clicked() {
-            for entity in wfc_entities.iter() {
+        if !q_wfc_entities.is_empty() && ui.button("Reset").clicked() {
+            for entity in q_wfc_entities.iter() {
                 commands.entity(entity).insert(WfcInvalidatedMarker);
             }
         }
