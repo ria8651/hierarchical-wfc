@@ -76,7 +76,7 @@ fn pan_orbit_camera(
     mut ev_scroll: EventReader<MouseWheel>,
     input_mouse: Res<Input<MouseButton>>,
     mut double_click_time: Local<DoubleClickTime>,
-    mut can_set_cursor: Local<Option<bool>>,
+    can_set_cursor: Local<Option<bool>>,
     mut q_camera: Query<
         (
             &mut PanOrbitCamera,
@@ -103,7 +103,7 @@ fn pan_orbit_camera(
     let viewport_rect = viewport_rect(&primary_window, camera);
 
     if can_set_cursor.is_none() {
-        let pos = primary_window.cursor_position();
+        let _pos = primary_window.cursor_position();
         // *can_set_cursor = false;
     }
 

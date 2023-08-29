@@ -18,28 +18,13 @@ use bevy::log::LogPlugin;
 use bevy_inspector_egui::{bevy_egui, DefaultInspectorConfigPlugin};
 use bevy_mod_billboard::prelude::*;
 use bevy_mod_debugdump;
-use bevy_rapier3d::prelude::{
-    Collider, ComputedColliderShape, NoUserData, RapierPhysicsPlugin, RigidBody,
-};
+use bevy_rapier3d::prelude::{Collider, NoUserData, RapierPhysicsPlugin, RigidBody};
 use hierarchical_wfc::{
     camera_plugin::cam_switcher::SwitchingCameraPlugin,
     materials::{debug_arc_material::DebugLineMaterial, tile_pbr_material::TilePbrMaterial},
-    tools::MeshBuilder,
-    ui_plugin::{EcsTab, EcsUiPlugin, EcsUiState, EcsUiTab},
-    village::{
-        facade_graph::{FacadePassData, FacadePassSettings, FacadeTileset},
-        layout_graph::LayoutGraphSettings,
-        layout_pass::LayoutTileset,
-    },
-    wfc::{
-        bevy_passes::{
-            wfc_collapse_system, wfc_ready_system, WfcEntityMarker, WfcFCollapsedData,
-            WfcInitialData, WfcInvalidatedMarker, WfcParentPasses, WfcPassReadyMarker,
-        },
-        TileSet, WfcGraph,
-    },
+    ui_plugin::{EcsUiPlugin, EcsUiState, EcsUiTab},
+    wfc::bevy_passes::{wfc_collapse_system, wfc_ready_system, WfcInvalidatedMarker},
 };
-use rand::{rngs::StdRng, SeedableRng};
 
 mod debug;
 mod generation;
