@@ -91,7 +91,7 @@ fn main() {
     #[cfg(not(target_arch = "wasm32"))]
     {
         let settings = bevy_mod_debugdump::render_graph::Settings::default();
-        let dot = bevy_mod_debugdump::render_graph_dot(&mut app, &settings);
+        let dot = bevy_mod_debugdump::render_graph_dot(&app, &settings);
         std::fs::write("render-graph.dot", dot).expect("Failed to write render-graph.dot");
     }
     app.run();
@@ -111,9 +111,9 @@ struct GroundPlane;
 
 fn init_inspector(world: &mut World) {
     let mut tabs = vec![
-        EcsUiLayout::new(world),
-        EcsUiCameras::new(world),
-        EcsUiReplay::new(world),
+        EcsUiLayout::tab_from_world(world),
+        EcsUiCameras::tab_from_world(world),
+        EcsUiReplay::tab_from_world(world),
     ];
     let total_tabs = tabs.len() as f32;
 

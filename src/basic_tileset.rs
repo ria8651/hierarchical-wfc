@@ -20,7 +20,7 @@ impl TileSet for BasicTileset {
         4
     }
 
-    fn get_constraints(&self) -> Vec<Vec<Superposition>> {
+    fn get_constraints(&self) -> Box<[Box<[Superposition]>]> {
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum TileEdgeType {
             Air,
@@ -76,18 +76,14 @@ impl TileSet for BasicTileset {
 
                 allowed_neighbors_for_tile.push(cell);
             }
-            allowed_neighbors.push(allowed_neighbors_for_tile);
+            allowed_neighbors.push(allowed_neighbors_for_tile.into());
         }
 
-        allowed_neighbors
+        allowed_neighbors.into()
     }
 
     fn get_weights(&self) -> Vec<u32> {
-        let mut weights = Vec::new();
-        for _ in 0..self.tile_count() {
-            weights.push(100);
-        }
-        weights
+        vec![100; self.tile_count()]
     }
 
     fn get_tile_paths(&self) -> Vec<String> {

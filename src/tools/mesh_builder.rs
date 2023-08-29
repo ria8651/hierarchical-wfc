@@ -66,3 +66,9 @@ impl MeshBuilder {
         mesh
     }
 }
+
+impl Default for MeshBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}

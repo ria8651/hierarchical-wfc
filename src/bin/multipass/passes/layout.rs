@@ -156,7 +156,7 @@ pub fn layout_debug_system(
                 .set_parent(entity);
             commands
                 .entity(entity)
-                .insert(ReplayTileMapMaterials { 0: vec![material] });
+                .insert(ReplayTileMapMaterials(vec![material]));
         }
         if debug_settings.arcs {}
     }

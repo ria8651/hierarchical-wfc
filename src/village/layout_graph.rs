@@ -49,7 +49,7 @@ const DIRECTIONS: [IVec3; 6] = [
 ];
 
 pub fn create_layout_graph<F: Clone>(settings: &LayoutGraphSettings, fill_with: F) -> WfcGraph<F> {
-    let mut neighbors: Vec<Vec<Neighbour>> = Vec::new();
+    let mut neighbors: Vec<Box<[Neighbour]>> = Vec::new();
     let x_size = settings.x_size as i32;
     let y_size = settings.y_size as i32;
     let z_size = settings.z_size as i32;
@@ -67,14 +67,11 @@ pub fn create_layout_graph<F: Clone>(settings: &LayoutGraphSettings, fill_with: 
                         let (i, j, k) = (n_pos.x as usize, n_pos.y as usize, n_pos.z as usize);
                         let index = i + j * settings.x_size + k * settings.x_size * settings.y_size;
 
-                        current_neighbours.push(Neighbour {
-                            arc_type,
-                            index,
-                        });
+                        current_neighbours.push(Neighbour { arc_type, index });
                     }
                 }
 
-                neighbors.push(current_neighbours);
+                neighbors.push(current_neighbours.into());
             }
         }
     }
@@ -82,7 +79,7 @@ pub fn create_layout_graph<F: Clone>(settings: &LayoutGraphSettings, fill_with: 
 
     WfcGraph {
         nodes: tiles,
-        neighbors,
+        neighbors: neighbors.into(),
         order: Vec::new(),
     }
 }

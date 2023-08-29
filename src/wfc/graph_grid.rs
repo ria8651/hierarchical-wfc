@@ -37,7 +37,7 @@ pub fn create_grid_graph<F: Clone>(settings: &GridGraphSettings, fill_with: F) -
         IVec2::new(1, 0),
     ];
 
-    let mut neighbors = Vec::new();
+    let mut neighbors: Vec<Box<[_]>> = Vec::new();
     for pos in nodes_pos.iter() {
         let mut node_neighbors = Vec::new();
         for (i, arc_t_vec) in arc_types.iter().enumerate() {
@@ -61,14 +61,14 @@ pub fn create_grid_graph<F: Clone>(settings: &GridGraphSettings, fill_with: F) -
                 index: neighbor_index,
             });
         }
-        neighbors.push(node_neighbors);
+        neighbors.push(node_neighbors.into());
     }
 
     let tiles = vec![fill_with; nodes_pos.len()];
 
     WfcGraph {
         nodes: tiles,
-        neighbors,
+        neighbors: neighbors.into(),
         order: Vec::new(),
     }
 }

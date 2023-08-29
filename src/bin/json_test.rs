@@ -1,4 +1,3 @@
-
 use hierarchical_wfc::{
     village::{
         facade_graph::{FacadePassData, FacadeTileset},
@@ -6,7 +5,6 @@ use hierarchical_wfc::{
     },
     wfc::{Neighbour, TileSet, WfcGraph},
 };
-
 
 fn main() {
     let _data = FacadePassData::from_layout(&test_graph(), &test_settings());
@@ -47,8 +45,8 @@ fn test_graph() -> WfcGraph<usize> {
             10, 0, 48, 38, 39, 49, 29, 59, 58, 69, 79, 77, 87, 88, 86, 97, 98, 96, 78, 28, 27, 18,
             60, 17, 7, 8, 6, 5, 16, 9, 89, 19, 99,
         ],
-        neighbors: vec![
-            vec![
+        neighbors: Box::new([
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 1,
@@ -57,8 +55,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 4,
                     index: 10,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 2,
@@ -71,8 +69,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 4,
                     index: 11,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 3,
@@ -85,8 +83,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 4,
                     index: 12,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 4,
@@ -99,8 +97,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 4,
                     index: 13,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 5,
@@ -113,8 +111,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 4,
                     index: 14,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 6,
@@ -127,8 +125,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 4,
                     index: 15,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 7,
@@ -141,8 +139,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 4,
                     index: 16,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 8,
@@ -155,8 +153,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 4,
                     index: 17,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 9,
@@ -169,8 +167,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 4,
                     index: 18,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 1,
                     index: 8,
@@ -179,8 +177,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 4,
                     index: 19,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 11,
@@ -193,8 +191,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 0,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 12,
@@ -211,8 +209,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 1,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 13,
@@ -229,8 +227,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 2,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 14,
@@ -247,8 +245,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 3,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 15,
@@ -265,8 +263,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 4,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 16,
@@ -283,8 +281,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 5,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 17,
@@ -301,8 +299,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 6,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 18,
@@ -319,8 +317,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 7,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 19,
@@ -337,8 +335,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 8,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 1,
                     index: 18,
@@ -351,8 +349,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 9,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 21,
@@ -365,8 +363,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 10,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 22,
@@ -383,8 +381,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 11,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 23,
@@ -401,8 +399,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 12,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 24,
@@ -419,8 +417,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 13,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 25,
@@ -437,8 +435,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 14,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 26,
@@ -455,8 +453,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 15,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 27,
@@ -473,8 +471,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 16,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 28,
@@ -491,8 +489,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 17,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 29,
@@ -509,8 +507,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 18,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 1,
                     index: 28,
@@ -523,8 +521,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 19,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 31,
@@ -537,8 +535,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 20,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 32,
@@ -555,8 +553,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 21,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 33,
@@ -573,8 +571,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 22,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 34,
@@ -591,8 +589,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 23,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 35,
@@ -609,8 +607,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 24,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 36,
@@ -627,8 +625,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 25,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 37,
@@ -645,8 +643,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 26,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 38,
@@ -663,8 +661,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 27,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 39,
@@ -681,8 +679,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 28,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 1,
                     index: 38,
@@ -695,8 +693,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 29,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 41,
@@ -709,8 +707,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 30,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 42,
@@ -727,8 +725,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 31,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 43,
@@ -745,8 +743,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 32,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 44,
@@ -763,8 +761,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 33,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 45,
@@ -781,8 +779,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 34,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 46,
@@ -799,8 +797,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 35,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 47,
@@ -817,8 +815,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 36,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 48,
@@ -835,8 +833,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 37,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 49,
@@ -853,8 +851,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 38,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 1,
                     index: 48,
@@ -867,8 +865,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 39,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 51,
@@ -881,8 +879,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 40,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 52,
@@ -899,8 +897,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 41,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 53,
@@ -917,8 +915,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 42,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 54,
@@ -935,8 +933,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 43,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 55,
@@ -953,8 +951,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 44,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 56,
@@ -971,8 +969,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 45,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 57,
@@ -989,8 +987,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 46,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 58,
@@ -1007,8 +1005,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 47,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 59,
@@ -1025,8 +1023,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 48,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 1,
                     index: 58,
@@ -1039,8 +1037,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 49,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 61,
@@ -1053,8 +1051,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 50,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 62,
@@ -1071,8 +1069,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 51,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 63,
@@ -1089,8 +1087,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 52,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 64,
@@ -1107,8 +1105,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 53,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 65,
@@ -1125,8 +1123,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 54,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 66,
@@ -1143,8 +1141,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 55,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 67,
@@ -1161,8 +1159,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 56,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 68,
@@ -1179,8 +1177,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 57,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 69,
@@ -1197,8 +1195,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 58,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 1,
                     index: 68,
@@ -1211,8 +1209,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 59,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 71,
@@ -1225,8 +1223,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 60,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 72,
@@ -1243,8 +1241,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 61,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 73,
@@ -1261,8 +1259,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 62,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 74,
@@ -1279,8 +1277,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 63,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 75,
@@ -1297,8 +1295,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 64,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 76,
@@ -1315,8 +1313,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 65,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 77,
@@ -1333,8 +1331,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 66,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 78,
@@ -1351,8 +1349,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 67,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 79,
@@ -1369,8 +1367,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 68,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 1,
                     index: 78,
@@ -1383,8 +1381,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 69,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 81,
@@ -1397,8 +1395,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 70,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 82,
@@ -1415,8 +1413,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 71,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 83,
@@ -1433,8 +1431,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 72,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 84,
@@ -1451,8 +1449,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 73,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 85,
@@ -1469,8 +1467,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 74,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 86,
@@ -1487,8 +1485,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 75,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 87,
@@ -1505,8 +1503,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 76,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 88,
@@ -1523,8 +1521,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 77,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 89,
@@ -1541,8 +1539,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 78,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 1,
                     index: 88,
@@ -1555,8 +1553,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 79,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 91,
@@ -1565,8 +1563,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 80,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 92,
@@ -1579,8 +1577,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 81,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 93,
@@ -1593,8 +1591,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 82,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 94,
@@ -1607,8 +1605,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 83,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 95,
@@ -1621,8 +1619,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 84,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 96,
@@ -1635,8 +1633,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 85,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 97,
@@ -1649,8 +1647,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 86,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 98,
@@ -1663,8 +1661,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 87,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 0,
                     index: 99,
@@ -1677,8 +1675,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 88,
                 },
-            ],
-            vec![
+            ]),
+            Box::new([
                 Neighbour {
                     arc_type: 1,
                     index: 98,
@@ -1687,8 +1685,8 @@ fn test_graph() -> WfcGraph<usize> {
                     arc_type: 5,
                     index: 89,
                 },
-            ],
-        ],
+            ]),
+        ]),
     }
 }
 

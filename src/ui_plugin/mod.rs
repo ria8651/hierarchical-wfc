@@ -71,7 +71,7 @@ impl EcsUiState {
         }
     }
 
-    fn ui(&mut self, world: &mut World, ctx: &mut egui::Context) {
+    fn ui(&mut self, world: &mut World, ctx: &egui::Context) {
         let mut tab_viewer = TabViewer {
             world,
             viewport_rect: &mut self.viewport_rect,

@@ -24,7 +24,7 @@ impl TileSet for LayoutTileset {
         6 // down, north, east, south, west, up
     }
 
-    fn get_constraints(&self) -> Vec<Vec<Superposition>> {
+    fn get_constraints(&self) -> Box<[Box<[Superposition]>]> {
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum Direction {
             X,
@@ -174,7 +174,7 @@ impl TileSet for LayoutTileset {
         assert_eq!(self.tile_count(), rotated_tile_edge_types.len());
 
         // convert to allowed neighbors
-        let mut allowed_neighbors = Vec::with_capacity(self.tile_count());
+        let mut allowed_neighbors: Vec<Box<[_]>> = Vec::with_capacity(self.tile_count());
         for edges in rotated_tile_edge_types.iter() {
             let mut allowed_neighbors_for_tile = Vec::with_capacity(4);
             for (edge_index, edge) in edges.iter().enumerate() {
@@ -187,7 +187,7 @@ impl TileSet for LayoutTileset {
                     Direction::Z,
                     Direction::NegZ,
                 ][edge_index];
-                let mut supperposition = Superposition::empty();
+                let mut superposition = Superposition::empty();
 
                 // add all tiles with this edge type to the neighbor set
                 for (other_tile, other_edges) in rotated_tile_edge_types.iter().enumerate() {
@@ -201,26 +201,22 @@ impl TileSet for LayoutTileset {
                     };
 
                     if edge.connects_to().contains(&other_edges[other_index]) {
-                        supperposition.add_tile(other_tile);
+                        superposition.add_tile(other_tile);
                     }
                 }
 
-                allowed_neighbors_for_tile.push(supperposition);
+                allowed_neighbors_for_tile.push(superposition);
             }
-            allowed_neighbors.push(allowed_neighbors_for_tile);
+            allowed_neighbors.push(allowed_neighbors_for_tile.into());
         }
 
         assert_eq!(self.tile_count(), allowed_neighbors.len());
 
-        allowed_neighbors
+        allowed_neighbors.into()
     }
 
     fn get_weights(&self) -> Vec<u32> {
-        let mut weights = Vec::with_capacity(self.tile_count());
-        for _ in 0..self.tile_count() {
-            weights.push(100);
-        }
-        weights
+        vec![100; self.tile_count()]
     }
 
     fn get_tile_paths(&self) -> Vec<String> {

@@ -58,26 +58,8 @@ impl Superposition {
         cell
     }
 
-    pub fn from_iter(tiles: impl Iterator<Item = usize>) -> Self {
-        let mut cell = Self {
-            bits: [0; TILE_U32S],
-            num_bits: None,
-        };
-        for tile in tiles {
-            cell.bits[tile / 32] |= 1 << (tile % 32);
-        }
-        cell.num_bits = None;
-        cell
-    }
-
     pub fn from_iter_sized(tiles: impl Iterator<Item = usize>, size: usize) -> Self {
-        let mut cell = Self {
-            bits: [0; TILE_U32S],
-            num_bits: None,
-        };
-        for tile in tiles {
-            cell.bits[tile / 32] |= 1 << (tile % 32);
-        }
+        let mut cell = Self::from_iter(tiles);
         cell.num_bits = Some(size);
         cell
     }
@@ -110,9 +92,12 @@ impl Superposition {
 
     pub fn join(a: &Self, b: &Self) -> Self {
         let mut result = [0; TILE_U32S];
-        for i in 0..TILE_U32S {
-            result[i] = a.bits[i] | b.bits[i];
-        }
+
+        result
+            .iter_mut()
+            .zip(a.bits.iter().zip(b.bits.iter()))
+            .for_each(|(result, (a, b))| *result = a | b);
+
         let mut num_bits = None;
         if let (Some(a_size), Some(b_size)) = (a.num_bits, b.num_bits) {
             assert!(
@@ -132,9 +117,11 @@ impl Superposition {
 
     pub fn intersect(a: &Self, b: &Self) -> Self {
         let mut result = [0; TILE_U32S];
-        for i in 0..TILE_U32S {
-            result[i] = a.bits[i] & b.bits[i];
-        }
+        result
+            .iter_mut()
+            .zip(a.bits.iter().zip(b.bits.iter()))
+            .for_each(|(result, (a, b))| *result = a & b);
+
         let mut num_bits = None;
         if let (Some(a_size), Some(b_size)) = (a.num_bits, b.num_bits) {
             assert!(
@@ -240,9 +227,20 @@ impl PartialEq for Superposition {
     fn eq(&self, other: &Self) -> bool {
         self.bits == other.bits
     }
-    fn ne(&self, other: &Self) -> bool {
-        self.bits != other.bits
-    }
 }
 
 impl Eq for Superposition {}
+
+impl FromIterator<usize> for Superposition {
+    fn from_iter<T: IntoIterator<Item = usize>>(iter: T) -> Self {
+        let mut cell = Self {
+            bits: [0; TILE_U32S],
+            num_bits: None,
+        };
+        for tile in iter {
+            cell.bits[tile / 32] |= 1 << (tile % 32);
+        }
+        cell.num_bits = None;
+        cell
+    }
+}

@@ -9,7 +9,7 @@ pub struct WfcEntityMarker;
 pub struct WfcInitialData {
     pub label: Option<String>,
     pub graph: WfcGraph<Superposition>,
-    pub constraints: Vec<Vec<Superposition>>,
+    pub constraints: Box<[Box<[Superposition]>]>,
     pub weights: Vec<u32>,
     pub rng: StdRng,
 }
@@ -46,7 +46,8 @@ pub fn wfc_ready_system(
                 }
             }
             true
-        }; if res {
+        };
+        if res {
             let mut entity_commands = commands.entity(child);
             entity_commands.remove::<WfcPendingParentMarker>();
             entity_commands.insert(WfcPassReadyMarker);
@@ -69,16 +70,14 @@ pub fn wfc_collapse_system(
         } = initial_data.as_mut();
 
         WaveFunctionCollapse::collapse(graph, constraints, weights, rng);
-        let mut entity_commands = commands.entity(entity);
+        let mut entity_commands: bevy::ecs::system::EntityCommands<'_, '_, '_> =
+            commands.entity(entity);
         entity_commands.remove::<WfcInitialData>();
-        match graph.validate() {
-            Ok(result) => {
-                entity_commands.insert(WfcFCollapsedData {
-                    label: Option::take(label),
-                    graph: result,
-                });
-            }
-            Err(_) => {}
+        if let Ok(result) = graph.validate() {
+            entity_commands.insert(WfcFCollapsedData {
+                label: Option::take(label),
+                graph: result,
+            });
         };
     }
 }

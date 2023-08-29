@@ -1,3 +1,5 @@
+use crate::tools::boxed::boxed;
+
 use super::wfc::{
     graph_grid::{self, GridGraphSettings},
     Superposition, TileSet, WfcGraph,
@@ -20,15 +22,15 @@ impl TileSet for CastleTileset {
         4
     }
 
-    fn get_constraints(&self) -> Vec<Vec<Superposition>> {
+    fn get_constraints(&self) -> Box<[Box<[Superposition]>]> {
         fn get_horizontal(walls: &[usize]) -> Superposition {
-            Superposition::from_iter(walls.to_owned().into_iter())
+            Superposition::from_iter(walls.iter().copied())
         }
         fn get_vertical(walls: &[usize]) -> Superposition {
-            Superposition::from_iter(walls.to_owned().into_iter().map(|i| i + 1))
+            Superposition::from_iter(walls.iter().copied().map(|i| i + 1))
         }
 
-        let mut allowed: Vec<Vec<Superposition>> = Vec::new();
+        let mut allowed: Vec<Box<[Superposition]>> = Vec::new();
 
         let short_walls: [usize; 3] = [0, 2, 4];
         let short_pilar: usize = 6;
@@ -38,13 +40,13 @@ impl TileSet for CastleTileset {
         let open_wall: usize = 9;
 
         for _i in short_walls {
-            allowed.push(vec![
+            allowed.push(boxed![
                 Superposition::single(open_space),
                 Superposition::single(open_space),
                 Superposition::single(short_pilar),
                 Superposition::single(short_pilar),
             ]);
-            allowed.push(vec![
+            allowed.push(boxed![
                 Superposition::single(short_pilar),
                 Superposition::single(short_pilar),
                 Superposition::single(open_space),
@@ -53,7 +55,7 @@ impl TileSet for CastleTileset {
         }
 
         // Short pilar
-        allowed.push(vec![
+        allowed.push(boxed![
             get_vertical(&short_walls) + (open_wall + 1),
             get_vertical(&short_walls) + (open_wall + 1),
             get_horizontal(&short_walls) + open_wall,
@@ -61,7 +63,7 @@ impl TileSet for CastleTileset {
         ]);
 
         // Open space
-        allowed.push(vec![
+        allowed.push(boxed![
             get_horizontal(&short_walls) + open_wall,
             get_horizontal(&short_walls) + open_wall,
             get_vertical(&short_walls) + (open_wall + 1),
@@ -69,7 +71,7 @@ impl TileSet for CastleTileset {
         ]);
 
         // Open pilar
-        allowed.push(vec![
+        allowed.push(boxed![
             Superposition::single(open_wall + 1),
             Superposition::single(open_wall + 1),
             Superposition::single(open_wall),
@@ -77,28 +79,24 @@ impl TileSet for CastleTileset {
         ]);
 
         // Open wall
-        allowed.push(vec![
+        allowed.push(boxed![
             Superposition::single(open_space),
             Superposition::single(open_space),
             Superposition::from_iter([short_pilar, open_pillar].into_iter()),
             Superposition::from_iter([short_pilar, open_pillar].into_iter()),
         ]);
-        allowed.push(vec![
+        allowed.push(boxed![
             Superposition::from_iter([short_pilar, open_pillar].into_iter()),
             Superposition::from_iter([short_pilar, open_pillar].into_iter()),
             Superposition::single(open_space),
             Superposition::single(open_space),
         ]);
 
-        allowed
+        allowed.into()
     }
 
     fn get_weights(&self) -> Vec<u32> {
-        let mut weights = Vec::with_capacity(self.tile_count());
-        for _ in 0..self.tile_count() {
-            weights.push(100);
-        }
-        weights
+        vec![100; self.tile_count()]
     }
 
     fn get_tile_paths(&self) -> Vec<String> {

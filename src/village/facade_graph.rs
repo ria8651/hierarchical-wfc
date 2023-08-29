@@ -41,8 +41,7 @@ pub struct FacadeQuad {
     pub edges: [usize; 4],
 }
 
-#[derive(Component)]
-#[derive(Default)]
+#[derive(Component, Default)]
 pub struct FacadePassSettings;
 
 #[derive(Component)]
@@ -77,7 +76,7 @@ impl FacadePassData {
         }
     }
 
-    fn get_vertex_neighbours(&self) -> Vec<Vec<Neighbour>> {
+    fn get_vertex_neighbours(&self) -> Box<[Box<[Neighbour]>]> {
         self.vertices
             .iter()
             .map(|vert| {
@@ -86,16 +85,16 @@ impl FacadePassData {
                     .enumerate()
                     .filter_map(|(index, edge)| {
                         edge.as_ref().map(|edge| Neighbour {
-                                arc_type: index,
-                                index: edge + self.vertices.len(),
-                            })
+                            arc_type: index,
+                            index: edge + self.vertices.len(),
+                        })
                     })
-                    .collect_vec()
+                    .collect::<Box<[_]>>()
             })
-            .collect_vec()
+            .collect::<Box<[_]>>()
     }
 
-    fn get_edge_neighbours(&self) -> Vec<Vec<Neighbour>> {
+    fn get_edge_neighbours(&self) -> Box<[Box<[Neighbour]>]> {
         self.edges
             .iter()
             .map(|edge| {
@@ -113,12 +112,12 @@ impl FacadePassData {
                     arc_type: *direction,
                     index: self.vertices.len() + self.edges.len() + quad,
                 }));
-                neighbours
+                neighbours.into()
             })
-            .collect_vec()
+            .collect::<Box<[_]>>()
     }
 
-    fn get_quad_neighbours(&self) -> Vec<Vec<Neighbour>> {
+    fn get_quad_neighbours(&self) -> Box<[Box<[Neighbour]>]> {
         self.quads
             .iter()
             .map(|quad| {
@@ -134,9 +133,9 @@ impl FacadePassData {
                         ][index],
                         index: self.vertices.len() + *edge,
                     })
-                    .collect_vec()
+                    .collect::<Box<[_]>>()
             })
-            .collect_vec()
+            .collect::<Box<[_]>>()
     }
 
     fn get_nodes(&self, tileset: &FacadeTileset) -> Vec<Superposition> {
@@ -148,14 +147,8 @@ impl FacadePassData {
                 .iter()
                 .map(|_| vertex_superposition)
                 .collect_vec(),
-            self.edges
-                .iter()
-                .map(|_| edge_superposition)
-                .collect_vec(),
-            self.quads
-                .iter()
-                .map(|_| quad_superposition)
-                .collect_vec(),
+            self.edges.iter().map(|_| edge_superposition).collect_vec(),
+            self.quads.iter().map(|_| quad_superposition).collect_vec(),
         ]
         .into_iter()
         .flat_map(|v| v.into_iter())
@@ -164,8 +157,8 @@ impl FacadePassData {
 
     fn fit_node_directions(
         &self,
-        nodes: &mut Vec<Superposition>,
-        neighbours: &Vec<Vec<Neighbour>>,
+        nodes: &mut [Superposition],
+        neighbours: &[Box<[Neighbour]>],
         tileset: &FacadeTileset,
     ) {
         for (node_index, node) in nodes.iter_mut().enumerate() {
@@ -175,8 +168,6 @@ impl FacadePassData {
                 .reduce(|a, b| a | b)
                 .unwrap();
 
-            // println!("{} Fitting: {:06b}", node_index, &directions);
-
             *node =
                 Superposition::intersect(node, &tileset.superposition_from_directions(directions));
         }
@@ -184,14 +175,16 @@ impl FacadePassData {
 
     pub fn create_wfc_graph(&self, tileset: &FacadeTileset) -> WfcGraph<Superposition> {
         let mut nodes = FacadePassData::get_nodes(self, tileset);
-        let neighbors = [
+        let neighbors: Box<[Box<[Neighbour]>]> = [
             FacadePassData::get_vertex_neighbours(self),
             FacadePassData::get_edge_neighbours(self),
             FacadePassData::get_quad_neighbours(self),
         ]
-        .into_iter()
-        .flat_map(|v| v.into_iter())
-        .collect_vec();
+        .concat()
+        .into();
+        // .into_iter()
+        // .flat_map(|v| v.into_iter())
+        // .collect::<Box<[Box<[Neighbour]>]>>();
 
         Self::fit_node_directions(self, &mut nodes, &neighbors, tileset);
 
@@ -544,11 +537,13 @@ impl FacadePassData {
                     .map(|(direction_index, dir)| {
                         if ivec3_in_bounds(u_pos + dir, IVec3::ZERO, size + 1) {
                             let v = ivec3_to_index(u_pos + dir, size + 1);
-                            new_node_indices[v].filter(|&v| !Self::edge_occluded(Self::edge_configuration(
+                            new_node_indices[v].filter(|&v| {
+                                !Self::edge_occluded(Self::edge_configuration(
                                     vertex_configurations[u],
                                     vertex_configurations[v],
                                     direction_index,
-                                )))
+                                ))
+                            })
                         } else {
                             None
                         }
@@ -565,9 +560,7 @@ impl FacadePassData {
                     ]
                     .into_iter()
                     .enumerate()
-                    .filter_map(|(index, neighbour)| {
-                        neighbour.1.map(|v| (index, neighbour.0, v))
-                    })
+                    .filter_map(|(index, neighbour)| neighbour.1.map(|v| (index, neighbour.0, v)))
                     .map(|(_, dir, v)| FacadeEdge {
                         from: u,
                         to: v,
@@ -662,8 +655,6 @@ impl FacadePassData {
     }
 }
 
-
-
 const DIRECTIONS: [IVec3; 6] = [
     IVec3::X,
     IVec3::NEG_X,
@@ -680,7 +671,7 @@ pub struct FacadeTileset {
     pub arc_types: usize,
     pub leaf_sources: Box<[usize]>,
     pub transformed_nodes: Box<[TransformedDagNode]>,
-    pub constraints: Vec<Vec<Superposition>>,
+    pub constraints: Box<[Box<[Superposition]>]>,
     pub sematic_node_names: HashMap<String, usize>,
     pub associated_transformed_nodes: Box<[Box<[usize]>]>,
     pub leaf_families: Box<[(usize, Superposition)]>,
@@ -701,7 +692,7 @@ impl TileSet for FacadeTileset {
         todo!()
     }
 
-    fn get_constraints(&self) -> Vec<Vec<Superposition>> {
+    fn get_constraints(&self) -> Box<[Box<[Superposition]>]> {
         self.constraints.clone()
     }
 
@@ -804,7 +795,9 @@ impl FacadeTileset {
             .map(|(index, (key, _value))| (key.clone(), index))
             .collect::<HashMap<String, usize>>();
         let symmetries = model
-            .symmetries.values().map(|sym| {
+            .symmetries
+            .values()
+            .map(|sym| {
                 directions
                     .iter()
                     .map(|k| {
@@ -835,10 +828,7 @@ impl FacadeTileset {
             .map(|node| SemanticNode {
                 sockets: directions
                     .iter()
-                    .map(|dir| {
-                        node.sockets
-                            .get(dir).cloned()
-                    })
+                    .map(|dir| node.sockets.get(dir).cloned())
                     .collect::<Box<[Option<String>]>>(),
                 symmetries: node
                     .symmetries
@@ -1030,9 +1020,9 @@ impl FacadeTileset {
                         }
                         new_sp
                     })
-                    .collect::<Vec<_>>()
+                    .collect::<Box<[_]>>()
             })
-            .collect::<Vec<_>>();
+            .collect::<Box<[_]>>();
 
         // Restore symmetry to constraints
         for (from, allowed) in leaf_allowed_neighbours.clone().iter().enumerate() {
@@ -1203,15 +1193,17 @@ impl FacadeTileset {
                     );
                 }
             } else if let Some(parent) = parent {
-                if let Some(existing_index) = existing_socket_configurations.iter().find_map(
-                    |(index, existing_sockets)| {
-                        if existing_sockets == &sockets {
-                            Some(index)
-                        } else {
-                            None
-                        }
-                    },
-                ) {
+                if let Some(existing_index) =
+                    existing_socket_configurations
+                        .iter()
+                        .find_map(|(index, existing_sockets)| {
+                            if existing_sockets == &sockets {
+                                Some(index)
+                            } else {
+                                None
+                            }
+                        })
+                {
                     transformed_nodes[*existing_index].parents.push(parent)
                 }
             }

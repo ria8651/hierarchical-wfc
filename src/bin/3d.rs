@@ -72,7 +72,7 @@ fn main() {
     #[cfg(not(target_arch = "wasm32"))]
     {
         let settings = bevy_mod_debugdump::render_graph::Settings::default();
-        let dot = bevy_mod_debugdump::render_graph_dot(&mut app, &settings);
+        let dot = bevy_mod_debugdump::render_graph_dot(&app, &settings);
         std::fs::write("render-graph.dot", dot).expect("Failed to write render-graph.dot");
     }
     app.run();
@@ -184,7 +184,7 @@ impl VillageWaveFunctionCollapse {
         let mut arc_vertex_colors = Vec::new();
 
         for (u, neighbours) in result.neighbors.iter().enumerate() {
-            for Neighbour { index: v, arc_type } in neighbours {
+            for Neighbour { index: v, arc_type } in neighbours.iter() {
                 let color = Self::ARC_COLORS[*arc_type.min(&6)];
 
                 let u = settings.posf32_from_index(u);
@@ -561,7 +561,6 @@ enum PassStateEnum {
 fn wfc_passes_system(
     task_pool_resource: Res<WfcPassPool>,
     mut state: Local<PassState>,
-
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut line_materials: ResMut<'_, Assets<DebugLineMaterial>>,

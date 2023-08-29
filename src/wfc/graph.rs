@@ -6,7 +6,7 @@ use super::{Neighbour, Superposition};
 pub struct WfcGraph<C> {
     pub nodes: Vec<C>,
     pub order: Vec<usize>,
-    pub neighbors: Vec<Vec<Neighbour>>,
+    pub neighbors: Box<[Box<[Neighbour]>]>,
 }
 
 impl WfcGraph<Superposition> {

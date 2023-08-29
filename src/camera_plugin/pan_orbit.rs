@@ -72,11 +72,9 @@ struct PreviousCursor {
 /// Pan the camera with middle mouse click, zoom with scroll wheel, orbit with right mouse click.
 fn pan_orbit_camera(
     mut q_primary_window: Query<&mut Window, With<PrimaryWindow>>,
-    // mut ev_motion: EventReader<MouseMotion>,
     mut ev_scroll: EventReader<MouseWheel>,
     input_mouse: Res<Input<MouseButton>>,
     mut double_click_time: Local<DoubleClickTime>,
-    can_set_cursor: Local<Option<bool>>,
     mut q_camera: Query<
         (
             &mut PanOrbitCamera,
@@ -102,11 +100,6 @@ fn pan_orbit_camera(
 
     let viewport_rect = viewport_rect(&primary_window, camera);
 
-    if can_set_cursor.is_none() {
-        let _pos = primary_window.cursor_position();
-        // *can_set_cursor = false;
-    }
-
     let mut pan = Vec2::ZERO;
     let mut rotation_move = Vec2::ZERO;
     let mut scroll = 0.0;
@@ -123,7 +116,7 @@ fn pan_orbit_camera(
                     // Pan only if we're not rotating at the moment
                     pan += cursor_pos - last_pos;
                     dragging = true;
-                } 
+                }
                 for ev in ev_scroll.iter() {
                     scroll += ev.y;
                 }
@@ -262,51 +255,10 @@ fn pan_orbit_camera(
                 pan_orbit.focus + rot_matrix.mul_vec3(Vec3::new(0.0, 0.0, pan_orbit.radius));
         }
     }
-
-    // consume any remaining events, so they don't pile up if we don't need them
-    // (and also to avoid Bevy warning us about not checking events every frame update)
-    // ev_motion.clear();
 }
 
 fn get_primary_window_size(windows: &Query<&mut Window, With<PrimaryWindow>>) -> Vec2 {
     let window = windows.get_single().unwrap();
-    
+
     Vec2::new(window.width(), window.height())
 }
-
-// Spawn a camera like this
-// fn spawn_camera(mut commands: Commands) {
-//     let translation = Vec3::new(-2.0, 2.5, 5.0);
-//     let radius = translation.length();
-
-//     commands
-//         .spawn((
-//             Camera3dBundle {
-//                 camera: Camera {
-//                     hdr: true,
-//                     ..Default::default()
-//                 },
-//                 tonemapping: bevy::core_pipeline::tonemapping::Tonemapping::AcesFitted,
-//                 transform: Transform::from_translation(translation).looking_at(Vec3::ZERO, Vec3::Y),
-//                 ..Default::default()
-//             },
-//             PanOrbitCamera {
-//                 radius,
-//                 ..Default::default()
-//             },
-//             ContrastAdaptiveSharpeningSettings {
-//                 enabled: false,
-//                 ..default()
-//             },
-//         ))
-//         .insert(ScreenSpaceAmbientOcclusionBundle {
-//             settings: ScreenSpaceAmbientOcclusionSettings {
-//                 quality_level: ScreenSpaceAmbientOcclusionQualityLevel::High,
-//                 ..Default::default()
-//             },
-//             ..Default::default()
-//         })
-//         .insert(TemporalAntiAliasBundle {
-//             ..Default::default()
-//         });
-// }

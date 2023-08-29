@@ -32,7 +32,7 @@ impl WaveFunctionCollapse {
 
     pub fn collapse<R: Rng>(
         graph: &mut WfcGraph<Superposition>,
-        constraints: &Vec<Vec<Superposition>>,
+        constraints: &[Box<[Superposition]>],
         weights: &Vec<u32>,
         rng: &mut R,
     ) {
@@ -62,7 +62,7 @@ impl WaveFunctionCollapse {
         graph: &mut WfcGraph<Superposition>,
         index: usize,
         neighbour: Neighbour,
-        allowed_neighbors: &Vec<Vec<Superposition>>,
+        allowed_neighbors: &[Box<[Superposition]>],
     ) -> bool {
         let mut updated = false;
 

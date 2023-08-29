@@ -25,7 +25,6 @@ use super::LayoutPass;
 #[derive(Component)]
 pub struct FacadeDebugSettings {
     blocks: bool,
-    arcs: bool,
 }
 
 pub fn facade_init_system(
@@ -41,8 +40,7 @@ pub fn facade_init_system(
             parent_data,
         ) in q_layout_parents.iter_many(parents.0.iter())
         {
-            let facade_pass_data =
-                FacadePassData::from_layout(&parent_data.graph, parent_settings);
+            let facade_pass_data = FacadePassData::from_layout(&parent_data.graph, parent_settings);
 
             let tileset = FacadeTileset::from_asset("semantics/frame_test.json");
             let wfc_graph = facade_pass_data.create_wfc_graph(&tileset);
@@ -59,10 +57,7 @@ pub fn facade_init_system(
                 .entity(entity)
                 .remove::<WfcPassReadyMarker>()
                 .insert((
-                    FacadeDebugSettings {
-                        blocks: true,
-                        arcs: true,
-                    },
+                    FacadeDebugSettings { blocks: true },
                     GenerateDebugMarker,
                     GenerateMeshMarker,
                     WfcEntityMarker,
@@ -365,16 +360,13 @@ pub fn facade_debug_system(
                     ..Default::default()
                 },))
                 .set_parent(entity);
-            commands.entity(entity).insert(ReplayTileMapMaterials {
-                0: vec![
-                    error_material,
-                    vertex_material,
-                    edge_material,
-                    quad_material,
-                ],
-            });
+            commands.entity(entity).insert(ReplayTileMapMaterials(vec![
+                error_material,
+                vertex_material,
+                edge_material,
+                quad_material,
+            ]));
         }
-        
 
         commands.entity(entity).remove::<GenerateDebugMarker>();
     }

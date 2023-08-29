@@ -89,7 +89,6 @@ pub fn spawn_camera(mut commands: Commands) {
         .insert(ScreenSpaceAmbientOcclusionBundle {
             settings: ScreenSpaceAmbientOcclusionSettings {
                 quality_level: ScreenSpaceAmbientOcclusionQualityLevel::High,
-                ..Default::default()
             },
             ..Default::default()
         })
@@ -102,37 +101,34 @@ fn switching_system(
     mut commands: Commands,
     mut q_camera: Query<(Entity, &mut SwitchingCameraController, &Transform)>,
 ) {
-    match q_camera.get_single_mut() {
-        Ok((entity, mut switcher, transform)) => {
-            if switcher.last != switcher.selected {
-                match switcher.last {
-                    CameraController::Fps => {
-                        commands.entity(entity).remove::<FpsCameraBundle>();
-                    }
-                    CameraController::PanOrbit => {
-                        commands.entity(entity).remove::<PanOrbitCamera>();
-                    }
+    if let Ok((entity, mut switcher, transform)) = q_camera.get_single_mut() {
+        if switcher.last != switcher.selected {
+            match switcher.last {
+                CameraController::Fps => {
+                    commands.entity(entity).remove::<FpsCameraBundle>();
                 }
-                match switcher.selected {
-                    CameraController::Fps => {
-                        let character_entity = commands
-                            .spawn(FpsCharacterBundle::new(entity))
-                            .insert(TransformBundle {
-                                local: Transform::from_translation(transform.translation),
-                                ..Default::default()
-                            })
-                            .id();
-                        commands
-                            .entity(entity)
-                            .insert(FpsCameraBundle::new(character_entity));
-                    }
-                    CameraController::PanOrbit => {
-                        commands.entity(entity).insert(PanOrbitCamera::default());
-                    }
-                };
-                switcher.last = switcher.selected;
+                CameraController::PanOrbit => {
+                    commands.entity(entity).remove::<PanOrbitCamera>();
+                }
             }
+            match switcher.selected {
+                CameraController::Fps => {
+                    let character_entity = commands
+                        .spawn(FpsCharacterBundle::new(entity))
+                        .insert(TransformBundle {
+                            local: Transform::from_translation(transform.translation),
+                            ..Default::default()
+                        })
+                        .id();
+                    commands
+                        .entity(entity)
+                        .insert(FpsCameraBundle::new(character_entity));
+                }
+                CameraController::PanOrbit => {
+                    commands.entity(entity).insert(PanOrbitCamera::default());
+                }
+            };
+            switcher.last = switcher.selected;
         }
-        Err(_) => {}
     }
 }

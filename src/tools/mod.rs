@@ -1,3 +1,4 @@
+pub mod boxed;
 pub mod index_tools;
 pub mod mesh_builder;
 
