@@ -240,7 +240,7 @@ pub fn facade_debug_system(
                     404 => error_mesh_builder.add_mesh(
                         &error_cube,
                         transform,
-                        collapsed_data.graph.order[index + facade_pass_data.vertices.len()] as u32,
+                        ordering[index + facade_pass_data.vertices.len()] as u32,
                     ),
                     id => {
                         if enable_text {
@@ -271,8 +271,7 @@ pub fn facade_debug_system(
                         edge_mesh_builder.add_mesh(
                             &ok_cube,
                             transform,
-                            collapsed_data.graph.order[index + facade_pass_data.vertices.len()]
-                                as u32,
+                            ordering[index + facade_pass_data.vertices.len()] as u32,
                         )
                     }
                 }
@@ -286,7 +285,7 @@ pub fn facade_debug_system(
                     404 => error_mesh_builder.add_mesh(
                         &error_cube,
                         transform,
-                        collapsed_data.graph.order
+                        ordering
                             [index + facade_pass_data.vertices.len() + facade_pass_data.edges.len()]
                             as u32,
                     ),
@@ -318,7 +317,7 @@ pub fn facade_debug_system(
                         quad_mesh_builder.add_mesh(
                             &ok_cube,
                             transform,
-                            collapsed_data.graph.order[index
+                            ordering[index
                                 + facade_pass_data.vertices.len()
                                 + facade_pass_data.edges.len()] as u32,
                         )

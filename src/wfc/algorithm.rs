@@ -11,7 +11,6 @@ impl WaveFunctionCollapse {
         for (index, node) in graph.nodes.iter().enumerate() {
             let entropy = node.count_bits();
             if entropy > 1 && entropy <= min_entropy {
-                with_min += 1;
                 if entropy < min_entropy {
                     with_min = 1;
                     min_entropy = entropy;
@@ -27,6 +26,7 @@ impl WaveFunctionCollapse {
                 }
             }
         }
+
         min_index
     }
 
