@@ -3,9 +3,10 @@ use bevy::{math::vec3, prelude::*};
 use bevy_mod_billboard::prelude::*;
 
 use hierarchical_wfc::{
+    castle::facade_graph::{FacadePassData, FacadePassSettings, FacadeTileset},
+    graphs::regular_grid_3d,
     materials::tile_pbr_material::TilePbrMaterial,
     tools::MeshBuilder,
-    village::facade_graph::{FacadePassData, FacadePassSettings, FacadeTileset},
     wfc::{
         bevy_passes::{
             WfcEntityMarker, WfcFCollapsedData, WfcInitialData, WfcParentPasses, WfcPassReadyMarker,
@@ -20,7 +21,7 @@ use crate::{
     replay::{ReplayOrder, ReplayPassProgress, ReplayTileMapMaterials},
 };
 
-use super::LayoutPass;
+use super::LayoutPassMarker;
 
 #[derive(Component)]
 pub struct FacadeDebugSettings {
@@ -30,17 +31,15 @@ pub struct FacadeDebugSettings {
 pub fn facade_init_system(
     mut commands: Commands,
     query: Query<(Entity, &FacadePassSettings, &WfcParentPasses), With<WfcPassReadyMarker>>,
-    q_layout_parents: Query<(&LayoutPass, &WfcFCollapsedData)>,
+    q_layout_parents: Query<
+        (&regular_grid_3d::GraphSettings, &WfcFCollapsedData),
+        With<LayoutPassMarker>,
+    >,
 ) {
     for (entity, _pass_settings, parents) in query.iter() {
-        for (
-            LayoutPass {
-                settings: parent_settings,
-            },
-            parent_data,
-        ) in q_layout_parents.iter_many(parents.0.iter())
-        {
-            let facade_pass_data = FacadePassData::from_layout(&parent_data.graph, parent_settings);
+        for (graph_settings, collapsed_data) in q_layout_parents.iter_many(parents.0.iter()) {
+            let facade_pass_data =
+                FacadePassData::from_layout(graph_settings, &collapsed_data.graph);
 
             let tileset = FacadeTileset::from_asset("semantics/frame_test.json");
             let wfc_graph = facade_pass_data.create_wfc_graph(&tileset);

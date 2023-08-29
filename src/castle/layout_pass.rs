@@ -1,21 +1,15 @@
+use bevy::math::vec3;
 use strum_macros::Display;
 
 use crate::{
-    village::LayoutGraphSettings,
+    graphs::regular_grid_3d,
     wfc::{Superposition, TileSet, WfcGraph},
 };
-
-use super::layout_graph;
 
 #[derive(Debug, Default)]
 pub struct LayoutTileset;
 
 impl TileSet for LayoutTileset {
-    type GraphSettings = LayoutGraphSettings;
-
-    // const TILE_COUNT: usize = 120;
-    // const DIRECTIONS: usize = 4;
-
     fn tile_count(&self) -> usize {
         14
     }
@@ -189,7 +183,7 @@ impl TileSet for LayoutTileset {
                 ][edge_index];
                 let mut superposition = Superposition::empty();
 
-                // add all tiles with this edge type to the neighbor set
+                // add all tiles with this edge type to the neighbors set
                 for (other_tile, other_edges) in rotated_tile_edge_types.iter().enumerate() {
                     let other_index = match direction.connects_to() {
                         Direction::X => 0,
@@ -223,10 +217,5 @@ impl TileSet for LayoutTileset {
         let paths: Vec<String> = Vec::new();
 
         paths
-    }
-
-    fn create_graph(&self, settings: &Self::GraphSettings) -> WfcGraph<Superposition> {
-        let cell = Superposition::filled(self.tile_count());
-        layout_graph::create_layout_graph(settings, cell)
     }
 }

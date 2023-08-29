@@ -1,7 +1,12 @@
-use bevy::{ecs::system::SystemState, math::vec3, prelude::*};
+use bevy::{
+    ecs::system::SystemState,
+    math::{uvec3, vec3},
+    prelude::*,
+};
 use hierarchical_wfc::{
+    castle::facade_graph::FacadePassSettings,
+    graphs::regular_grid_3d,
     ui_plugin::{EcsTab, EcsUiTab},
-    village::{facade_graph::FacadePassSettings, LayoutGraphSettings},
     wfc::bevy_passes::{
         WfcEntityMarker, WfcInvalidatedMarker, WfcParentPasses, WfcPassReadyMarker,
         WfcPendingParentMarker,
@@ -10,7 +15,7 @@ use hierarchical_wfc::{
 
 use crate::{
     generation::GenerateDebugMarker,
-    passes::{LayoutDebugSettings, LayoutPass},
+    passes::{LayoutDebugSettings, LayoutPassMarker},
     GroundPlane,
 };
 
@@ -19,12 +24,26 @@ type WfcEntitiesQuery = Query<'static, 'static, Entity, With<WfcEntityMarker>>;
 type LayoutSystemParams = (
     Commands<'static, 'static>,
     WfcEntitiesQuery,
-    Local<'static, LayoutGraphSettings>,
+    Local<'static, LayoutLocalResource>,
     GroundQuery,
     ResMut<'static, Assets<Mesh>>,
     Gizmos<'static>,
     ResMut<'static, GizmoConfig>,
 );
+struct LayoutLocalResource {
+    settings: regular_grid_3d::GraphSettings,
+}
+
+impl Default for LayoutLocalResource {
+    fn default() -> Self {
+        Self {
+            settings: regular_grid_3d::GraphSettings {
+                size: uvec3(16, 4, 16),
+                spacing: vec3(2.0, 3.0, 2.0),
+            },
+        }
+    }
+}
 pub struct EcsUiLayout {
     system_state: SystemState<LayoutSystemParams>,
 }
@@ -53,7 +72,7 @@ impl EcsTab for EcsUiLayout {
         let (
             mut commands,
             q_wfc_entities,
-            mut layout_settings,
+            mut local_resource,
             mut q_ground,
             mut meshes,
             mut gizmos,
@@ -65,9 +84,9 @@ impl EcsTab for EcsUiLayout {
             let origin = vec3(-2.0, 0.0, -2.0);
             let max = vec3(2.0, 3.0, 2.0)
                 * vec3(
-                    layout_settings.x_size as f32 + 2.0,
-                    layout_settings.y_size as f32 + 1.0,
-                    layout_settings.z_size as f32 + 2.0,
+                    local_resource.settings.size.x as f32 + 2.0,
+                    local_resource.settings.size.y as f32 + 1.0,
+                    local_resource.settings.size.z as f32 + 2.0,
                 );
             let e_x = max * Vec3::X;
             let e_y = max * Vec3::Y;
@@ -100,19 +119,19 @@ impl EcsTab for EcsUiLayout {
                     .monospace()
                     .color(egui::Rgba::from_rgb(0.8, 0.2, 0.2)),
             );
-            ui.add(egui::DragValue::new(&mut layout_settings.x_size));
+            ui.add(egui::DragValue::new(&mut local_resource.settings.size.x));
             ui.label(
                 egui::RichText::new("y:")
                     .monospace()
                     .color(egui::Rgba::from_rgb(0.2, 0.8, 0.2)),
             );
-            ui.add(egui::DragValue::new(&mut layout_settings.y_size));
+            ui.add(egui::DragValue::new(&mut local_resource.settings.size.y));
             ui.label(
                 egui::RichText::new("z:")
                     .monospace()
                     .color(egui::Rgba::from_rgb(0.2, 0.2, 0.8)),
             );
-            ui.add(egui::DragValue::new(&mut layout_settings.z_size));
+            ui.add(egui::DragValue::new(&mut local_resource.settings.size.z));
         });
 
         ui.add_space(12.0);
@@ -126,9 +145,8 @@ impl EcsTab for EcsUiLayout {
                     WfcEntityMarker,
                     WfcPassReadyMarker,
                     GenerateDebugMarker,
-                    LayoutPass {
-                        settings: *layout_settings,
-                    },
+                    local_resource.settings.clone(),
+                    LayoutPassMarker,
                     LayoutDebugSettings {
                         blocks: true,
                         arcs: true,
@@ -147,9 +165,9 @@ impl EcsTab for EcsUiLayout {
                 let padding = vec3(10.0, 0.0, 10.0);
                 let start = vec3(-1.5, 0.0, -1.5) - padding;
                 let end = vec3(
-                    2.0 * layout_settings.x_size as f32,
+                    2.0 * local_resource.settings.size.x as f32,
                     0.0,
-                    2.0 * layout_settings.z_size as f32,
+                    2.0 * local_resource.settings.size.z as f32,
                 ) + vec3(0.5, 0.0, 0.5)
                     + padding;
 

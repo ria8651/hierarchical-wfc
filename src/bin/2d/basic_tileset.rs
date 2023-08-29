@@ -1,13 +1,10 @@
-use crate::wfc::{
-    graph_grid::{create_grid_graph, GridGraphSettings},
-    Direction, Superposition, TileSet, WfcGraph,
-};
+use hierarchical_wfc::wfc::{Direction, Superposition, TileSet};
 
 #[derive(Default)]
 pub struct BasicTileset;
 
 impl TileSet for BasicTileset {
-    type GraphSettings = GridGraphSettings;
+    // type GraphSettings = GridGraphSettings;
 
     // const TILE_COUNT: usize = 17;
     // const DIRECTIONS: usize = 4;
@@ -94,8 +91,8 @@ impl TileSet for BasicTileset {
         paths
     }
 
-    fn create_graph(&self, settings: &Self::GraphSettings) -> WfcGraph<Superposition> {
-        let cell = Superposition::filled(self.tile_count());
-        create_grid_graph(settings, cell)
-    }
+    // fn create_graph(&self, settings: &Self::GraphSettings) -> WfcGraph<Superposition> {
+    //     let cell = Superposition::filled(self.tile_count());
+    //     create_grid_graph(settings, cell)
+    // }
 }

@@ -1,9 +1,9 @@
 use bevy::{ecs::system::SystemState, math::vec3, prelude::*};
 use hierarchical_wfc::ui_plugin::{EcsTab, EcsUiTab};
 
-use crate::{passes::LayoutPass, regenerate::RegenerateSettings};
+use crate::{passes::LayoutPassMarker, regenerate::RegenerateSettings};
 
-type LayoutPassQuery = Query<'static, 'static, Entity, With<LayoutPass>>;
+type LayoutPassQuery = Query<'static, 'static, Entity, With<LayoutPassMarker>>;
 
 type LayoutSystemParams = (
     Commands<'static, 'static>,

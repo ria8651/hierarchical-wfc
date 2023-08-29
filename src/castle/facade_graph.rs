@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
+    graphs::regular_grid_3d,
     json::tileset::{ConstraintNodeModel, DagNodeModel, TileSetModel},
     tools::{
         index_tools::{ivec3_in_bounds, ivec3_to_index},
@@ -13,8 +14,6 @@ use bevy::{
     prelude::*,
 };
 use itertools::Itertools;
-
-use super::LayoutGraphSettings;
 
 pub struct FacadeVertex {
     pub pos: IVec3,
@@ -470,19 +469,19 @@ impl FacadePassData {
     }
 
     pub fn from_layout(
-        layout_data: &WfcGraph<usize>,
-        layout_settings: &LayoutGraphSettings,
+        layout_settings: &regular_grid_3d::GraphSettings,
+        collapsed_data: &WfcGraph<usize>,
     ) -> Self {
         let mut nodes: Vec<bool> = vec![
             false;
-            (layout_settings.x_size + 1)
-                * (layout_settings.y_size + 1)
-                * (layout_settings.z_size + 1)
+            (layout_settings.size.x as usize + 1)
+                * (layout_settings.size.y as usize + 1)
+                * (layout_settings.size.z as usize + 1)
         ];
         let size = ivec3(
-            layout_settings.x_size as i32,
-            layout_settings.y_size as i32,
-            layout_settings.z_size as i32,
+            layout_settings.size.x as i32,
+            layout_settings.size.y as i32,
+            layout_settings.size.z as i32,
         );
 
         let node_pos = itertools::iproduct!(0..size.z + 1, 0..size.y + 1, 0..size.x + 1)
@@ -507,7 +506,7 @@ impl FacadePassData {
                 {
                     let index = pos.dot(ivec3(1, size.x, size.x * size.y)) as usize;
 
-                    let tile = layout_data.nodes[index];
+                    let tile = collapsed_data.nodes[index];
                     if (0..=8).contains(&tile) {
                         vertex_configuration += 1;
                         connected += 1;
@@ -678,7 +677,7 @@ pub struct FacadeTileset {
 }
 
 impl TileSet for FacadeTileset {
-    type GraphSettings = FacadePassSettings;
+    // type GraphSettings = FacadePassSettings;
 
     fn tile_count(&self) -> usize {
         self.tile_count
@@ -688,9 +687,9 @@ impl TileSet for FacadeTileset {
         self.arc_types
     }
 
-    fn create_graph(&self, _settings: &Self::GraphSettings) -> WfcGraph<Superposition> {
-        todo!()
-    }
+    // fn create_graph(&self, _settings: &Self::GraphSettings) -> WfcGraph<Superposition> {
+    //     todo!()
+    // }
 
     fn get_constraints(&self) -> Box<[Box<[Superposition]>]> {
         self.constraints.clone()

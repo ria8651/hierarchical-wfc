@@ -2,7 +2,6 @@ pub mod algorithm;
 pub mod bevy_passes;
 pub mod direction;
 pub mod graph;
-pub mod graph_grid;
 pub mod neighbour;
 pub mod superposition;
 pub mod tileset;

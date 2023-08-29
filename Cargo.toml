@@ -26,18 +26,15 @@ bevy_asset = "0.11.2"
 egui-gizmo = "0.11.0"
 egui = "0.22.0"
 
-[profile.release]
-debug = true
-
-[[bin]]
-name = "main"
-path = "src/main.rs"
-
-[[bin]]
-name = "3d"
 
 [[bin]]
 name = "json_test"
+
+[[bin]]
+name = "multipass"
+
+[[bin]]
+name = "2d"
 
 # [[bin]]
 # name = "egui"

@@ -2,12 +2,10 @@ use bevy::{math::vec3, prelude::*};
 
 use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, RigidBody};
 use hierarchical_wfc::{
+    castle::{facade_graph::FacadePassSettings, layout_pass::LayoutTileset},
+    graphs::regular_grid_3d,
     materials::tile_pbr_material::TilePbrMaterial,
     tools::MeshBuilder,
-    village::{
-        facade_graph::FacadePassSettings, layout_graph::LayoutGraphSettings,
-        layout_pass::LayoutTileset,
-    },
     wfc::{
         bevy_passes::{
             WfcEntityMarker, WfcFCollapsedData, WfcInitialData, WfcInvalidatedMarker,
@@ -26,21 +24,27 @@ use crate::{
 };
 
 #[derive(Component)]
-pub struct LayoutPass {
-    pub settings: LayoutGraphSettings,
-}
+pub struct LayoutPassMarker;
 
 pub fn layout_regenerate_system(
     mut commands: Commands,
-    q_regenerating_layouts: Query<(Entity, &WfcFCollapsedData, &LayoutPass, &RegenerateSettings)>,
+    q_regenerating_layouts: Query<
+        (
+            Entity,
+            &WfcFCollapsedData,
+            &regular_grid_3d::GraphSettings,
+            &regular_grid_3d::GraphData,
+            &RegenerateSettings,
+        ),
+        With<LayoutPassMarker>,
+    >,
     q_existing_entities: Query<Entity, (With<WfcEntityMarker>, Without<RegenerateSettings>)>,
 ) {
     for (
         layout_entity,
-        data,
-        LayoutPass {
-            settings: pass_settings,
-        },
+        collapsed_data,
+        graph_settings,
+        graph_data,
         RegenerateSettings { min, max },
     ) in q_regenerating_layouts.iter()
     {
@@ -50,13 +54,13 @@ pub fn layout_regenerate_system(
         let tileset = LayoutTileset;
 
         let graph = WfcGraph {
-            nodes: data
+            nodes: collapsed_data
                 .graph
                 .nodes
                 .iter()
                 .enumerate()
                 .map(|(i, tile)| {
-                    let pos = pass_settings.posf32_from_index(i);
+                    let pos = graph_data.node_positions[i].as_vec3() * graph_settings.spacing;
                     if min.cmplt(pos).all() && max.cmpgt(pos).all() {
                         Superposition::filled(tileset.tile_count())
                     } else {
@@ -64,14 +68,14 @@ pub fn layout_regenerate_system(
                     }
                 })
                 .collect_vec(),
-            neighbors: data.graph.neighbors.clone(),
-            order: data
+            neighbors: collapsed_data.graph.neighbors.clone(),
+            order: collapsed_data
                 .graph
                 .order
                 .iter()
                 .copied()
                 .filter(|i| {
-                    let pos = pass_settings.posf32_from_index(*i);
+                    let pos = graph_data.node_positions[*i].as_vec3() * graph_settings.spacing;
                     !(min.cmplt(pos).all() && max.cmpgt(pos).all())
                 })
                 .collect_vec(),
@@ -106,28 +110,35 @@ pub fn layout_regenerate_system(
     }
 }
 
+type LayoutInitialData = (Entity, &'static regular_grid_3d::GraphSettings);
+type LayoutInitialRequired = (With<WfcPassReadyMarker>, With<LayoutPassMarker>);
 pub fn layout_init_system(
     mut commands: Commands,
-    query: Query<(Entity, &LayoutPass), With<WfcPassReadyMarker>>,
+    query: Query<LayoutInitialData, LayoutInitialRequired>,
 ) {
-    for (entity, LayoutPass { settings }) in query.iter() {
-        dbg!("Seeding Layout");
-
+    for (entity, settings) in query.iter() {
         let tileset = LayoutTileset;
-        let graph = tileset.create_graph(settings);
+
+        let (graph_data, wfc_graph) = regular_grid_3d::create_graph(settings, &|(_, _)| {
+            Superposition::filled(tileset.tile_count())
+        });
+
         let constraints = tileset.get_constraints();
 
         let rng = StdRng::from_entropy();
 
         let mut entity_commands = commands.entity(entity);
         entity_commands.remove::<WfcPassReadyMarker>();
-        entity_commands.insert(WfcInitialData {
-            label: Some("Layout".to_string()),
-            graph,
-            constraints,
-            weights: tileset.get_weights(),
-            rng,
-        });
+        entity_commands.insert((
+            graph_data,
+            WfcInitialData {
+                label: Some("Layout".to_string()),
+                graph: wfc_graph,
+                constraints,
+                weights: tileset.get_weights(),
+                rng,
+            },
+        ));
     }
 }
 
@@ -139,7 +150,8 @@ pub struct LayoutDebugSettings {
 
 fn debug_mesh(
     result: &WfcGraph<usize>,
-    settings: &LayoutGraphSettings,
+    data: &regular_grid_3d::GraphData,
+    settings: &regular_grid_3d::GraphSettings,
 ) -> (Mesh, Mesh, Option<Collider>) {
     let full_box: Mesh = shape::Box::new(1.9, 2.9, 1.9).into();
     let node_box: Mesh = shape::Cube::new(0.2).into();
@@ -154,7 +166,7 @@ fn debug_mesh(
     let mut non_physical_mesh_builder = MeshBuilder::new();
 
     for (index, tile) in result.nodes.iter().enumerate() {
-        let position = settings.posf32_from_index(index);
+        let position = (data.node_positions[index].as_vec3() + 0.5) * settings.spacing;
         let transform = Transform::from_translation(position);
         let order = ordering[index] as u32;
         match tile {
@@ -177,21 +189,23 @@ fn debug_mesh(
     (physical_mesh, non_physical_mesh, physical_mesh_collider)
 }
 
+type LayoutCollapsedData = (
+    Entity,
+    &'static regular_grid_3d::GraphData,
+    &'static regular_grid_3d::GraphSettings,
+    &'static WfcFCollapsedData,
+    &'static LayoutDebugSettings,
+);
+type LayoutCollapsedRequired = (With<GenerateDebugMarker>, With<LayoutPassMarker>);
 pub fn layout_debug_system(
     mut commands: Commands,
-    mut query: Query<
-        (
-            Entity,
-            &LayoutPass,
-            &WfcFCollapsedData,
-            &LayoutDebugSettings,
-        ),
-        With<GenerateDebugMarker>,
-    >,
+    mut q_layout_pass: Query<LayoutCollapsedData, LayoutCollapsedRequired>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut tile_materials: ResMut<Assets<TilePbrMaterial>>,
 ) {
-    for (entity, layout_pass, collapsed_data, debug_settings) in query.iter_mut() {
+    for (entity, graph_data, graph_settings, collapsed_data, debug_settings) in
+        q_layout_pass.iter_mut()
+    {
         dbg!("Creating Debug Mesh");
         commands
             .entity(entity)
@@ -203,7 +217,8 @@ pub fn layout_debug_system(
             })
             .remove::<GenerateDebugMarker>();
         if debug_settings.blocks {
-            let (solid, air, collider) = debug_mesh(&collapsed_data.graph, &layout_pass.settings);
+            let (solid, air, collider) =
+                debug_mesh(&collapsed_data.graph, graph_data, graph_settings);
 
             let material = tile_materials.add(TilePbrMaterial {
                 base_color: Color::rgb(0.6, 0.6, 0.6),
