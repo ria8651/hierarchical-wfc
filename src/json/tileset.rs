@@ -61,7 +61,7 @@ impl TileSetModel {
             DagNodeModel::Meta(children) => {
                 for (key, child) in children {
                     new_nodes.insert(key.clone());
-                    Self::traverse_dag(&child, new_nodes);
+                    Self::traverse_dag(child, new_nodes);
                 }
             }
         }

@@ -149,20 +149,20 @@ impl TileSet for LayoutTileset {
 
         // Permute the edges
         fn rotate_y<T: Copy>(edges: [T; 6]) -> [T; 6] {
-            return [
+            [
                 edges[4], //  x <-  z       z
                 edges[5], // -x <- -z     /  \
                 edges[2], //  y <-  y    -x   x
                 edges[3], // -y <- -y     \  /
                 edges[1], //  z <- -x     -z
                 edges[0], // -z <-  x
-            ];
+            ]
         }
 
         // rotate all tiles to get all possible edge types
         let mut rotated_tile_edge_types: Vec<[Edge; 6]> = Vec::with_capacity(self.tile_count());
         for edges in tile_edge_types.iter() {
-            let mut rotated_edges = edges.clone();
+            let mut rotated_edges = *edges;
             for rotation in 0..4 {
                 if rotation != 0 && &rotated_edges == edges {
                     break;
@@ -177,7 +177,7 @@ impl TileSet for LayoutTileset {
         let mut allowed_neighbors = Vec::with_capacity(self.tile_count());
         for edges in rotated_tile_edge_types.iter() {
             let mut allowed_neighbors_for_tile = Vec::with_capacity(4);
-            for (edge_index, edge) in edges.into_iter().enumerate() {
+            for (edge_index, edge) in edges.iter().enumerate() {
                 // let direction = Direction::from(edge_index);
                 let direction = [
                     Direction::X,

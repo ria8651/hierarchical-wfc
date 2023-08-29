@@ -47,7 +47,7 @@ impl Default for PanOrbitCamera {
 struct DoubleClickTime(Instant);
 impl Default for DoubleClickTime {
     fn default() -> Self {
-        Self { 0: Instant::now() }
+        Self(Instant::now())
     }
 }
 
@@ -123,8 +123,7 @@ fn pan_orbit_camera(
                     // Pan only if we're not rotating at the moment
                     pan += cursor_pos - last_pos;
                     dragging = true;
-                } else {
-                }
+                } 
                 for ev in ev_scroll.iter() {
                     scroll += ev.y;
                 }
@@ -210,7 +209,7 @@ fn pan_orbit_camera(
                 let yaw = Quat::from_rotation_y(-delta_x);
                 let pitch = Quat::from_rotation_x(-delta_y);
                 transform.rotation = yaw * transform.rotation; // rotate around global y axis
-                transform.rotation = transform.rotation * pitch; // rotate around local x axis
+                transform.rotation *= pitch; // rotate around local x axis
             } else if pan.length_squared() > 0.0 {
                 update_transform = true;
                 // make panning distance independent of resolution and FOV,
@@ -271,8 +270,8 @@ fn pan_orbit_camera(
 
 fn get_primary_window_size(windows: &Query<&mut Window, With<PrimaryWindow>>) -> Vec2 {
     let window = windows.get_single().unwrap();
-    let window = Vec2::new(window.width() as f32, window.height() as f32);
-    window
+    
+    Vec2::new(window.width(), window.height())
 }
 
 // Spawn a camera like this

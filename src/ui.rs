@@ -57,9 +57,9 @@ fn ui(
 ) {
     let tileset = match &ui_state.picked_tileset {
         TileSetUi::BasicTileset(_) => {
-            Box::new(BasicTileset::default()) as Box<dyn TileSet<GraphSettings = GridGraphSettings>>
+            Box::new(BasicTileset) as Box<dyn TileSet<GraphSettings = GridGraphSettings>>
         }
-        TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset::default())
+        TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset)
             as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
     };
 
@@ -151,7 +151,7 @@ fn ui(
                             let mut tile_rotation = 0;
                             if tileset.tile_count() > 100 {
                                 tile_rotation = tile_index / (tileset.tile_count() / 4);
-                                tile_index = tile_index % (tileset.tile_count() / 4);
+                                tile_index %= tileset.tile_count() / 4;
                             }
                             let pos = Vec2::new(
                                 (i / settings.height) as f32,

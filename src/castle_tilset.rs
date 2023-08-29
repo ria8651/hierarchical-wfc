@@ -37,7 +37,7 @@ impl TileSet for CastleTileset {
         let open_pillar: usize = 8;
         let open_wall: usize = 9;
 
-        for _i in short_walls.clone() {
+        for _i in short_walls {
             allowed.push(vec![
                 Superposition::single(open_space),
                 Superposition::single(open_space),
@@ -90,7 +90,7 @@ impl TileSet for CastleTileset {
             Superposition::single(open_space),
         ]);
 
-        return allowed;
+        allowed
     }
 
     fn get_weights(&self) -> Vec<u32> {

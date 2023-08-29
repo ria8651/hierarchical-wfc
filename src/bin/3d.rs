@@ -9,7 +9,7 @@ use bevy::{
 use futures_lite::future;
 
 use bevy_inspector_egui::{bevy_egui, egui, reflect_inspector, DefaultInspectorConfigPlugin};
-use bevy_mod_debugdump;
+
 use bevy_rapier3d::prelude::{
     Collider, ComputedColliderShape, NoUserData, RapierPhysicsPlugin, RigidBody,
 };
@@ -65,7 +65,7 @@ fn main() {
     .add_systems(Startup, setup)
     .init_resource::<VillageLoadProgress>()
     .insert_resource(WfcPassPool {
-        pool: AsyncComputeTaskPool::init(|| TaskPool::new()),
+        pool: AsyncComputeTaskPool::init(TaskPool::new),
     })
     .add_event::<VillageWfcEvent>()
     .add_systems(Update, (load_village_system, wfc_passes_system));
@@ -156,7 +156,7 @@ struct VillageTile;
 struct VillageWaveFunctionCollapse;
 impl VillageWaveFunctionCollapse {
     fn wfc(settings: LayoutGraphSettings) -> Option<Arc<WfcGraph<usize>>> {
-        let tileset = LayoutTileset::default();
+        let tileset = LayoutTileset;
         let mut graph = tileset.create_graph(&settings);
         let constraints = tileset.get_constraints();
         let mut rng = StdRng::from_entropy();
@@ -219,7 +219,7 @@ impl VillageWaveFunctionCollapse {
         edges.insert_attribute(Mesh::ATTRIBUTE_NORMAL, arc_vertex_normals);
         edges.insert_attribute(Mesh::ATTRIBUTE_UV_0, arc_vertex_uvs);
         edges.insert_attribute(Mesh::ATTRIBUTE_COLOR, arc_vertex_colors);
-        return edges;
+        edges
     }
 
     fn spawn_arcs(
@@ -452,12 +452,10 @@ fn ui_system(
                 if ui.button("Pause").clicked() {
                     progress.playing = false;
                 }
-            } else {
-                if ui.button("Play").clicked() {
-                    progress.playing = true;
-                    if progress.progress >= 1.0 {
-                        progress.progress = 0.0;
-                    }
+            } else if ui.button("Play").clicked() {
+                progress.playing = true;
+                if progress.progress >= 1.0 {
+                    progress.progress = 0.0;
                 }
             }
             ui.label("Progress");

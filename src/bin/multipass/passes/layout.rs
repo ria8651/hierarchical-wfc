@@ -29,8 +29,8 @@ pub fn layout_init_system(
     for (entity, LayoutPass { settings }) in query.iter() {
         dbg!("Seeding Layout");
 
-        let tileset = LayoutTileset::default();
-        let graph = tileset.create_graph(&settings);
+        let tileset = LayoutTileset;
+        let graph = tileset.create_graph(settings);
         let constraints = tileset.get_constraints();
 
         let rng = StdRng::from_entropy();

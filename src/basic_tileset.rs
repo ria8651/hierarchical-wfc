@@ -58,7 +58,7 @@ impl TileSet for BasicTileset {
         let mut allowed_neighbors = Vec::with_capacity(self.tile_count());
         for (tile, edges) in tile_edge_types.iter().enumerate() {
             let mut allowed_neighbors_for_tile = Vec::with_capacity(self.arc_types());
-            for (edge_index, edge) in edges.into_iter().enumerate() {
+            for (edge_index, edge) in edges.iter().enumerate() {
                 let direction = Direction::from(edge_index);
                 let mut cell = Superposition::empty();
 

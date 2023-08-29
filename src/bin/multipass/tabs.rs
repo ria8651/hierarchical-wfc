@@ -312,36 +312,32 @@ impl EcsTab for EcsUiReplay {
         });
         for (_, (mut replay_pass, data, _children)) in q_passes.iter_mut().enumerate() {
             ui.collapsing(
-                format!("{}", data.label.as_deref().unwrap_or("Unnamed Pass")),
+                data.label.as_deref().unwrap_or("Unnamed Pass").to_string(),
                 |ui| {
                     ui.horizontal(|ui| {
                         if replay_pass.playing {
                             if ui.button("Pause").clicked() {
                                 replay_pass.playing = false;
                             }
-                        } else {
-                            if ui.button("Play").clicked() {
-                                replay_pass.playing = true;
-                                if replay_pass.current >= replay_pass.length {
-                                    replay_pass.current = 0;
-                                }
+                        } else if ui.button("Play").clicked() {
+                            replay_pass.playing = true;
+                            if replay_pass.current >= replay_pass.length {
+                                replay_pass.current = 0;
                             }
                         }
                         if replay_pass.current == 0 {
                             if ui.button("Show").clicked() {
                                 replay_pass.current = replay_pass.length;
                             }
-                        } else {
-                            if ui.button("Hide").clicked() {
-                                replay_pass.current = 0;
-                            }
+                        } else if ui.button("Hide").clicked() {
+                            replay_pass.current = 0;
                         }
                     });
                     let progress = (replay_pass.current as f32
                         / (replay_pass.length as f32).max(1.0))
                     .clamp(0.0, 1.0);
 
-                    let mut updated_progress = progress.clone();
+                    let mut updated_progress = progress;
                     ui.add(egui::Slider::new(&mut updated_progress, 0f32..=1f32).show_value(false));
                     if progress != updated_progress {
                         replay_pass.current = ((replay_pass.length as f32).max(0.0)

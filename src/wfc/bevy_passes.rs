@@ -36,7 +36,7 @@ pub fn wfc_ready_system(
     q_parent: Query<With<WfcFCollapsedData>>,
 ) {
     for (child, WfcParentPasses(parents)) in q_pending.iter() {
-        if 'ready: {
+        let res = 'ready: {
             for parent in parents {
                 match q_parent.get(*parent) {
                     Ok(_) => {}
@@ -46,7 +46,7 @@ pub fn wfc_ready_system(
                 }
             }
             true
-        } {
+        }; if res {
             let mut entity_commands = commands.entity(child);
             entity_commands.remove::<WfcPendingParentMarker>();
             entity_commands.insert(WfcPassReadyMarker);

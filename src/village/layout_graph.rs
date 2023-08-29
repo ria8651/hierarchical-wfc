@@ -69,7 +69,7 @@ pub fn create_layout_graph<F: Clone>(settings: &LayoutGraphSettings, fill_with: 
 
                         current_neighbours.push(Neighbour {
                             arc_type,
-                            index: index,
+                            index,
                         });
                     }
                 }

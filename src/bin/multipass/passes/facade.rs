@@ -42,7 +42,7 @@ pub fn facade_init_system(
         ) in q_layout_parents.iter_many(parents.0.iter())
         {
             let facade_pass_data =
-                FacadePassData::from_layout(&parent_data.graph, &parent_settings);
+                FacadePassData::from_layout(&parent_data.graph, parent_settings);
 
             let tileset = FacadeTileset::from_asset("semantics/frame_test.json");
             let wfc_graph = facade_pass_data.create_wfc_graph(&tileset);
@@ -374,7 +374,7 @@ pub fn facade_debug_system(
                 ],
             });
         }
-        if debug_settings.arcs {}
+        
 
         commands.entity(entity).remove::<GenerateDebugMarker>();
     }

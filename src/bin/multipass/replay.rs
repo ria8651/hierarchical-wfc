@@ -42,7 +42,7 @@ pub fn replay_generation_system(
 ) {
     for (mut progress, _collapsed_data, materials, children) in q_passes.iter_mut() {
         for DebugBlocks { material_handle } in q_blocks.iter_many(children) {
-            if let Some(material) = tile_materials.get_mut(&material_handle) {
+            if let Some(material) = tile_materials.get_mut(material_handle) {
                 material.order_cut_off = progress.current as u32;
             };
         }

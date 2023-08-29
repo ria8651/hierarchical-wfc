@@ -129,7 +129,7 @@ fn fps_manage_mouse(
     q_camera: Query<With<FpsCamera>>,
 ) {
     let mut primary_window = q_primary_window.get_single_mut().unwrap();
-    if let Ok(_) = q_camera.get_single() {
+    if q_camera.get_single().is_ok() {
         if mouse.pressed(MouseButton::Left) {
             primary_window.cursor.grab_mode = CursorGrabMode::Locked;
             primary_window.cursor.visible = false;
@@ -212,8 +212,7 @@ fn fps_character_keyboard(
                 let movement = local_x * input.x + local_z * input.z;
 
                 let snap = Vec3::NEG_Y
-                    * match output
-                        .and_then(|output| Some(output.grounded))
+                    * match output.map(|output| output.grounded)
                         .unwrap_or(false)
                     {
                         true => 0.1,

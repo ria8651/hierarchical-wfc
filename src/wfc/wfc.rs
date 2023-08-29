@@ -41,13 +41,13 @@ impl WaveFunctionCollapse {
             // propagate changes for node from stack
             for i in 0..graph.neighbors[index].len() {
                 let neighbor = graph.neighbors[index][i];
-                if WaveFunctionCollapse::propagate(graph, index, neighbor, &constraints) {
+                if WaveFunctionCollapse::propagate(graph, index, neighbor, constraints) {
                     stack.push(neighbor.index);
                 }
             }
 
             // once all changes are propagated the stack will be empty
-            if stack.len() == 0 {
+            if stack.is_empty() {
                 if let Some(index) = Self::min_entropy(graph, rng) {
                     graph.nodes[index].select_random(rng, weights);
                     graph.order.push(index);
@@ -80,7 +80,7 @@ impl WaveFunctionCollapse {
         }
 
         // Propagate to specified neighbour
-        let neighbor_tiles = graph.nodes[neighbour.index].clone();
+        let neighbor_tiles = graph.nodes[neighbour.index];
         let new_tiles = Superposition::intersect(&neighbor_tiles, &allowed);
         if new_tiles.count_bits() < neighbor_tiles.count_bits() {
             if new_tiles.count_bits() == 1 {

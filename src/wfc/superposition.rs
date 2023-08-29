@@ -42,7 +42,7 @@ impl Superposition {
     }
 
     pub fn add_other(&mut self, other: &Self) {
-        self.bits = Superposition::join(&self, other).bits;
+        self.bits = Superposition::join(self, other).bits;
     }
 
     pub fn contains(&self, tile: usize) -> bool {
@@ -55,7 +55,7 @@ impl Superposition {
             num_bits: None,
         };
         cell.bits[tile / 32] |= 1 << (tile % 32);
-        return cell;
+        cell
     }
 
     pub fn from_iter(tiles: impl Iterator<Item = usize>) -> Self {
@@ -67,7 +67,7 @@ impl Superposition {
             cell.bits[tile / 32] |= 1 << (tile % 32);
         }
         cell.num_bits = None;
-        return cell;
+        cell
     }
 
     pub fn from_iter_sized(tiles: impl Iterator<Item = usize>, size: usize) -> Self {
@@ -79,7 +79,7 @@ impl Superposition {
             cell.bits[tile / 32] |= 1 << (tile % 32);
         }
         cell.num_bits = Some(size);
-        return cell;
+        cell
     }
 
     /// Leaves a random bit set to 1 and the rest to 0
@@ -177,13 +177,13 @@ impl Superposition {
 impl std::ops::Add<Superposition> for Superposition {
     type Output = Superposition;
     fn add(self, rhs: Superposition) -> Self::Output {
-        return Self::join(&self, &rhs);
+        Self::join(&self, &rhs)
     }
 }
 impl std::ops::Add<usize> for Superposition {
     type Output = Superposition;
     fn add(self, rhs: usize) -> Self::Output {
-        return Self::join(&self, &Superposition::single(rhs));
+        Self::join(&self, &Superposition::single(rhs))
     }
 }
 

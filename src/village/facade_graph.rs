@@ -42,6 +42,7 @@ pub struct FacadeQuad {
 }
 
 #[derive(Component)]
+#[derive(Default)]
 pub struct FacadePassSettings;
 
 #[derive(Component)]
@@ -84,14 +85,10 @@ impl FacadePassData {
                     .iter()
                     .enumerate()
                     .filter_map(|(index, edge)| {
-                        if let Some(edge) = edge {
-                            Some(Neighbour {
+                        edge.as_ref().map(|edge| Neighbour {
                                 arc_type: index,
                                 index: edge + self.vertices.len(),
                             })
-                        } else {
-                            None
-                        }
                     })
                     .collect_vec()
             })
@@ -149,15 +146,15 @@ impl FacadePassData {
         [
             self.vertices
                 .iter()
-                .map(|_| vertex_superposition.clone())
+                .map(|_| vertex_superposition)
                 .collect_vec(),
             self.edges
                 .iter()
-                .map(|_| edge_superposition.clone())
+                .map(|_| edge_superposition)
                 .collect_vec(),
             self.quads
                 .iter()
-                .map(|_| quad_superposition.clone())
+                .map(|_| quad_superposition)
                 .collect_vec(),
         ]
         .into_iter()
@@ -186,11 +183,11 @@ impl FacadePassData {
     }
 
     pub fn create_wfc_graph(&self, tileset: &FacadeTileset) -> WfcGraph<Superposition> {
-        let mut nodes = FacadePassData::get_nodes(&self, tileset);
+        let mut nodes = FacadePassData::get_nodes(self, tileset);
         let neighbors = [
-            FacadePassData::get_vertex_neighbours(&self),
-            FacadePassData::get_edge_neighbours(&self),
-            FacadePassData::get_quad_neighbours(&self),
+            FacadePassData::get_vertex_neighbours(self),
+            FacadePassData::get_edge_neighbours(self),
+            FacadePassData::get_quad_neighbours(self),
         ]
         .into_iter()
         .flat_map(|v| v.into_iter())
@@ -404,7 +401,7 @@ impl FacadePassData {
         edges.insert_attribute(Mesh::ATTRIBUTE_NORMAL, arc_vertex_normals);
         edges.insert_attribute(Mesh::ATTRIBUTE_UV_0, arc_vertex_uvs);
         edges.insert_attribute(Mesh::ATTRIBUTE_COLOR, arc_vertex_colors);
-        return edges;
+        edges
     }
 
     // Labeling the corners of the cube with bits according to:
@@ -461,20 +458,20 @@ impl FacadePassData {
         // Three masks in the form [Z][Y][X], masks vertex configuration bits corresponding
         // to the contents in neighbouring cells along + that axis
         let face_configuration_mask = 0b11111111
-            & (Self::CONFIG_PLUS_ZYX_MASK >> u_step * 4)
-            & (Self::CONFIG_PLUS_ZYX_MASK >> v_step * 4);
+            & (Self::CONFIG_PLUS_ZYX_MASK >> (u_step * 4))
+            & (Self::CONFIG_PLUS_ZYX_MASK >> (v_step * 4));
 
         // Mask two to only the two cells across the edge of the vertex configuration corresponding  to +U +V.
         let config = face_configuration_mask & root_configuration;
 
         // Check if the remaining bit lies in the +W or -W direction, the opposite
         // direction to this will be the normal of the face.
-        let invert = (Self::CONFIG_PLUS_ZYX_MASK >> w_step * 4) & config != 0;
+        let invert = (Self::CONFIG_PLUS_ZYX_MASK >> (w_step * 4)) & config != 0;
         let normal = w_step + invert as usize;
 
         // If there are occupied cells in both +W and -W the face is occluded
-        let occluded = (Self::CONFIG_PLUS_ZYX_MASK >> w_step * 4) & config != 0
-            && (!Self::CONFIG_PLUS_ZYX_MASK >> w_step * 4) & config != 0;
+        let occluded = (Self::CONFIG_PLUS_ZYX_MASK >> (w_step * 4)) & config != 0
+            && (!Self::CONFIG_PLUS_ZYX_MASK >> (w_step * 4)) & config != 0;
 
         (occluded, normal)
     }
@@ -529,7 +526,7 @@ impl FacadePassData {
                 vertex_configurations.push(vertex_configuration);
                 new_node_indices.push(Some(new_node_index));
                 new_node_index += 1;
-                nodes[index as usize] = true;
+                nodes[index] = true;
             } else {
                 new_node_indices.push(None)
             }
@@ -547,20 +544,11 @@ impl FacadePassData {
                     .map(|(direction_index, dir)| {
                         if ivec3_in_bounds(u_pos + dir, IVec3::ZERO, size + 1) {
                             let v = ivec3_to_index(u_pos + dir, size + 1);
-                            if let Some(v) = new_node_indices[v] {
-                                if Self::edge_occluded(Self::edge_configuration(
+                            new_node_indices[v].filter(|&v| !Self::edge_occluded(Self::edge_configuration(
                                     vertex_configurations[u],
                                     vertex_configurations[v],
                                     direction_index,
-                                )) {
-                                    // dbg!("Occluded edge");
-                                    None
-                                } else {
-                                    Some(v)
-                                }
-                            } else {
-                                None
-                            }
+                                )))
                         } else {
                             None
                         }
@@ -578,11 +566,7 @@ impl FacadePassData {
                     .into_iter()
                     .enumerate()
                     .filter_map(|(index, neighbour)| {
-                        if let Some(v) = neighbour.1 {
-                            Some((index, neighbour.0, v))
-                        } else {
-                            None
-                        }
+                        neighbour.1.map(|v| (index, neighbour.0, v))
                     })
                     .map(|(_, dir, v)| FacadeEdge {
                         from: u,
@@ -594,7 +578,6 @@ impl FacadePassData {
                     }),
                 );
                 let vertex_edges: [Option<usize>; 6] = neighbours
-                    .clone()
                     .into_iter()
                     .enumerate()
                     .map(|(i, neighbour)| {
@@ -679,11 +662,7 @@ impl FacadePassData {
     }
 }
 
-impl Default for FacadePassSettings {
-    fn default() -> Self {
-        Self {}
-    }
-}
+
 
 const DIRECTIONS: [IVec3; 6] = [
     IVec3::X,
@@ -780,7 +759,7 @@ impl FacadeTileset {
                     .map(|(key, value)| (names.get(&key).unwrap(), value));
 
                 for (index, node) in new_nodes {
-                    Self::traverse_dag_model(index.clone(), node, names, adj, leaf);
+                    Self::traverse_dag_model(*index, node, names, adj, leaf);
                 }
             }
             DagNodeModel::Leaf => {
@@ -799,7 +778,7 @@ impl FacadeTileset {
     }
 
     fn get_matching_direction(dir: usize) -> usize {
-        return dir + 1 - 2 * dir.rem_euclid(2);
+        dir + 1 - 2 * dir.rem_euclid(2)
     }
 
     fn ivec3_to_direction(dir: IVec3) -> Option<usize> {
@@ -825,9 +804,7 @@ impl FacadeTileset {
             .map(|(index, (key, _value))| (key.clone(), index))
             .collect::<HashMap<String, usize>>();
         let symmetries = model
-            .symmetries
-            .iter()
-            .map(|(_, sym)| {
+            .symmetries.values().map(|sym| {
                 directions
                     .iter()
                     .map(|k| {
@@ -860,8 +837,7 @@ impl FacadeTileset {
                     .iter()
                     .map(|dir| {
                         node.sockets
-                            .get(dir)
-                            .and_then(|socket| Some(socket.clone()))
+                            .get(dir).cloned()
                     })
                     .collect::<Box<[Option<String>]>>(),
                 symmetries: node
@@ -986,8 +962,8 @@ impl FacadeTileset {
 
                         if source_socket.is_some()
                             && target_socket.is_some()
-                            && (source_socket == &source.1 || source.1 == None)
-                            && (source_socket == &target.1 || target.1 == None)
+                            && (source_socket == &source.1 || source.1.is_none())
+                            && (source_socket == &target.1 || target.1.is_none())
                         {
                             allowed_neighbours[*transformed_source_index][source_direction]
                                 .add_tile(*transformed_target_index);
@@ -1008,7 +984,7 @@ impl FacadeTileset {
 
         let transformed_leaves = leaf_nodes
             .iter()
-            .flat_map(|n| associated_transformed_nodes[*n].iter().map(|l| *l))
+            .flat_map(|n| associated_transformed_nodes[*n].iter().copied())
             .collect_vec();
 
         for parent in transformed_nodes
@@ -1169,7 +1145,7 @@ impl FacadeTileset {
         let mut last_sym = parent_symmetry.clone();
         node_symmetries.insert(parent_symmetry.clone());
 
-        if let Some(sym) = semantic_node.symmetries.get(0) {
+        if let Some(sym) = semantic_node.symmetries.first() {
             let current_symmetry = &symmetries[*sym];
             loop {
                 let next_sym = Self::compose_symmetries(current_symmetry, &last_sym);
@@ -1194,14 +1170,14 @@ impl FacadeTileset {
                 .collect::<Box<[Option<String>]>>();
             let required = sym
                 .iter()
-                .map(|i| ((!semantic_node.optional[*i].clone()) as usize) << *i)
+                .map(|i| ((!semantic_node.optional[*i]) as usize) << *i)
                 .reduce(|p, n| p | n)
                 .unwrap();
             if socket_configurations.insert(sockets.clone()) {
                 let self_location_transformed_nodes = transformed_nodes.len();
                 transformed_nodes.push(TransformedDagNode {
                     source_node: node,
-                    parents: parent.and_then(|p| Some(vec![p])).unwrap_or(vec![]),
+                    parents: parent.map(|p| vec![p]).unwrap_or_default(),
                     children: vec![],
                     symmetry: sym.clone(),
                     sockets,
@@ -1218,7 +1194,7 @@ impl FacadeTileset {
                     Self::traverse_symmetries(
                         *child,
                         Some(self_location_transformed_nodes),
-                        &sym,
+                        sym,
                         transformed_nodes,
                         associated_transformed_nodes,
                         semantic_nodes,
@@ -1226,19 +1202,17 @@ impl FacadeTileset {
                         symmetries,
                     );
                 }
-            } else {
-                if let Some(parent) = parent {
-                    if let Some(existing_index) = existing_socket_configurations.iter().find_map(
-                        |(index, existing_sockets)| {
-                            if existing_sockets == &sockets {
-                                Some(index)
-                            } else {
-                                None
-                            }
-                        },
-                    ) {
-                        transformed_nodes[*existing_index].parents.push(parent)
-                    }
+            } else if let Some(parent) = parent {
+                if let Some(existing_index) = existing_socket_configurations.iter().find_map(
+                    |(index, existing_sockets)| {
+                        if existing_sockets == &sockets {
+                            Some(index)
+                        } else {
+                            None
+                        }
+                    },
+                ) {
+                    transformed_nodes[*existing_index].parents.push(parent)
                 }
             }
         }
@@ -1261,7 +1235,7 @@ impl FacadeTileset {
         let transformed_nodes = &self.associated_transformed_nodes[node];
 
         let transformed_nodes = Superposition::from_iter_sized(
-            transformed_nodes.iter().map(|n| *n),
+            transformed_nodes.iter().copied(),
             self.transformed_nodes.len(),
         );
 

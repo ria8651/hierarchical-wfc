@@ -17,7 +17,7 @@ use bevy::{
 use bevy::log::LogPlugin;
 use bevy_inspector_egui::{bevy_egui, DefaultInspectorConfigPlugin};
 use bevy_mod_billboard::prelude::*;
-use bevy_mod_debugdump;
+
 use bevy_rapier3d::prelude::{Collider, NoUserData, RapierPhysicsPlugin, RigidBody};
 use hierarchical_wfc::{
     camera_plugin::cam_switcher::SwitchingCameraPlugin,
