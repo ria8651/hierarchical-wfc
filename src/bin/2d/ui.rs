@@ -1,8 +1,3 @@
-use crate::{
-    basic_tileset::BasicTileset,
-    carcassonne_tileset::CarcassonneTileset,
-    wfc::{graph_grid::GridGraphSettings, TileSet, WaveFunctionCollapse},
-};
 use bevy::prelude::*;
 use bevy_inspector_egui::{
     bevy_egui::{EguiContexts, EguiPlugin},
@@ -12,7 +7,13 @@ use bevy_inspector_egui::{
     reflect_inspector::ui_for_value,
     DefaultInspectorConfigPlugin,
 };
+use hierarchical_wfc::{
+    graphs::regular_grid_2d,
+    wfc::{Superposition, TileSet, WaveFunctionCollapse},
+};
 use rand::{rngs::StdRng, SeedableRng};
+
+use crate::{basic_tileset::BasicTileset, carcassonne_tileset::CarcassonneTileset};
 pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
@@ -22,7 +23,7 @@ impl Plugin for UiPlugin {
             .init_resource::<UiState>()
             .register_type::<UiState>()
             .register_type::<TileSetUi>()
-            .register_type::<GridGraphSettings>()
+            .register_type::<regular_grid_2d::GraphSettings>()
             .add_systems(Update, ui);
     }
 }
@@ -40,8 +41,8 @@ struct UiState {
 
 #[derive(Reflect)]
 enum TileSetUi {
-    Carcassonne(GridGraphSettings),
-    BasicTileset(GridGraphSettings),
+    Carcassonne(regular_grid_2d::GraphSettings),
+    BasicTileset(regular_grid_2d::GraphSettings),
 }
 
 #[derive(Component)]
@@ -56,11 +57,8 @@ fn ui(
     asset_server: Res<AssetServer>,
 ) {
     let tileset = match &ui_state.picked_tileset {
-        TileSetUi::BasicTileset(_) => {
-            Box::new(BasicTileset) as Box<dyn TileSet<GraphSettings = GridGraphSettings>>
-        }
-        TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset)
-            as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
+        TileSetUi::BasicTileset(_) => Box::new(BasicTileset) as Box<dyn TileSet>,
+        TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset) as Box<dyn TileSet>,
     };
 
     if ui_state.weights.len() != tileset.tile_count() {
@@ -97,7 +95,10 @@ fn ui(
                         };
 
                         let create_graph_span = info_span!("wfc_create_graph").entered();
-                        let mut graph = tileset.create_graph(settings);
+                        let mut graph = regular_grid_2d::create_grid_graph(
+                            settings,
+                            Superposition::filled(tileset.tile_count()),
+                        );
                         create_graph_span.exit();
 
                         let setup_constraints_span = info_span!("wfc_setup_constraints").entered();
@@ -118,9 +119,9 @@ fn ui(
                         );
                         collapse_span.exit();
 
-                        // for y in (0..settings.height as usize).rev() {
-                        //     for x in 0..settings.width as usize {
-                        //         print!("[{:?}]", graph.tiles[x * settings.height as usize + y]);
+                        // for y in (0..settings.height).rev() {
+                        //     for x in 0..settings.width {
+                        //         print!("[{:?}]", graph.nodes[x * settings.height + y]);
                         //     }
                         //     println!();
                         // }
@@ -142,6 +143,7 @@ fn ui(
                         // tileset
                         let mut tile_handles: Vec<Handle<Image>> = Vec::new();
                         for tile in tileset.get_tile_paths() {
+                            dbg!(&tile);
                             tile_handles.push(asset_server.load(tile));
                         }
 
@@ -157,19 +159,19 @@ fn ui(
                                 (i / settings.height) as f32,
                                 (i % settings.height) as f32,
                             );
+                            let transform = Transform::from_translation(
+                                ((pos + 0.5) / settings.width as f32 - 0.5).extend(0.0),
+                            )
+                            .with_rotation(Quat::from_rotation_z(
+                                -std::f32::consts::PI * tile_rotation as f32 / 2.0,
+                            ));
+                            dbg!(&tile_index, &transform);
                             commands.spawn((
                                 SpriteBundle {
                                     texture: tile_handles[tile_index].clone(),
-                                    transform: Transform::from_translation(
-                                        ((pos + 0.5) / settings.width as f32 - 0.5).extend(0.0),
-                                    )
-                                    .with_rotation(
-                                        Quat::from_rotation_z(
-                                            -std::f32::consts::PI * tile_rotation as f32 / 2.0,
-                                        ),
-                                    ),
+                                    transform,
                                     sprite: Sprite {
-                                        custom_size: Some(Vec2::splat(1.0 / settings.width as f32)),
+                                        custom_size: Some(Vec2::ONE), //Some(Vec2::splat(1.0 / settings.width as f32)),
                                         ..default()
                                     },
                                     ..default()
@@ -202,6 +204,6 @@ fn ui(
 
 impl Default for TileSetUi {
     fn default() -> Self {
-        Self::Carcassonne(GridGraphSettings::default())
+        Self::Carcassonne(regular_grid_2d::GraphSettings::default())
     }
 }

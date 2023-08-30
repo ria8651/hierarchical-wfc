@@ -3,9 +3,10 @@ use bevy::{math::vec3, prelude::*};
 use bevy_mod_billboard::prelude::*;
 
 use hierarchical_wfc::{
+    castle::facade_graph::FacadeTileset,
+    graphs::{regular_grid_3d, regular_quad_mesh},
     materials::tile_pbr_material::TilePbrMaterial,
     tools::MeshBuilder,
-    village::facade_graph::{FacadePassData, FacadePassSettings, FacadeTileset},
     wfc::{
         bevy_passes::{
             WfcEntityMarker, WfcFCollapsedData, WfcInitialData, WfcParentPasses, WfcPassReadyMarker,
@@ -20,7 +21,10 @@ use crate::{
     replay::{ReplayOrder, ReplayPassProgress, ReplayTileMapMaterials},
 };
 
-use super::LayoutPass;
+use super::LayoutPassMarker;
+
+#[derive(Component)]
+pub struct FacadePassMarker;
 
 #[derive(Component)]
 pub struct FacadeDebugSettings {
@@ -29,25 +33,31 @@ pub struct FacadeDebugSettings {
 
 pub fn facade_init_system(
     mut commands: Commands,
-    query: Query<(Entity, &FacadePassSettings, &WfcParentPasses), With<WfcPassReadyMarker>>,
-    q_layout_parents: Query<(&LayoutPass, &WfcFCollapsedData)>,
+    q_facade_pass: Query<
+        (Entity, &WfcParentPasses),
+        (With<WfcPassReadyMarker>, With<FacadePassMarker>),
+    >,
+    q_layout_parents: Query<
+        (&regular_grid_3d::GraphSettings, &WfcFCollapsedData),
+        With<LayoutPassMarker>,
+    >,
 ) {
-    for (entity, _pass_settings, parents) in query.iter() {
-        for (
-            LayoutPass {
-                settings: parent_settings,
-            },
-            parent_data,
-        ) in q_layout_parents.iter_many(parents.0.iter())
-        {
-            let facade_pass_data = FacadePassData::from_layout(&parent_data.graph, parent_settings);
+    for (entity, parents) in q_facade_pass.iter() {
+        for (graph_settings, collapsed_data) in q_layout_parents.iter_many(parents.0.iter()) {
+            // let facade_pass_data =
+            //     regular_quad_mesh::from_layout(graph_settings, &collapsed_data.graph);
 
             let tileset = FacadeTileset::from_asset("semantics/frame_test.json");
-            let wfc_graph = facade_pass_data.create_wfc_graph(&tileset);
+
+            let graph_builder = regular_quad_mesh::builder::GraphBuilder::from_regular_3d_grid(
+                graph_settings,
+                &collapsed_data.graph,
+            );
+            let (data, graph) = graph_builder.build_graph(&tileset);
 
             let wfc = WfcInitialData {
                 label: Some("Facade".to_string()),
-                graph: wfc_graph,
+                graph,
                 constraints: tileset.get_constraints(),
                 rng: StdRng::from_entropy(),
                 weights: tileset.get_weights(),
@@ -62,7 +72,7 @@ pub fn facade_init_system(
                     GenerateMeshMarker,
                     WfcEntityMarker,
                 ))
-                .insert((facade_pass_data, tileset, wfc))
+                .insert((data, tileset, wfc))
                 .insert(SpatialBundle::default());
         }
     }
@@ -74,8 +84,13 @@ pub struct GenerateMeshMarker;
 pub fn facade_mesh_system(
     mut commands: Commands,
     mut query: Query<
-        (Entity, &FacadePassData, &WfcFCollapsedData, &FacadeTileset),
-        With<GenerateMeshMarker>,
+        (
+            Entity,
+            &regular_quad_mesh::GraphData,
+            &WfcFCollapsedData,
+            &FacadeTileset,
+        ),
+        (With<GenerateMeshMarker>, With<FacadePassMarker>),
     >,
     asset_server: Res<AssetServer>,
 ) {
@@ -86,9 +101,6 @@ pub fn facade_mesh_system(
         }
         for (node_index, node) in collapsed_data.graph.nodes.iter().enumerate() {
             let node = *node;
-
-            // let node = collapsed_data.graph.nodes
-            //     [edge_id + facade_pass_data.vertices.len() + facade_pass_data.edges.len()];
 
             if node != 404 {
                 let transformed_id = tileset.leaf_sources[node];
@@ -104,7 +116,6 @@ pub fn facade_mesh_system(
                 ];
 
                 let position = facade_pass_data.get_node_pos(node_index);
-                // let position = edge.pos.as_vec3() * vec3(2.0, 3.0, 2.0) * 0.25;
                 let transform = Transform::from_matrix(
                     Mat4::from_cols(
                         DIRECTIONS[symmetry[0]],
@@ -143,12 +154,12 @@ pub fn facade_debug_system(
     mut query: Query<
         (
             Entity,
-            &FacadePassData,
+            &regular_quad_mesh::GraphData,
             &WfcFCollapsedData,
             &FacadeTileset,
             &FacadeDebugSettings,
         ),
-        With<GenerateDebugMarker>,
+        (With<GenerateDebugMarker>, With<FacadePassMarker>),
     >,
     mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
@@ -241,7 +252,7 @@ pub fn facade_debug_system(
                     404 => error_mesh_builder.add_mesh(
                         &error_cube,
                         transform,
-                        collapsed_data.graph.order[index + facade_pass_data.vertices.len()] as u32,
+                        ordering[index + facade_pass_data.vertices.len()] as u32,
                     ),
                     id => {
                         if enable_text {
@@ -272,8 +283,7 @@ pub fn facade_debug_system(
                         edge_mesh_builder.add_mesh(
                             &ok_cube,
                             transform,
-                            collapsed_data.graph.order[index + facade_pass_data.vertices.len()]
-                                as u32,
+                            ordering[index + facade_pass_data.vertices.len()] as u32,
                         )
                     }
                 }
@@ -287,7 +297,7 @@ pub fn facade_debug_system(
                     404 => error_mesh_builder.add_mesh(
                         &error_cube,
                         transform,
-                        collapsed_data.graph.order
+                        ordering
                             [index + facade_pass_data.vertices.len() + facade_pass_data.edges.len()]
                             as u32,
                     ),
@@ -319,7 +329,7 @@ pub fn facade_debug_system(
                         quad_mesh_builder.add_mesh(
                             &ok_cube,
                             transform,
-                            collapsed_data.graph.order[index
+                            ordering[index
                                 + facade_pass_data.vertices.len()
                                 + facade_pass_data.edges.len()] as u32,
                         )

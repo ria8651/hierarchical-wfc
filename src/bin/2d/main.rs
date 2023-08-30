@@ -4,7 +4,6 @@
 mod basic_tileset;
 mod carcassonne_tileset;
 mod ui;
-mod wfc;
 
 use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::ScalingMode};
 use ui::UiPlugin;

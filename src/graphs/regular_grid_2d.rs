@@ -1,16 +1,16 @@
 use bevy::prelude::*;
 
-use super::{Neighbour, WfcGraph};
+use crate::wfc::{Neighbour, WfcGraph};
 
-#[derive(Reflect)]
+#[derive(Reflect, Component, Clone)]
 #[reflect(Default)]
-pub struct GridGraphSettings {
+pub struct GraphSettings {
     pub width: usize,
     pub height: usize,
     pub periodic: bool,
 }
 
-impl Default for GridGraphSettings {
+impl Default for GraphSettings {
     fn default() -> Self {
         Self {
             width: 10,
@@ -20,7 +20,7 @@ impl Default for GridGraphSettings {
     }
 }
 
-pub fn create_grid_graph<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> WfcGraph<F> {
+pub fn create_grid_graph<F: Clone>(settings: &GraphSettings, fill_with: F) -> WfcGraph<F> {
     let size = IVec2::new(settings.width as i32, settings.height as i32);
 
     let mut nodes_pos = Vec::new();
@@ -41,24 +41,24 @@ pub fn create_grid_graph<F: Clone>(settings: &GridGraphSettings, fill_with: F) -
     for pos in nodes_pos.iter() {
         let mut node_neighbors = Vec::new();
         for (i, arc_t_vec) in arc_types.iter().enumerate() {
-            let mut neighbor_pos = *pos + *arc_t_vec;
-            if neighbor_pos.cmpge(size).any() && !settings.periodic {
+            let mut neighbour_pos = *pos + *arc_t_vec;
+            if neighbour_pos.cmpge(size).any() && !settings.periodic {
                 continue;
             }
-            if neighbor_pos.cmplt(IVec2::ZERO).any() && !settings.periodic {
+            if neighbour_pos.cmplt(IVec2::ZERO).any() && !settings.periodic {
                 continue;
             }
             if settings.periodic {
-                neighbor_pos = IVec2::new(
-                    neighbor_pos.x.rem_euclid(size.x),
-                    neighbor_pos.y.rem_euclid(size.y),
+                neighbour_pos = IVec2::new(
+                    neighbour_pos.x.rem_euclid(size.x),
+                    neighbour_pos.y.rem_euclid(size.y),
                 );
             }
 
-            let neighbor_index = (neighbor_pos.x * size.y + neighbor_pos.y) as usize;
+            let neighbour_index = (neighbour_pos.x * size.y + neighbour_pos.y) as usize;
             node_neighbors.push(Neighbour {
                 arc_type: i,
-                index: neighbor_index,
+                index: neighbour_index,
             });
         }
         neighbors.push(node_neighbors.into());
@@ -68,7 +68,7 @@ pub fn create_grid_graph<F: Clone>(settings: &GridGraphSettings, fill_with: F) -
 
     WfcGraph {
         nodes: tiles,
-        neighbors: neighbors.into(),
+        neighbours: neighbors.into(),
         order: Vec::new(),
     }
 }

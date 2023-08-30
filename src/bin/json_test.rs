@@ -1,15 +1,19 @@
+use bevy::math::{uvec3, vec3};
 use hierarchical_wfc::{
-    village::{
-        facade_graph::{FacadePassData, FacadeTileset},
-        LayoutGraphSettings,
-    },
-    wfc::{Neighbour, TileSet, WfcGraph},
+    castle::facade_graph::FacadeTileset,
+    graphs::{regular_grid_3d, regular_quad_mesh},
+    wfc::{Neighbour, TileSet, WaveFunctionCollapse, WfcGraph},
 };
+use rand::{rngs::StdRng, SeedableRng};
 
 fn main() {
-    let _data = FacadePassData::from_layout(&test_graph(), &test_settings());
+    let builder = regular_quad_mesh::builder::GraphBuilder::from_regular_3d_grid(
+        &test_settings(),
+        &test_graph(),
+    );
+    // let data = FacadePassData::from_layout(&test_settings(), &test_graph());
     let tileset = FacadeTileset::from_asset("semantics/frame_test.json");
-    // let mut wfc_graph = data.create_wfc_graph(&tileset);
+    let (_data, mut wfc_graph) = builder.build_graph(&tileset);
 
     dbg!(tileset.superposition_from_semantic_name("vertex".to_string()));
     dbg!(tileset.superposition_from_semantic_name("edge".to_string()));
@@ -17,14 +21,14 @@ fn main() {
 
     dbg!(tileset.get_constraints());
 
-    // dbg!(&wfc_graph.nodes);/
+    dbg!(&wfc_graph.nodes);
 
-    // WaveFunctionCollapse::collapse(
-    //     &mut wfc_graph,
-    //     &tileset.get_constraints(),
-    //     &tileset.get_weights(),
-    //     &mut StdRng::from_entropy(),
-    // );
+    WaveFunctionCollapse::collapse(
+        &mut wfc_graph,
+        &tileset.get_constraints(),
+        &tileset.get_weights(),
+        &mut StdRng::from_entropy(),
+    );
     // let binding = tileset.superposition_from_semantic_name("edge_leaf_h_flat".to_string());
     // let tile: Vec<usize> = binding.tile_iter().collect();
 }
@@ -45,7 +49,7 @@ fn test_graph() -> WfcGraph<usize> {
             10, 0, 48, 38, 39, 49, 29, 59, 58, 69, 79, 77, 87, 88, 86, 97, 98, 96, 78, 28, 27, 18,
             60, 17, 7, 8, 6, 5, 16, 9, 89, 19, 99,
         ],
-        neighbors: Box::new([
+        neighbours: Box::new([
             Box::new([
                 Neighbour {
                     arc_type: 0,
@@ -1690,11 +1694,9 @@ fn test_graph() -> WfcGraph<usize> {
     }
 }
 
-fn test_settings() -> LayoutGraphSettings {
-    LayoutGraphSettings {
-        x_size: 10,
-        y_size: 1,
-        z_size: 10,
-        periodic: false,
+fn test_settings() -> regular_grid_3d::GraphSettings {
+    regular_grid_3d::GraphSettings {
+        size: uvec3(16, 6, 16),
+        spacing: vec3(2.0, 3.0, 2.0),
     }
 }
