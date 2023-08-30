@@ -1,15 +1,37 @@
 use crate::{Executer, Peasant};
-use rand::Rng;
+use anyhow::Result;
+use crossbeam::{
+    channel::{self, Sender},
+    queue::SegQueue,
+};
+use rand::{rngs::SmallRng, SeedableRng};
+use std::{sync::Arc, thread};
 
-pub struct CpuExecuter;
+pub struct CpuExecuter {
+    queue: Sender<Peasant>,
+}
 
-impl Executer for CpuExecuter {
-    /// Returns true if returned early
-    fn execute<R: Rng>(&mut self, rng: &mut R, peasant: &mut Peasant) -> bool {
+impl CpuExecuter {
+    pub fn new(output: Arc<SegQueue<Peasant>>) -> Self {
+        let (tx, rx) = channel::unbounded();
+
+        thread::spawn(move || {
+            while let Ok(mut peasant) = rx.recv() {
+                Self::execute(&mut peasant);
+                output.push(peasant);
+            }
+        });
+
+        Self { queue: tx }
+    }
+
+    fn execute(peasant: &mut Peasant) {
+        let mut rng = SmallRng::seed_from_u64(peasant.seed);
+
         let mut stack = Vec::new();
-        while let Some(cell) = peasant.lowest_entropy(rng) {
+        while let Some(cell) = peasant.lowest_entropy(&mut rng) {
             // collapse cell
-            peasant.graph.tiles[cell].select_random(rng, peasant.weights);
+            peasant.graph.tiles[cell].select_random(&mut rng, &peasant.weights);
 
             // propagate changes
             stack.push(cell);
@@ -24,8 +46,6 @@ impl Executer for CpuExecuter {
             }
         }
 
-        false
-
         // for y in (0..grid_wfc.grid[0].len()).rev() {
         //     for x in 0..grid_wfc.grid.len() {
         //         let tiles = &grid_wfc.grid[x][y];
@@ -33,6 +53,14 @@ impl Executer for CpuExecuter {
         //     }
         //     println!();
         // }
+    }
+}
+
+impl Executer for CpuExecuter {
+    fn queue_peasant(&mut self, peasant: Peasant) -> Result<()> {
+        self.queue.send(peasant)?;
+
+        Ok(())
     }
 }
 

@@ -12,8 +12,9 @@ use bevy_inspector_egui::{
     reflect_inspector::ui_for_value,
     DefaultInspectorConfigPlugin,
 };
+use crossbeam::queue::SegQueue;
 use hierarchical_wfc::{CpuExecuter, Executer, Graph, Peasant, TileSet, WaveFunction};
-use rand::{rngs::SmallRng, SeedableRng};
+use std::sync::Arc;
 
 pub struct UiPlugin;
 
@@ -25,7 +26,7 @@ impl Plugin for UiPlugin {
             .register_type::<UiState>()
             .register_type::<TileSetUi>()
             .register_type::<GridGraphSettings>()
-            .add_systems(Update, (ui, propagate, render_grid_graph).chain());
+            .add_systems(Update, (ui, render_grid_graph).chain());
     }
 }
 
@@ -35,6 +36,8 @@ struct UiState {
     random_seed: bool,
     picked_tileset: TileSetUi,
     timeout: Option<f64>,
+    #[reflect(ignore)]
+    guild: Guild,
     #[reflect(ignore)]
     weights: Vec<u32>,
     #[reflect(ignore)]
@@ -56,12 +59,30 @@ impl Default for UiState {
             random_seed: true,
             picked_tileset: TileSetUi::default(),
             timeout: Some(0.05),
+            guild: Guild::default(),
             weights: Vec::new(),
             image_handles: Vec::new(),
             graph: None,
             graph_dirty: false,
             render_dirty: Default::default(),
             tile_entities: Vec::new(),
+        }
+    }
+}
+
+struct Guild {
+    cpu_executer: CpuExecuter,
+    output: Arc<SegQueue<Peasant>>,
+}
+
+impl Default for Guild {
+    fn default() -> Self {
+        let output = Arc::new(SegQueue::new());
+        let cpu_executer = CpuExecuter::new(output.clone());
+
+        Self {
+            cpu_executer,
+            output,
         }
     }
 }
@@ -127,14 +148,13 @@ fn ui(
                         ui_for_value(ui_state.as_mut(), ui, &type_registry.read());
 
                         if ui.button("Generate").clicked() {
-                            let create_graph_span = info_span!("wfc_create_graph").entered();
                             let settings = match &ui_state.picked_tileset {
                                 TileSetUi::BasicTileset(settings) => settings,
                                 TileSetUi::Carcassonne(settings) => settings,
                             };
                             let graph = tileset.create_graph(settings);
-                            create_graph_span.exit();
 
+                            // prepare tile rendering
                             let mut tile_entities = Vec::new();
                             for i in 0..graph.tiles.len() {
                                 let pos = Vec2::new(
@@ -171,6 +191,23 @@ fn ui(
 
                             ui_state.graph_dirty = true;
                             ui_state.render_dirty = RenderState::Init;
+
+                            // start generation task
+                            let seed = if !ui_state.random_seed {
+                                ui_state.seed
+                            } else {
+                                rand::random()
+                            };
+                            let constraints = Arc::new(tileset.get_constraints());
+                            let graph = ui_state.graph.as_ref().unwrap().clone();
+                            let weights = ui_state.weights.clone();
+                            let peasant = Peasant {
+                                graph,
+                                constraints,
+                                weights,
+                                seed,
+                            };
+                            ui_state.guild.cpu_executer.queue_peasant(peasant).unwrap();
                         }
                     });
 
@@ -192,42 +229,11 @@ fn ui(
                     });
             });
         });
-}
 
-fn propagate(mut ui_state: ResMut<UiState>) {
-    if ui_state.graph_dirty {
-        let tileset = match &ui_state.picked_tileset {
-            TileSetUi::BasicTileset(_) => Box::new(BasicTileset::default())
-                as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
-            TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset::default())
-                as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
-        };
-
-        let setup_constraints_span = info_span!("wfc_setup_constraints").entered();
-        let constraints = tileset.get_constraints();
-        let mut rng = if !ui_state.random_seed {
-            SmallRng::seed_from_u64(ui_state.seed)
-        } else {
-            SmallRng::from_entropy()
-        };
-        setup_constraints_span.exit();
-
-        let collapse_span = info_span!("wfc_collapse").entered();
-        let graph = ui_state.graph.as_ref().unwrap().clone();
-        let mut peasant = Peasant {
-            graph: graph,
-            constraints: &constraints,
-            weights: &ui_state.weights,
-        };
-        let mut excecuter = CpuExecuter;
-        let result = excecuter.execute(&mut rng, &mut peasant);
+    if let Some(peasant) = ui_state.guild.output.pop() {
         ui_state.graph = Some(peasant.graph);
-        ui_state.graph_dirty = result;
-        collapse_span.exit();
-
-        if ui_state.render_dirty != RenderState::Init {
-            ui_state.render_dirty = RenderState::Dirty;
-        }
+        ui_state.graph_dirty = true;
+        ui_state.render_dirty = RenderState::Dirty;
     }
 }
 

@@ -1,23 +1,28 @@
+use anyhow::Result;
 pub use cpu_executer::*;
 pub use graph::*;
 use rand::Rng;
+use std::sync::Arc;
 pub use tileset::*;
 
 mod cpu_executer;
 mod graph;
+mod guild;
 mod tileset;
 
 pub trait Executer {
-    fn execute<R: Rng>(&mut self, rng: &mut R, graph: &mut Peasant) -> bool;
+    // fn execute(&mut self, graph: &mut Peasant) -> bool;
+    fn queue_peasant(&mut self, peasant: Peasant) -> Result<()>;
 }
 
-pub struct Peasant<'a> {
+pub struct Peasant {
     pub graph: Graph<WaveFunction>,
-    pub constraints: &'a Vec<Vec<WaveFunction>>,
-    pub weights: &'a Vec<u32>,
+    pub constraints: Arc<Vec<Vec<WaveFunction>>>,
+    pub weights: Vec<u32>,
+    pub seed: u64,
 }
 
-impl<'a> Peasant<'a> {
+impl Peasant {
     pub fn lowest_entropy<R: Rng>(&self, rng: &mut R) -> Option<usize> {
         // find next cell to update
         let mut min_entropy = usize::MAX;
