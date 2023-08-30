@@ -129,13 +129,16 @@ fn pan_orbit_camera(
         }
 
         if dragging {
-            let viewport_size = viewport_rect.size();
-            let wrapped_pos = ((cursor_pos - viewport_rect.min) / viewport_size).fract()
-                * viewport_size
-                + viewport_rect.min;
+            previous_cursor.position = Some(cursor_pos);
 
-            primary_window.set_cursor_position(Some(wrapped_pos));
-            previous_cursor.position = Some(wrapped_pos);
+            if !viewport_rect.contains(cursor_pos) {
+                let viewport_size = viewport_rect.size();
+                let wrapped_pos = ((cursor_pos - viewport_rect.min) / viewport_size).fract()
+                    * viewport_size
+                    + viewport_rect.min;
+                primary_window.set_cursor_position(Some(wrapped_pos));
+                previous_cursor.position = Some(wrapped_pos);
+            }
         }
     }
 
