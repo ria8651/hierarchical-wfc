@@ -34,6 +34,8 @@ name = "json_test"
 name = "multipass"
 
 [[bin]]
+name = "chunking"
+[[bin]]
 name = "2d"
 
 # [[bin]]
