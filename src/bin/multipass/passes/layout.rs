@@ -2,7 +2,7 @@ use bevy::{math::vec3, prelude::*};
 
 use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, RigidBody};
 use hierarchical_wfc::{
-    castle::{facade_graph::FacadePassSettings, layout_pass::LayoutTileset},
+    castle::layout_pass::LayoutTileset,
     graphs::regular_grid_3d,
     materials::tile_pbr_material::TilePbrMaterial,
     tools::MeshBuilder,
@@ -22,6 +22,8 @@ use crate::{
     regenerate::RegenerateSettings,
     replay::{DebugBlocks, ReplayPassProgress, ReplayTileMapMaterials},
 };
+
+use super::FacadePassMarker;
 
 #[derive(Component)]
 pub struct LayoutPassMarker;
@@ -68,7 +70,7 @@ pub fn layout_regenerate_system(
                     }
                 })
                 .collect_vec(),
-            neighbors: collapsed_data.graph.neighbors.clone(),
+            neighbours: collapsed_data.graph.neighbours.clone(),
             order: collapsed_data
                 .graph
                 .order
@@ -103,7 +105,7 @@ pub fn layout_regenerate_system(
         }
         commands.spawn((
             WfcEntityMarker,
-            FacadePassSettings,
+            FacadePassMarker,
             WfcPendingParentMarker,
             WfcParentPasses(vec![layout_entity]),
         ));

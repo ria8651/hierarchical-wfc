@@ -39,8 +39,8 @@ impl WaveFunctionCollapse {
         let mut stack = Vec::from_iter(0..graph.nodes.len());
         while let Some(index) = stack.pop() {
             // propagate changes for node from stack
-            for i in 0..graph.neighbors[index].len() {
-                let neighbor = graph.neighbors[index][i];
+            for i in 0..graph.neighbours[index].len() {
+                let neighbor = graph.neighbours[index][i];
                 if WaveFunctionCollapse::propagate(graph, index, neighbor, constraints) {
                     stack.push(neighbor.index);
                 }

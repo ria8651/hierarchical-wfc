@@ -68,7 +68,7 @@ pub fn create_grid_graph<F: Clone>(settings: &GraphSettings, fill_with: F) -> Wf
 
     WfcGraph {
         nodes: tiles,
-        neighbors: neighbors.into(),
+        neighbours: neighbors.into(),
         order: Vec::new(),
     }
 }

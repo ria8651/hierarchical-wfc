@@ -55,7 +55,7 @@ pub fn create_graph<F: Clone>(
         },
         WfcGraph {
             nodes: tiles,
-            neighbors: neighbors.into(),
+            neighbours: neighbors.into(),
             order: Vec::new(),
         },
     )

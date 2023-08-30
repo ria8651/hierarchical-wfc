@@ -4,7 +4,6 @@ use bevy::{
     prelude::*,
 };
 use hierarchical_wfc::{
-    castle::facade_graph::FacadePassSettings,
     graphs::regular_grid_3d,
     ui_plugin::{EcsTab, EcsUiTab},
     wfc::bevy_passes::{
@@ -15,7 +14,7 @@ use hierarchical_wfc::{
 
 use crate::{
     generation::GenerateDebugMarker,
-    passes::{LayoutDebugSettings, LayoutPassMarker},
+    passes::{FacadePassMarker, LayoutDebugSettings, LayoutPassMarker},
     GroundPlane,
 };
 
@@ -156,7 +155,7 @@ impl EcsTab for EcsUiLayout {
 
             commands.spawn((
                 WfcEntityMarker,
-                FacadePassSettings,
+                FacadePassMarker,
                 WfcPendingParentMarker,
                 WfcParentPasses(vec![layout_entity]),
             ));

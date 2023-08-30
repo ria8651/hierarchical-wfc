@@ -6,7 +6,7 @@ use super::{Neighbour, Superposition};
 pub struct WfcGraph<C> {
     pub nodes: Vec<C>,
     pub order: Vec<usize>,
-    pub neighbors: Box<[Box<[Neighbour]>]>,
+    pub neighbours: Box<[Box<[Neighbour]>]>,
 }
 
 impl WfcGraph<Superposition> {
@@ -15,7 +15,7 @@ impl WfcGraph<Superposition> {
         let mut result = WfcGraph {
             nodes: Vec::new(),
             order: self.order.clone(),
-            neighbors: self.neighbors.clone(),
+            neighbours: self.neighbours.clone(),
         };
         for node in 0..self.nodes.len() {
             if let Some(tile) = self.nodes[node].collapse() {

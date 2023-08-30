@@ -1,32 +1,32 @@
 use bevy::math::{uvec3, vec3};
 use hierarchical_wfc::{
-    castle::facade_graph::{FacadePassData, FacadeTileset},
+    castle::facade_graph::FacadeTileset,
     graphs::regular_grid_3d,
     wfc::{Neighbour, TileSet, WaveFunctionCollapse, WfcGraph},
 };
 use rand::{rngs::StdRng, SeedableRng};
 
 fn main() {
-    let data = FacadePassData::from_layout(&test_settings(), &test_graph());
-    let tileset = FacadeTileset::from_asset("semantics/frame_test.json");
-    let mut wfc_graph = data.create_wfc_graph(&tileset);
+    // let data = FacadePassData::from_layout(&test_settings(), &test_graph());
+    // let tileset = FacadeTileset::from_asset("semantics/frame_test.json");
+    // let mut wfc_graph = data.create_wfc_graph(&tileset);
 
-    dbg!(tileset.superposition_from_semantic_name("vertex".to_string()));
-    dbg!(tileset.superposition_from_semantic_name("edge".to_string()));
-    dbg!(tileset.superposition_from_semantic_name("quad".to_string()));
+    // dbg!(tileset.superposition_from_semantic_name("vertex".to_string()));
+    // dbg!(tileset.superposition_from_semantic_name("edge".to_string()));
+    // dbg!(tileset.superposition_from_semantic_name("quad".to_string()));
 
-    dbg!(tileset.get_constraints());
+    // dbg!(tileset.get_constraints());
 
-    dbg!(&wfc_graph.nodes);
+    // dbg!(&wfc_graph.nodes);
 
-    WaveFunctionCollapse::collapse(
-        &mut wfc_graph,
-        &tileset.get_constraints(),
-        &tileset.get_weights(),
-        &mut StdRng::from_entropy(),
-    );
-    let binding = tileset.superposition_from_semantic_name("edge_leaf_h_flat".to_string());
-    let tile: Vec<usize> = binding.tile_iter().collect();
+    // WaveFunctionCollapse::collapse(
+    //     &mut wfc_graph,
+    //     &tileset.get_constraints(),
+    //     &tileset.get_weights(),
+    //     &mut StdRng::from_entropy(),
+    // );
+    // let binding = tileset.superposition_from_semantic_name("edge_leaf_h_flat".to_string());
+    // let tile: Vec<usize> = binding.tile_iter().collect();
 }
 
 fn test_graph() -> WfcGraph<usize> {
@@ -45,7 +45,7 @@ fn test_graph() -> WfcGraph<usize> {
             10, 0, 48, 38, 39, 49, 29, 59, 58, 69, 79, 77, 87, 88, 86, 97, 98, 96, 78, 28, 27, 18,
             60, 17, 7, 8, 6, 5, 16, 9, 89, 19, 99,
         ],
-        neighbors: Box::new([
+        neighbours: Box::new([
             Box::new([
                 Neighbour {
                     arc_type: 0,
