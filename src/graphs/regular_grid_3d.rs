@@ -8,7 +8,7 @@ pub struct GraphSettings {
     pub spacing: Vec3,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct GraphData {
     pub node_positions: Box<[IVec3]>,
 }

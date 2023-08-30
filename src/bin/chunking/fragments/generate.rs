@@ -45,8 +45,8 @@ pub struct FragmentGeneratedEvent(IVec3);
 
 #[derive(Resource)]
 pub struct LayoutSettings {
-    tileset: LayoutTileset,
-    settings: regular_grid_3d::GraphSettings,
+    pub tileset: LayoutTileset,
+    pub settings: regular_grid_3d::GraphSettings,
 }
 #[derive(Component)]
 
@@ -73,7 +73,7 @@ pub struct ChunkMarker;
 pub struct FragmentMarker;
 
 pub fn fragments_for_chunk(chunk_pos: IVec3) -> [IVec3; 4] {
-    [IVec3::ZERO, IVec3::X, IVec3::X + IVec3::Z, IVec3::Z].map(|delta| chunk_pos + delta)
+    [IVec3::ZERO, IVec3::X, IVec3::Z, IVec3::Z + IVec3::X].map(|delta| chunk_pos + delta)
 }
 
 pub mod systems {
@@ -218,32 +218,35 @@ pub mod systems {
                 &regular_grid_3d::GraphData,
                 &CollapsedData,
             ); 4] = q_fragments.get_many(fragment_entities).unwrap();
-            let mut corner_sizes = [UVec3::ZERO; 4];
-            let mut corner_graphs = [None, None, None, None];
+            // let mut corner_sizes = [UVec3::ZERO; 4];
+            // let mut corner_graphs = [None, None, None, None];
 
-            for (i, corner) in [UVec3::ZERO, UVec3::X, UVec3::Z, UVec3::X + UVec3::Z]
-                .into_iter()
-                .enumerate()
-            {
-                let (settings, data, CollapsedData { graph }) = fragments[i];
-                let (size, graph) = extract_corner(corner, settings, data, graph, &fill_with);
-                corner_sizes[i] = size;
-                corner_graphs[i] = Some(graph);
-            }
+            let (merged_settings, merged_data, mut merged_graph) =
+                merge_corners(fragments, &layout_settings);
 
-            let corner_graphs: [WfcGraph<Superposition>; 4] = corner_graphs.map(|g| g.unwrap());
+            // for (i, corner) in [UVec3::ZERO, UVec3::X, UVec3::Z, UVec3::X + UVec3::Z]
+            //     .into_iter()
+            //     .enumerate()
+            // {
+            //     let (settings, data, CollapsedData { graph }) = fragments[i];
+            //     let (size, graph) = extract_corner(corner, settings, data, graph, &fill_with);
+            //     corner_sizes[i] = size;
+            //     corner_graphs[i] = Some(graph);
+            // }
 
-            assert!(
-                corner_sizes[0] == corner_sizes[1]
-                    && corner_sizes[1] == corner_sizes[2]
-                    && corner_sizes[2] == corner_sizes[3]
-            );
+            // let corner_graphs: [WfcGraph<Superposition>; 4] = corner_graphs.map(|g| g.unwrap());
 
-            let (merged_data, merged_settings, mut merged_graph) = merged_corners(
-                corner_graphs,
-                corner_sizes[0],
-                layout_settings.settings.spacing,
-            );
+            // assert!(
+            //     corner_sizes[0] == corner_sizes[1]
+            //         && corner_sizes[1] == corner_sizes[2]
+            //         && corner_sizes[2] == corner_sizes[3]
+            // );
+
+            // let (merged_data, merged_settings, mut merged_graph) = merged_corners(
+            //     corner_graphs,
+            //     corner_sizes[0],
+            //     layout_settings.settings.spacing,
+            // );
 
             let seed = pos.to_array();
             let mut seed: Vec<u8> = seed.map(|i| i.to_be_bytes()).concat().into();
@@ -262,9 +265,10 @@ pub mod systems {
                     ChunkMarker,
                     Transform::from_translation(
                         merged_settings.spacing
-                            * (pos.as_vec3() * (merged_settings.size + 1).as_vec3()
-                                + Vec3::Y * 2.0
-                                + (layout_settings.settings.size.as_ivec3() / 2 - 1).as_vec3()),
+                            * (
+                                pos.as_vec3() * (merged_settings.size + 1).as_vec3() + Vec3::Y * 2.0
+                                // + (layout_settings.settings.size.as_ivec3() / 2 - 1).as_vec3()
+                            ),
                     ),
                     merged_data,
                     merged_settings,
@@ -281,168 +285,326 @@ pub mod systems {
     }
 }
 
-pub fn merged_corners(
-    corners: [WfcGraph<Superposition>; 4],
-    corner_size: UVec3,
-    spacing: Vec3,
+pub fn merge_corners(
+    fragments: [(
+        &regular_grid_3d::GraphSettings,
+        &regular_grid_3d::GraphData,
+        &CollapsedData,
+    ); 4],
+    layout_settings: &LayoutSettings,
 ) -> (
-    regular_grid_3d::GraphData,
     regular_grid_3d::GraphSettings,
+    regular_grid_3d::GraphData,
     WfcGraph<Superposition>,
 ) {
-    let corner_node_count = corner_size.x * corner_size.y * corner_size.z;
-    let size = corner_size * uvec3(2, 1, 2);
+    let fill_with = Superposition::filled(layout_settings.tileset.tile_count());
 
-    let merged_node_count = size.x * size.y * size.z;
-    let mut old_indices = vec![(0, 0); merged_node_count as usize];
+    let chunk_size = layout_settings.settings.size + uvec3(2, 0, 2);
+    let quadrant_size = chunk_size / 2;
+    let fragment_size = layout_settings.settings.size;
+
+    let chunk_node_count = (chunk_size.x * chunk_size.y * chunk_size.z) as usize;
+    let fragment_node_count = (fragment_size.x * fragment_size.y * fragment_size.z) as usize;
+
+    let mut chunk_nodes: Vec<Superposition> = Vec::with_capacity(chunk_node_count);
+    let mut chunk_node_positions: Vec<IVec3> = Vec::with_capacity(chunk_node_count);
+
     let mut new_indices = [
-        vec![0; corner_node_count as usize],
-        vec![0; corner_node_count as usize],
-        vec![0; corner_node_count as usize],
-        vec![0; corner_node_count as usize],
+        vec![None; fragment_node_count],
+        vec![None; fragment_node_count],
+        vec![None; fragment_node_count],
+        vec![None; fragment_node_count],
     ];
 
-    let mut merged_nodes = Vec::with_capacity(merged_node_count as usize);
+    let mut old_indices: Vec<(usize, usize)> = Vec::with_capacity(chunk_node_count);
 
-    for (node_index, (z, y, x)) in iproduct!(0..size.z, 0..size.y, 0..size.x).enumerate() {
-        let corner_pos = uvec3(
-            x.div_euclid(corner_size.x),
-            y.div_euclid(corner_size.y),
-            z.div_euclid(corner_size.z),
-        );
-        let corner_index = (corner_pos.x + 2 * corner_pos.z) as usize;
-
-        let corner_node_pos = uvec3(
-            x.rem_euclid(corner_size.x),
-            y.rem_euclid(corner_size.y),
-            z.rem_euclid(corner_size.z),
-        );
-        let corner_node_index = uvec3_to_index(corner_node_pos, corner_size);
-
-        old_indices[node_index] = (corner_index, corner_node_index);
-        new_indices[corner_index][corner_node_index] = node_index;
-
-        merged_nodes.push(corners[corner_index].nodes[corner_node_index]);
-    }
-
-    let merged_order = corners
-        .iter()
-        .enumerate()
-        .flat_map(|(corner_index, corner)| {
-            let remapping = &new_indices[corner_index];
-            corner
-                .order
-                .iter()
-                .map(|node_index| remapping[*node_index] as usize)
-        })
-        .collect_vec();
-
-    let node_positions = iproduct!(0..size.z, 0..size.y, 0..size.x)
-        .map(|(z, y, x)| uvec3(z, y, x).as_ivec3())
-        .collect::<Box<[IVec3]>>();
-
-    let merged_neighbours = old_indices
-        .iter()
-        .map(|(corner_index, corner_node_index)| {
-            let new_indices = &new_indices[*corner_index];
-            // corners[*corner_index].neighbours[*corner_node_index]
-            //     .iter()
-            //     .map(|Neighbour { arc_type, index }| Neighbour {
-            //         arc_type: *arc_type,
-            //         index: new_indices[*index],
-            //     })
-            //     .collect::<Box<[Neighbour]>>()
-            Box::new([]) as Box<[Neighbour]>
-        })
-        .collect::<Box<[Box<[Neighbour]>]>>();
-
-    (
-        regular_grid_3d::GraphData { node_positions },
-        regular_grid_3d::GraphSettings { size, spacing },
-        WfcGraph {
-            nodes: merged_nodes,
-            order: merged_order,
-            neighbours: merged_neighbours,
-        },
+    for (chunk_node_index, (z, y, x)) in iproduct!(
+        0..chunk_size.z as usize,
+        0..chunk_size.y as usize,
+        0..chunk_size.x as usize
     )
-}
+    .enumerate()
+    {
+        let chunk_node_pos = uvec3(x as u32, y as u32, z as u32);
+        let fragment_node_pos = uvec3(
+            (fragment_size.x + chunk_node_pos.x - quadrant_size.x).rem_euclid(fragment_size.x),
+            (fragment_size.y + chunk_node_pos.y - quadrant_size.y).rem_euclid(fragment_size.y),
+            (fragment_size.z + chunk_node_pos.z - quadrant_size.z).rem_euclid(fragment_size.z),
+        );
+        let fragment_node_index = uvec3_to_index(fragment_node_pos, fragment_size);
 
-pub fn extract_corner(
-    corner: UVec3,
-    settings: &regular_grid_3d::GraphSettings,
-    data: &regular_grid_3d::GraphData,
-    graph: &WfcGraph<usize>,
-    fill_with: &Superposition,
-) -> (UVec3, WfcGraph<Superposition>) {
-    // Inclusive chunk min/max
-    let chunk_bounds = (UVec3::ZERO, settings.size - 1);
+        let fragment_pos =
+            uvec3(1, 0, 1) * chunk_node_pos / uvec3(quadrant_size.x, 1, quadrant_size.z);
+        let fragment_index = (fragment_pos.x + fragment_pos.z * 2) as usize;
 
-    let half_size = uvec3(settings.size.x / 2, settings.size.y, settings.size.z / 2);
-    let sub_chunk_offset = chunk_bounds.0.max(corner * (half_size - 1));
+        new_indices[fragment_index][fragment_node_index] = Some(chunk_node_index);
+        old_indices.push((fragment_index, fragment_node_index));
 
-    // Inclusive sub chunk min/max
-    let sub_chunk_bounds = (
-        sub_chunk_offset,
-        chunk_bounds.1.min(sub_chunk_offset + half_size),
-    );
-    let sub_chunk_size = 1 + sub_chunk_bounds.1 - sub_chunk_bounds.0;
-
-    let node_count = graph.nodes.len();
-    let remapped_node_count = sub_chunk_size.x * sub_chunk_size.y * sub_chunk_size.z;
-
-    let mut remapped_nodes: Vec<Superposition> = Vec::with_capacity(remapped_node_count as usize);
-    let mut node_new_index: Vec<Option<usize>> = vec![None; node_count as usize];
-    let mut node_original_index: Vec<usize> = Vec::with_capacity(remapped_node_count as usize);
-
-    let mut order = Vec::with_capacity(remapped_node_count as usize);
-
-    for (node_index, node) in graph.nodes.iter().copied().enumerate() {
-        let node_pos = index_to_uvec3(node_index, settings.size);
-        if sub_chunk_bounds.0.cmple(node_pos).all() && sub_chunk_bounds.1.cmpge(node_pos).all() {
-            let new_index = node_original_index.len();
-            node_new_index[node_index] = Some(new_index);
-            if node_pos.xz().cmpeq(chunk_bounds.0.xz()).any()
-                || node_pos.xz().cmpeq(chunk_bounds.1.xz()).any()
-            {
-                remapped_nodes.push(Superposition::single(node));
-                order.push(new_index);
-            } else {
-                //remapped_nodes.push(fill_with.clone());
-                remapped_nodes.push(Superposition::empty());
-            }
-            node_original_index.push(node_index);
+        if x == 0 || z == 0 || x == chunk_size.x as usize - 1 || z == chunk_size.z as usize - 1 {
+            chunk_nodes.push(Superposition::single(
+                fragments[fragment_index].2.graph.nodes[fragment_node_index],
+            ));
+        } else {
+            chunk_nodes.push(fill_with.clone());
         }
+
+        chunk_node_positions.push(
+            fragments[fragment_index].1.node_positions[fragment_node_index]
+                + fragment_size.as_ivec3() * fragment_pos.as_ivec3(),
+        );
     }
 
-    let remapped_neighbours = node_original_index
+    let mut chunk_node_neighbours = old_indices
         .iter()
-        .map(|from_original_index| {
-            let node_neighbours = &graph.neighbours[*from_original_index];
-            node_neighbours
+        .map(|(fragment_index, fragment_node_index)| {
+            fragments[*fragment_index].2.graph.neighbours[*fragment_node_index]
                 .iter()
-                .filter_map(|neighbour| {
-                    if let Some(new_to_index) = node_new_index[neighbour.index] {
+                .filter_map(|Neighbour { arc_type, index }| {
+                    if let Some(index) = new_indices[*fragment_index][*index] {
                         Some(Neighbour {
-                            arc_type: neighbour.arc_type,
-                            index: new_to_index,
+                            arc_type: *arc_type,
+                            index,
                         })
                     } else {
                         None
                     }
                 })
-                .collect::<Box<[Neighbour]>>()
+                .collect_vec()
         })
-        .collect::<Box<[_]>>();
+        .collect::<Box<[Vec<_>]>>();
+
+    for (chunk_node_index, (z, y, x)) in iproduct!(
+        0..chunk_size.z as usize,
+        0..chunk_size.y as usize,
+        0..chunk_size.x as usize
+    )
+    .enumerate()
+    {
+        let chunk_node_pos = uvec3(x as u32, y as u32, z as u32);
+        let fragment_node_pos = uvec3(
+            (fragment_size.x + chunk_node_pos.x - quadrant_size.x).rem_euclid(fragment_size.x),
+            (fragment_size.y + chunk_node_pos.y - quadrant_size.y).rem_euclid(fragment_size.y),
+            (fragment_size.z + chunk_node_pos.z - quadrant_size.z).rem_euclid(fragment_size.z),
+        );
+        let fragment_node_index = uvec3_to_index(fragment_node_pos, fragment_size);
+
+        let fragment_pos =
+            uvec3(1, 0, 1) * chunk_node_pos / uvec3(quadrant_size.x, 1, quadrant_size.z);
+        let fragment_index = (fragment_pos.x + fragment_pos.z * 2) as usize;
+
+        if x == quadrant_size.x as usize - 1 {
+            let x_neighbour = uvec3_to_index(chunk_node_pos + UVec3::X, chunk_size);
+            chunk_node_neighbours[chunk_node_index].push(Neighbour {
+                arc_type: 0,
+                index: x_neighbour,
+            });
+            chunk_node_neighbours[x_neighbour].push(Neighbour {
+                arc_type: 1,
+                index: chunk_node_index,
+            });
+        }
+        if z == quadrant_size.z as usize - 1 {
+            let z_neighbour = uvec3_to_index(chunk_node_pos + UVec3::Z, chunk_size);
+            chunk_node_neighbours[chunk_node_index].push(Neighbour {
+                arc_type: 4,
+                index: z_neighbour,
+            });
+            chunk_node_neighbours[z_neighbour].push(Neighbour {
+                arc_type: 5,
+                index: chunk_node_index,
+            });
+        }
+    }
+
+    let chunk_node_neighbours = chunk_node_neighbours
+        .into_iter()
+        .map(|x| x.to_owned().into_boxed_slice())
+        .collect::<Box<[Box<[Neighbour]>]>>();
+
+    // .map(|neighbours: Vec<Neighbour>| neighbours.into() as Box<[Neighbour]>)
+    // .collect::<Box<[Box<[Neighbour]>]>>();
+
+    let chunk_node_order: Vec<usize> = (0..chunk_node_count).into_iter().collect_vec();
 
     (
-        sub_chunk_size,
+        regular_grid_3d::GraphSettings {
+            size: chunk_size,
+            spacing: layout_settings.settings.spacing,
+        },
+        regular_grid_3d::GraphData {
+            node_positions: chunk_node_positions.into(),
+        },
         WfcGraph {
-            nodes: remapped_nodes,
-            neighbours: remapped_neighbours,
-            order,
+            nodes: chunk_nodes,
+            neighbours: chunk_node_neighbours,
+            order: chunk_node_order,
         },
     )
 }
+
+// pub fn merged_corners(
+//     corners: [WfcGraph<Superposition>; 4],
+//     corner_size: UVec3,
+//     spacing: Vec3,
+// ) -> (
+//     regular_grid_3d::GraphData,
+//     regular_grid_3d::GraphSettings,
+//     WfcGraph<Superposition>,
+// ) {
+//     let corner_node_count = corner_size.x * corner_size.y * corner_size.z;
+//     let size = corner_size * uvec3(2, 1, 2);
+
+//     let merged_node_count = size.x * size.y * size.z;
+//     let mut old_indices = vec![(0, 0); merged_node_count as usize];
+//     let mut new_indices = [
+//         vec![0; corner_node_count as usize],
+//         vec![0; corner_node_count as usize],
+//         vec![0; corner_node_count as usize],
+//         vec![0; corner_node_count as usize],
+//     ];
+
+//     let mut merged_nodes = Vec::with_capacity(merged_node_count as usize);
+
+//     for (node_index, (z, y, x)) in iproduct!(0..size.z, 0..size.y, 0..size.x).enumerate() {
+//         let corner_pos = uvec3(
+//             x.div_euclid(corner_size.x),
+//             y.div_euclid(corner_size.y),
+//             z.div_euclid(corner_size.z),
+//         );
+//         let corner_index = (corner_pos.x + 2 * corner_pos.z) as usize;
+
+//         let corner_node_pos = uvec3(
+//             x.rem_euclid(corner_size.x),
+//             y.rem_euclid(corner_size.y),
+//             z.rem_euclid(corner_size.z),
+//         );
+//         let corner_node_index = uvec3_to_index(corner_node_pos, corner_size);
+
+//         old_indices[node_index] = (corner_index, corner_node_index);
+//         new_indices[corner_index][corner_node_index] = node_index;
+
+//         merged_nodes.push(corners[corner_index].nodes[corner_node_index]);
+//     }
+
+//     let merged_order = corners
+//         .iter()
+//         .enumerate()
+//         .flat_map(|(corner_index, corner)| {
+//             let remapping = &new_indices[corner_index];
+//             corner
+//                 .order
+//                 .iter()
+//                 .map(|node_index| remapping[*node_index] as usize)
+//         })
+//         .collect_vec();
+
+//     let node_positions = iproduct!(0..size.z, 0..size.y, 0..size.x)
+//         .map(|(z, y, x)| uvec3(x, y, z).as_ivec3())
+//         .collect::<Box<[IVec3]>>();
+
+//     let merged_neighbours = old_indices
+//         .iter()
+//         .map(|(corner_index, corner_node_index)| {
+//             let new_indices = &new_indices[*corner_index];
+//             // corners[*corner_index].neighbours[*corner_node_index]
+//             //     .iter()
+//             //     .map(|Neighbour { arc_type, index }| Neighbour {
+//             //         arc_type: *arc_type,
+//             //         index: new_indices[*index],
+//             //     })
+//             //     .collect::<Box<[Neighbour]>>()
+//             Box::new([]) as Box<[Neighbour]>
+//         })
+//         .collect::<Box<[Box<[Neighbour]>]>>();
+
+//     (
+//         regular_grid_3d::GraphData { node_positions },
+//         regular_grid_3d::GraphSettings { size, spacing },
+//         WfcGraph {
+//             nodes: merged_nodes,
+//             order: merged_order,
+//             neighbours: merged_neighbours,
+//         },
+//     )
+// }
+
+// pub fn extract_corner(
+//     corner: UVec3,
+//     settings: &regular_grid_3d::GraphSettings,
+//     data: &regular_grid_3d::GraphData,
+//     graph: &WfcGraph<usize>,
+//     fill_with: &Superposition,
+// ) -> (UVec3, WfcGraph<Superposition>) {
+//     // Inclusive chunk min/max
+//     let chunk_bounds = (UVec3::ZERO, settings.size - 1);
+
+//     let half_size = uvec3(settings.size.x / 2, settings.size.y, settings.size.z / 2);
+//     let sub_chunk_offset = chunk_bounds.0.max(corner * (half_size - 1));
+
+//     // Inclusive sub chunk min/max
+//     let sub_chunk_bounds = (
+//         sub_chunk_offset,
+//         chunk_bounds.1.min(sub_chunk_offset + half_size),
+//     );
+//     let sub_chunk_size = 1 + sub_chunk_bounds.1 - sub_chunk_bounds.0;
+
+//     let node_count = graph.nodes.len();
+//     let remapped_node_count = sub_chunk_size.x * sub_chunk_size.y * sub_chunk_size.z;
+
+//     let mut remapped_nodes: Vec<Superposition> = Vec::with_capacity(remapped_node_count as usize);
+//     let mut node_new_index: Vec<Option<usize>> = vec![None; node_count as usize];
+//     let mut node_original_index: Vec<usize> = Vec::with_capacity(remapped_node_count as usize);
+
+//     let mut order = Vec::with_capacity(remapped_node_count as usize);
+
+//     for (node_index, node) in graph.nodes.iter().copied().enumerate() {
+//         let node_pos = index_to_uvec3(node_index, settings.size);
+//         if sub_chunk_bounds.0.cmple(node_pos).all() && sub_chunk_bounds.1.cmpge(node_pos).all() {
+//             let new_index = node_original_index.len();
+//             node_new_index[node_index] = Some(new_index);
+//             if node_pos.xz().cmpeq(chunk_bounds.0.xz()).any()
+//                 || node_pos.xz().cmpeq(chunk_bounds.1.xz()).any()
+//             {
+//                 remapped_nodes.push(Superposition::single(node));
+//                 order.push(new_index);
+//             } else {
+//                 remapped_nodes.push(Superposition::single(node));
+//                 //remapped_nodes.push(fill_with.clone());
+//                 // remapped_nodes.push(Superposition::empty());
+//             }
+//             node_original_index.push(node_index);
+//         }
+//     }
+
+//     let remapped_neighbours = node_original_index
+//         .iter()
+//         .map(|from_original_index| {
+//             let node_neighbours = &graph.neighbours[*from_original_index];
+//             node_neighbours
+//                 .iter()
+//                 .filter_map(|neighbour| {
+//                     if let Some(new_to_index) = node_new_index[neighbour.index] {
+//                         Some(Neighbour {
+//                             arc_type: neighbour.arc_type,
+//                             index: new_to_index,
+//                         })
+//                     } else {
+//                         None
+//                     }
+//                 })
+//                 .collect::<Box<[Neighbour]>>()
+//         })
+//         .collect::<Box<[_]>>();
+
+//     (
+//         sub_chunk_size,
+//         WfcGraph {
+//             nodes: remapped_nodes,
+//             neighbours: remapped_neighbours,
+//             order,
+//         },
+//     )
+// }
 
 pub struct GenerationPlugin;
 impl Plugin for GenerationPlugin {

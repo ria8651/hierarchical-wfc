@@ -9,10 +9,13 @@ use hierarchical_wfc::{
     ui_plugin::{EcsTab, EcsUiTab},
 };
 
-use crate::fragments::generate::{ChunkLoadEvent, GenerationDebugSettings};
+use crate::fragments::generate::{ChunkLoadEvent, GenerationDebugSettings, LayoutSettings};
 
 pub struct EcsUiDebugSettings {
-    system_state: SystemState<(ResMut<'static, GenerationDebugSettings>,)>,
+    system_state: SystemState<(
+        ResMut<'static, GenerationDebugSettings>,
+        ResMut<'static, LayoutSettings>,
+    )>,
 }
 
 impl EcsUiDebugSettings {
@@ -36,12 +39,33 @@ impl EcsTab for EcsUiDebugSettings {
         ui: &mut egui::Ui,
         type_registry: &bevy_reflect::TypeRegistry,
     ) {
-        let mut settings = self.system_state.get_mut(world);
+        let (mut settings, mut layout_settings) = self.system_state.get_mut(world);
 
         ui.label("Spawn Debug Meshes");
-        ui.checkbox(&mut settings.0.debug_chunks, "Chunks");
-        ui.checkbox(&mut settings.0.debug_fragments, "Fragments");
+        ui.checkbox(&mut settings.debug_chunks, "Chunks");
+        ui.checkbox(&mut settings.debug_fragments, "Fragments");
 
+        ui.label("Layout Settings");
+        ui.horizontal(|ui| {
+            ui.label(
+                egui::RichText::new("x:")
+                    .monospace()
+                    .color(egui::Rgba::from_rgb(0.8, 0.2, 0.2)),
+            );
+            ui.add(egui::DragValue::new(&mut layout_settings.settings.size.x));
+            ui.label(
+                egui::RichText::new("y:")
+                    .monospace()
+                    .color(egui::Rgba::from_rgb(0.2, 0.8, 0.2)),
+            );
+            ui.add(egui::DragValue::new(&mut layout_settings.settings.size.y));
+            ui.label(
+                egui::RichText::new("z:")
+                    .monospace()
+                    .color(egui::Rgba::from_rgb(0.2, 0.2, 0.8)),
+            );
+            ui.add(egui::DragValue::new(&mut layout_settings.settings.size.z));
+        });
         self.system_state.apply(world);
     }
 }
