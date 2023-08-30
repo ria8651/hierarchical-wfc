@@ -1,18 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    graphs::regular_grid_3d,
     json::tileset::{ConstraintNodeModel, DagNodeModel, TileSetModel},
-    tools::{
-        index_tools::{ivec3_in_bounds, ivec3_to_index},
-        MeshBuilder,
-    },
-    wfc::{Neighbour, Superposition, TileSet, WfcGraph},
+    wfc::{Superposition, TileSet},
 };
-use bevy::{
-    math::{ivec3, vec3, vec4},
-    prelude::*,
-};
+use bevy::prelude::*;
 use itertools::Itertools;
 
 #[derive(Component, Debug)]
@@ -29,8 +21,6 @@ pub struct FacadeTileset {
 }
 
 impl TileSet for FacadeTileset {
-    // type GraphSettings = FacadePassSettings;
-
     fn tile_count(&self) -> usize {
         self.tile_count
     }
@@ -38,10 +28,6 @@ impl TileSet for FacadeTileset {
     fn arc_types(&self) -> usize {
         self.arc_types
     }
-
-    // fn create_graph(&self, _settings: &Self::GraphSettings) -> WfcGraph<Superposition> {
-    //     todo!()
-    // }
 
     fn get_constraints(&self) -> Box<[Box<[Superposition]>]> {
         self.constraints.clone()
@@ -114,7 +100,7 @@ impl FacadeTileset {
         (0..num_dirs).collect::<Box<[usize]>>()
     }
 
-    fn compose_symmetries(lhs: &Box<[usize]>, rhs: &Box<[usize]>) -> Box<[usize]> {
+    fn compose_symmetries(lhs: &[usize], rhs: &[usize]) -> Box<[usize]> {
         assert_eq!(lhs.len(), rhs.len());
         lhs.iter().map(|i| rhs[*i]).collect::<Box<[usize]>>()
     }
@@ -461,18 +447,18 @@ impl FacadeTileset {
     fn traverse_symmetries(
         node: usize,
         parent: Option<usize>,
-        parent_symmetry: &Box<[usize]>,
+        parent_symmetry: &[usize],
         transformed_nodes: &mut Vec<TransformedDagNode>,
         associated_transformed_nodes: &mut Vec<Vec<usize>>,
-        semantic_nodes: &Box<[SemanticNode]>,
+        semantic_nodes: &[SemanticNode],
         adj: &Vec<Vec<usize>>,
-        symmetries: &Box<[Box<[usize]>]>,
+        symmetries: &[Box<[usize]>],
     ) {
         let semantic_node = &semantic_nodes[node];
 
         let mut node_symmetries: HashSet<Box<[usize]>> = HashSet::new();
-        let mut last_sym = parent_symmetry.clone();
-        node_symmetries.insert(parent_symmetry.clone());
+        let mut last_sym: Box<[usize]> = parent_symmetry.into();
+        node_symmetries.insert(parent_symmetry.into());
 
         if let Some(sym) = semantic_node.symmetries.first() {
             let current_symmetry = &symmetries[*sym];
@@ -593,17 +579,10 @@ impl FacadeTileset {
                 .map(|(index, socket)| (socket.is_some() as usize) << index)
                 .reduce(|last, next| last | next)
                 .unwrap();
-            // println!(
-            //     "{}: {:06b}",
-            //     self.get_leaf_semantic_name(leaf_id),
-            //     leaf_directions
-            // );
             if leaf_directions & node.required == directions & node.required {
                 sp.add_tile(leaf_id);
             }
         }
-        // println!("Resulting format: {}\n", sp);
-
         sp
     }
 }

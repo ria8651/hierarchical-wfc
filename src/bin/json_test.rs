@@ -1,30 +1,34 @@
 use bevy::math::{uvec3, vec3};
 use hierarchical_wfc::{
     castle::facade_graph::FacadeTileset,
-    graphs::regular_grid_3d,
+    graphs::{regular_grid_3d, regular_quad_mesh},
     wfc::{Neighbour, TileSet, WaveFunctionCollapse, WfcGraph},
 };
 use rand::{rngs::StdRng, SeedableRng};
 
 fn main() {
+    let builder = regular_quad_mesh::builder::GraphBuilder::from_regular_3d_grid(
+        &test_settings(),
+        &test_graph(),
+    );
     // let data = FacadePassData::from_layout(&test_settings(), &test_graph());
-    // let tileset = FacadeTileset::from_asset("semantics/frame_test.json");
-    // let mut wfc_graph = data.create_wfc_graph(&tileset);
+    let tileset = FacadeTileset::from_asset("semantics/frame_test.json");
+    let (_data, mut wfc_graph) = builder.build_graph(&tileset);
 
-    // dbg!(tileset.superposition_from_semantic_name("vertex".to_string()));
-    // dbg!(tileset.superposition_from_semantic_name("edge".to_string()));
-    // dbg!(tileset.superposition_from_semantic_name("quad".to_string()));
+    dbg!(tileset.superposition_from_semantic_name("vertex".to_string()));
+    dbg!(tileset.superposition_from_semantic_name("edge".to_string()));
+    dbg!(tileset.superposition_from_semantic_name("quad".to_string()));
 
-    // dbg!(tileset.get_constraints());
+    dbg!(tileset.get_constraints());
 
-    // dbg!(&wfc_graph.nodes);
+    dbg!(&wfc_graph.nodes);
 
-    // WaveFunctionCollapse::collapse(
-    //     &mut wfc_graph,
-    //     &tileset.get_constraints(),
-    //     &tileset.get_weights(),
-    //     &mut StdRng::from_entropy(),
-    // );
+    WaveFunctionCollapse::collapse(
+        &mut wfc_graph,
+        &tileset.get_constraints(),
+        &tileset.get_weights(),
+        &mut StdRng::from_entropy(),
+    );
     // let binding = tileset.superposition_from_semantic_name("edge_leaf_h_flat".to_string());
     // let tile: Vec<usize> = binding.tile_iter().collect();
 }

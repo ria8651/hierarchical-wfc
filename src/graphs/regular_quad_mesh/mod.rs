@@ -1,7 +1,3 @@
-use crate::{
-    castle::facade_graph::FacadeTileset,
-    wfc::{Neighbour, Superposition},
-};
 use bevy::{math::vec3, prelude::*};
 
 use self::types::*;

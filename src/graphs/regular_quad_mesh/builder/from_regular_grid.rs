@@ -1,7 +1,4 @@
-use bevy::{
-    math::{ivec3, vec3},
-    prelude::*,
-};
+use bevy::{math::ivec3, prelude::*};
 
 use crate::{
     graphs::{
