@@ -63,7 +63,7 @@ pub fn layout_regenerate_system(
                 .enumerate()
                 .map(|(i, tile)| {
                     let pos = graph_data.node_positions[i].as_vec3() * graph_settings.spacing;
-                    if min.cmplt(pos).all() && max.cmpgt(pos).all() {
+                    if min.cmple(pos).all() && max.cmpgt(pos).all() {
                         Superposition::filled(tileset.tile_count())
                     } else {
                         Superposition::single(*tile)
