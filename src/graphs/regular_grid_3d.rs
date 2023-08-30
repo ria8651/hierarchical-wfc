@@ -17,7 +17,7 @@ pub fn create_graph<F: Clone>(
     settings: &GraphSettings,
     create_node: &dyn Fn((usize, IVec3)) -> F,
 ) -> (GraphData, WfcGraph<F>) {
-    let GraphSettings { size, spacing } = settings;
+    let GraphSettings { size, spacing: _ } = settings;
     let mut neighbors: Vec<Box<[Neighbour]>> = Vec::new();
     let mut positions = Vec::with_capacity((size.x * size.y * size.z) as usize);
     for z in 0..size.z {

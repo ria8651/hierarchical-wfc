@@ -1,10 +1,6 @@
-use bevy::math::vec3;
 use strum_macros::Display;
 
-use crate::{
-    graphs::regular_grid_3d,
-    wfc::{Superposition, TileSet, WfcGraph},
-};
+use crate::wfc::{Superposition, TileSet};
 
 #[derive(Debug, Default)]
 pub struct LayoutTileset;
