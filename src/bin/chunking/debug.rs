@@ -43,7 +43,7 @@ fn debug_mesh(
     let physical_mesh = physical_mesh_builder.build();
     let non_physical_mesh = non_physical_mesh_builder.build();
     let physical_mesh_collider = if physical_mesh.count_vertices() > 0 {
-        Some(Collider::from_bevy_mesh(&physical_mesh, &ComputedColliderShape::TriMesh).unwrap())
+        Collider::from_bevy_mesh(&physical_mesh, &ComputedColliderShape::TriMesh)
     } else {
         None
     };
