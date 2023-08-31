@@ -17,5 +17,3 @@ impl<T> Clone for Box<dyn TileSet<GraphSettings = T>> {
         dyn_clone::clone_box(&**self)
     }
 }
-
-// dyn_clone::clone_trait_object!(TileSet<GraphSettings>);

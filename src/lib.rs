@@ -17,12 +17,13 @@ pub trait Executer {
 pub struct Peasant {
     pub graph: Graph<WaveFunction>,
     pub constraints: Arc<Vec<Vec<WaveFunction>>>,
-    pub weights: Vec<u32>,
+    pub weights: Arc<Vec<u32>>,
     pub seed: u64,
     pub user_data: Option<Box<dyn Any + Send + Sync>>,
 }
 
 impl Peasant {
+    /// Todo: Use the weights when calculating the entropy
     pub fn lowest_entropy<R: Rng>(&self, rng: &mut R) -> Option<usize> {
         // find next cell to update
         let mut min_entropy = usize::MAX;

@@ -12,8 +12,8 @@ pub struct GridGraphSettings {
 impl Default for GridGraphSettings {
     fn default() -> Self {
         Self {
-            width: 16,
-            height: 16,
+            width: 32,
+            height: 32,
             periodic: true,
         }
     }
@@ -66,4 +66,69 @@ pub fn create<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> Graph<F> 
     let tiles = vec![fill_with; nodes_pos.len()];
 
     Graph { tiles, neighbors }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
+pub enum Direction {
+    Up = 0,
+    Down = 1,
+    Left = 2,
+    Right = 3,
+}
+
+impl Direction {
+    pub fn other(&self) -> Self {
+        match self {
+            Self::Up => Self::Down,
+            Self::Down => Self::Up,
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
+        }
+    }
+
+    pub fn rotate(&self, rotation: usize) -> Self {
+        match rotation {
+            0 => *self,
+            1 => match self {
+                Self::Up => Self::Right,
+                Self::Down => Self::Left,
+                Self::Left => Self::Up,
+                Self::Right => Self::Down,
+            },
+            2 => match self {
+                Self::Up => Self::Down,
+                Self::Down => Self::Up,
+                Self::Left => Self::Right,
+                Self::Right => Self::Left,
+            },
+            3 => match self {
+                Self::Up => Self::Left,
+                Self::Down => Self::Right,
+                Self::Left => Self::Down,
+                Self::Right => Self::Up,
+            },
+            _ => panic!("Invalid rotation: {}", rotation),
+        }
+    }
+
+    pub fn to_ivec2(&self) -> IVec2 {
+        match self {
+            Self::Up => IVec2::new(0, 1),
+            Self::Down => IVec2::new(0, -1),
+            Self::Left => IVec2::new(-1, 0),
+            Self::Right => IVec2::new(1, 0),
+        }
+    }
+}
+
+impl From<usize> for Direction {
+    fn from(value: usize) -> Self {
+        match value {
+            0 => Self::Up,
+            1 => Self::Down,
+            2 => Self::Left,
+            3 => Self::Right,
+            _ => panic!("Invalid direction: {}", value),
+        }
+    }
 }

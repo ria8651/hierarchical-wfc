@@ -2,3 +2,4 @@
 /Cargo.lock
 /web/hierarchical-wfc*
 trace-*
+flamegraph.svg

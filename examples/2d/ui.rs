@@ -15,6 +15,7 @@ use bevy_inspector_egui::{
     DefaultInspectorConfigPlugin,
 };
 use hierarchical_wfc::TileSet;
+use std::sync::Arc;
 
 pub struct UiPlugin;
 
@@ -53,7 +54,7 @@ impl Default for UiState {
             random_seed: true,
             picked_tileset: TileSetUi::default(),
             timeout: Some(0.05),
-            chunk_size: 16,
+            chunk_size: 4,
             weights: Vec::new(),
             image_handles: Vec::new(),
             tile_entities: Vec::new(),
@@ -127,7 +128,7 @@ fn ui(
                             generate_events.send(GenerateEvent::Single {
                                 tileset: tileset.clone(),
                                 settings: settings.clone(),
-                                weights: ui_state.weights.clone(),
+                                weights: Arc::new(ui_state.weights.clone()),
                                 seed,
                             });
                         }
@@ -145,7 +146,7 @@ fn ui(
                             generate_events.send(GenerateEvent::Chunked {
                                 tileset: tileset.clone(),
                                 settings: settings.clone(),
-                                weights: ui_state.weights.clone(),
+                                weights: Arc::new(ui_state.weights.clone()),
                                 seed,
                                 chunk_size: ui_state.chunk_size,
                             });
@@ -181,7 +182,7 @@ fn ui(
 #[derive(Event)]
 pub struct RenderUpdateEvent;
 
-// disgusting
+/// disgusting
 fn render_world(
     mut commands: Commands,
     mut ui_state: ResMut<UiState>,
@@ -200,6 +201,7 @@ fn render_world(
         };
 
         // tileset
+        let bad_tile = asset_server.load("fail.png");
         let mut tile_handles: Vec<Handle<Image>> = Vec::new();
         for tile in tileset.get_tile_paths() {
             tile_handles.push(asset_server.load(tile));
@@ -232,6 +234,9 @@ fn render_world(
                         ));
                         texture = tile_handles[tile_index].clone();
                     }
+                    if world.world[x][y].count_bits() == 0 {
+                        texture = bad_tile.clone();
+                    }
 
                     tile_entities[x].push(
                         commands
@@ -260,6 +265,10 @@ fn render_world(
         } else {
             for x in 0..current_size.x as usize {
                 for y in 0..current_size.y as usize {
+                    let (mut transform, mut sprite) = tile_entity_query
+                        .get_mut(ui_state.tile_entities[x][y])
+                        .unwrap();
+
                     if let Some(mut tile_index) = world.world[x][y].collapse() {
                         let mut tile_rotation = 0;
                         if tileset.tile_count() > 100 {
@@ -267,14 +276,16 @@ fn render_world(
                             tile_index = tile_index % (tileset.tile_count() / 4);
                         }
 
-                        let (mut transform, mut sprite) = tile_entity_query
-                            .get_mut(ui_state.tile_entities[x][y])
-                            .unwrap();
-
                         transform.rotation = Quat::from_rotation_z(
                             -std::f32::consts::PI * tile_rotation as f32 / 2.0,
                         );
                         *sprite = tile_handles[tile_index].clone();
+                    } else {
+                        if world.world[x][y].count_bits() == 0 {
+                            *sprite = bad_tile.clone();
+                        } else {
+                            *sprite = Default::default();
+                        }
                     }
                 }
             }

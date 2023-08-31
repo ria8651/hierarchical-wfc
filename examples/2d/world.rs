@@ -1,8 +1,8 @@
 use crate::{
-    graph_grid::{self, GridGraphSettings},
+    graph_grid::{self, Direction, GridGraphSettings},
     ui::RenderUpdateEvent,
 };
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashMap};
 use crossbeam::queue::SegQueue;
 use hierarchical_wfc::{CpuExecuter, Executer, Graph, Peasant, TileSet, WaveFunction};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
@@ -19,19 +19,31 @@ impl Plugin for WorldPlugin {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum ChunkState {
+    Scheduled,
+    Done,
+}
+
 #[derive(Resource)]
 pub struct World {
     pub world: Vec<Vec<WaveFunction>>,
+    generated_chunks: HashMap<IVec2, ChunkState>,
     chunk_size: usize,
     seed: u64,
+    current_constraints: Arc<Vec<Vec<WaveFunction>>>,
+    current_weights: Arc<Vec<u32>>,
 }
 
 impl Default for World {
     fn default() -> Self {
         Self {
             world: Vec::new(),
+            generated_chunks: HashMap::new(),
             chunk_size: 0,
             seed: 0,
+            current_constraints: Arc::new(Vec::new()),
+            current_weights: Arc::new(Vec::new()),
         }
     }
 }
@@ -41,13 +53,13 @@ pub enum GenerateEvent {
     Single {
         tileset: Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
         settings: GridGraphSettings,
-        weights: Vec<u32>,
+        weights: Arc<Vec<u32>>,
         seed: u64,
     },
     Chunked {
         tileset: Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
         settings: GridGraphSettings,
-        weights: Vec<u32>,
+        weights: Arc<Vec<u32>>,
         seed: u64,
         chunk_size: usize,
     },
@@ -91,8 +103,7 @@ fn handle_events(
                 seed,
                 chunk_size,
             } => {
-                world.world = vec![vec![WaveFunction::empty(); settings.height]; settings.width];
-
+                let constraints = Arc::new(tileset.get_constraints());
                 let mut rng = SmallRng::seed_from_u64(seed);
                 let chunks = IVec2::new(
                     settings.width as i32 / chunk_size as i32,
@@ -101,18 +112,30 @@ fn handle_events(
                 let start_chunk =
                     IVec2::new(rng.gen_range(0..chunks.x), rng.gen_range(0..chunks.y));
 
-                let graph = world.extract_chunk(start_chunk);
-                let constraints = Arc::new(tileset.get_constraints());
+                let filled = WaveFunction::filled(tileset.tile_count());
+                let new_world = World {
+                    world: vec![vec![filled; settings.height]; settings.width],
+                    generated_chunks: HashMap::from_iter(vec![(
+                        start_chunk,
+                        ChunkState::Scheduled,
+                    )]),
+                    chunk_size,
+                    seed,
+                    current_constraints: constraints.clone(),
+                    current_weights: weights.clone(),
+                };
+
+                let graph = new_world.extract_chunk(start_chunk);
                 let peasant = Peasant {
                     graph,
-                    constraints,
-                    weights,
+                    constraints: constraints.clone(),
+                    weights: weights.clone(),
                     seed,
                     user_data: Some(Box::new(PeasantData::Chunked { chunk: start_chunk })),
                 };
-
                 guild.cpu_executer.queue_peasant(peasant).unwrap();
-                world.seed = seed;
+
+                *world = new_world;
             }
             GenerateEvent::Single {
                 tileset,
@@ -138,7 +161,7 @@ fn handle_events(
 }
 
 fn handle_output(
-    guild: Res<Guild>,
+    mut guild: ResMut<Guild>,
     mut world: ResMut<World>,
     mut render_world_event: EventWriter<RenderUpdateEvent>,
 ) {
@@ -150,10 +173,61 @@ fn handle_output(
             .unwrap()
         {
             PeasantData::Chunked { chunk } => {
-                println!("Chunk done: {:?}", chunk);
+                // println!("Chunk done: {:?}", chunk);
+
+                let (bottom_left, top_right) = world.chunk_bounds(chunk);
+                let size = top_right - bottom_left;
+
+                // Note: Assumes that the graph is a grid graph with a standard ordering
+                let graph = peasant.graph;
+                for x in 0..size.x {
+                    for y in 0..size.y {
+                        let tile = graph.tiles[x as usize * size.y as usize + y as usize].clone();
+                        world.world[(bottom_left.x + x) as usize][(bottom_left.y + y) as usize] =
+                            tile;
+                    }
+                }
+                world.generated_chunks.insert(chunk, ChunkState::Done);
+                render_world_event.send(RenderUpdateEvent);
+
+                // queue neighbors
+                'outer: for direction in 0..4 {
+                    let neighbor = chunk + Direction::from(direction).to_ivec2();
+                    let chunks = IVec2::new(
+                        world.world.len() as i32 / world.chunk_size as i32,
+                        world.world[0].len() as i32 / world.chunk_size as i32,
+                    );
+                    if !world.generated_chunks.contains_key(&neighbor)
+                        && neighbor.cmpge(IVec2::ZERO).all()
+                        && neighbor.cmplt(chunks).all()
+                    {
+                        // check if neighbor's neighbors are done
+                        for direction in 0..4 {
+                            let neighbor = neighbor + Direction::from(direction).to_ivec2();
+                            if let Some(state) = world.generated_chunks.get(&neighbor) {
+                                if *state == ChunkState::Scheduled {
+                                    continue 'outer;
+                                }
+                            }
+                        }
+
+                        world
+                            .generated_chunks
+                            .insert(neighbor, ChunkState::Scheduled);
+                        let graph = world.extract_chunk(neighbor);
+                        let peasant = Peasant {
+                            graph,
+                            constraints: world.current_constraints.clone(),
+                            weights: world.current_weights.clone(),
+                            seed: world.seed + neighbor.x as u64 * chunks.y as u64 + neighbor.y as u64,
+                            user_data: Some(Box::new(PeasantData::Chunked { chunk: neighbor })),
+                        };
+                        guild.cpu_executer.queue_peasant(peasant).unwrap();
+                    }
+                }
             }
             PeasantData::Single { size } => {
-                println!("Single done");
+                // println!("Single done");
 
                 // Note: Assumes that the graph is a grid graph with a standard ordering
                 let graph = peasant.graph;
@@ -175,11 +249,7 @@ fn handle_output(
 
 impl World {
     fn extract_chunk(&self, pos: IVec2) -> Graph<WaveFunction> {
-        let bottom_left = (pos * self.chunk_size as i32 - IVec2::ONE).max(IVec2::ZERO);
-        let top_right = (pos * self.chunk_size as i32 + IVec2::ONE).min(IVec2::new(
-            self.world.len() as i32,
-            self.world[0].len() as i32,
-        ));
+        let (bottom_left, top_right) = self.chunk_bounds(pos);
         let size = top_right - bottom_left;
 
         let settings = GridGraphSettings {
@@ -197,5 +267,12 @@ impl World {
         }
 
         graph
+    }
+
+    fn chunk_bounds(&self, pos: IVec2) -> (IVec2, IVec2) {
+        let world_size = IVec2::new(self.world.len() as i32, self.world[0].len() as i32);
+        let bottom_left = (pos * self.chunk_size as i32 - IVec2::ONE).max(IVec2::ZERO);
+        let top_right = ((pos + IVec2::ONE) * self.chunk_size as i32 + IVec2::ONE).min(world_size);
+        (bottom_left, top_right)
     }
 }
