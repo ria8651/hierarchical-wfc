@@ -1,7 +1,7 @@
 use crate::graph_grid::{self, GridGraphSettings};
-use hierarchical_wfc::{WaveFunction, Direction, Graph, TileSet};
+use hierarchical_wfc::{Direction, Graph, TileSet, WaveFunction};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct CarcassonneTileset;
 
 impl TileSet for CarcassonneTileset {

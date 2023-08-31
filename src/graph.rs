@@ -35,7 +35,7 @@ pub struct Neighbor {
     pub index: usize,
 }
 
-#[derive(Deref, DerefMut, Clone, Copy, PartialEq, Eq)]
+#[derive(Deref, DerefMut, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct WaveFunction(pub [u32; TILE_U32S]);
 
 impl WaveFunction {

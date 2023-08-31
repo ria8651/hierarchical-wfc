@@ -1,10 +1,12 @@
 use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::ScalingMode};
 use ui::UiPlugin;
+use world::WorldPlugin;
 
 mod basic_tileset;
 mod carcassonne_tileset;
 mod graph_grid;
 mod ui;
+mod world;
 
 fn main() {
     #[cfg(target_arch = "wasm32")]
@@ -18,7 +20,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins(UiPlugin)
+        .add_plugins((UiPlugin, WorldPlugin))
         .add_systems(Startup, setup)
         .run();
 }

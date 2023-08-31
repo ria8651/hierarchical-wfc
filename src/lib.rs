@@ -2,12 +2,11 @@ use anyhow::Result;
 pub use cpu_executer::*;
 pub use graph::*;
 use rand::Rng;
-use std::sync::Arc;
+use std::{any::Any, sync::Arc};
 pub use tileset::*;
 
 mod cpu_executer;
 mod graph;
-mod guild;
 mod tileset;
 
 pub trait Executer {
@@ -20,6 +19,7 @@ pub struct Peasant {
     pub constraints: Arc<Vec<Vec<WaveFunction>>>,
     pub weights: Vec<u32>,
     pub seed: u64,
+    pub user_data: Option<Box<dyn Any + Send + Sync>>,
 }
 
 impl Peasant {

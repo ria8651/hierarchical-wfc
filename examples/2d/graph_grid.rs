@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use hierarchical_wfc::{Graph, Neighbor};
 
-#[derive(Reflect)]
+#[derive(Reflect, Clone)]
 #[reflect(Default)]
 pub struct GridGraphSettings {
     pub width: usize,

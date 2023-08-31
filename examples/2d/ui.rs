@@ -1,6 +1,8 @@
 use crate::{
-    basic_tileset::BasicTileset, carcassonne_tileset::CarcassonneTileset,
+    basic_tileset::BasicTileset,
+    carcassonne_tileset::CarcassonneTileset,
     graph_grid::GridGraphSettings,
+    world::{GenerateEvent, World},
 };
 use bevy::prelude::*;
 use bevy_inspector_egui::{
@@ -12,9 +14,7 @@ use bevy_inspector_egui::{
     reflect_inspector::ui_for_value,
     DefaultInspectorConfigPlugin,
 };
-use crossbeam::queue::SegQueue;
-use hierarchical_wfc::{CpuExecuter, Executer, Graph, Peasant, TileSet, WaveFunction};
-use std::sync::Arc;
+use hierarchical_wfc::TileSet;
 
 pub struct UiPlugin;
 
@@ -22,11 +22,12 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin)
             .add_plugins(DefaultInspectorConfigPlugin)
+            .add_event::<RenderUpdateEvent>()
             .init_resource::<UiState>()
             .register_type::<UiState>()
             .register_type::<TileSetUi>()
             .register_type::<GridGraphSettings>()
-            .add_systems(Update, (ui, render_grid_graph).chain());
+            .add_systems(Update, (ui, render_world).chain());
     }
 }
 
@@ -36,20 +37,13 @@ struct UiState {
     random_seed: bool,
     picked_tileset: TileSetUi,
     timeout: Option<f64>,
-    #[reflect(ignore)]
-    guild: Guild,
+    chunk_size: usize,
     #[reflect(ignore)]
     weights: Vec<u32>,
     #[reflect(ignore)]
     image_handles: Vec<(TextureId, Handle<Image>)>,
     #[reflect(ignore)]
-    graph: Option<Graph<WaveFunction>>,
-    #[reflect(ignore)]
-    graph_dirty: bool,
-    #[reflect(ignore)]
-    render_dirty: RenderState,
-    #[reflect(ignore)]
-    tile_entities: Vec<Entity>,
+    tile_entities: Vec<Vec<Entity>>,
 }
 
 impl Default for UiState {
@@ -59,40 +53,12 @@ impl Default for UiState {
             random_seed: true,
             picked_tileset: TileSetUi::default(),
             timeout: Some(0.05),
-            guild: Guild::default(),
+            chunk_size: 16,
             weights: Vec::new(),
             image_handles: Vec::new(),
-            graph: None,
-            graph_dirty: false,
-            render_dirty: Default::default(),
             tile_entities: Vec::new(),
         }
     }
-}
-
-struct Guild {
-    cpu_executer: CpuExecuter,
-    output: Arc<SegQueue<Peasant>>,
-}
-
-impl Default for Guild {
-    fn default() -> Self {
-        let output = Arc::new(SegQueue::new());
-        let cpu_executer = CpuExecuter::new(output.clone());
-
-        Self {
-            cpu_executer,
-            output,
-        }
-    }
-}
-
-#[derive(Default, PartialEq, Eq)]
-enum RenderState {
-    #[default]
-    Init,
-    Dirty,
-    Done,
 }
 
 #[derive(Reflect)]
@@ -105,11 +71,11 @@ enum TileSetUi {
 struct TileSprite;
 
 fn ui(
-    mut commands: Commands,
     mut contexts: EguiContexts,
     mut ui_state: ResMut<UiState>,
     type_registry: Res<AppTypeRegistry>,
     asset_server: Res<AssetServer>,
+    mut generate_events: EventWriter<GenerateEvent>,
 ) {
     let tileset = match &ui_state.picked_tileset {
         TileSetUi::BasicTileset(_) => {
@@ -147,67 +113,42 @@ fn ui(
                     .show(ui, |ui| {
                         ui_for_value(ui_state.as_mut(), ui, &type_registry.read());
 
-                        if ui.button("Generate").clicked() {
+                        if ui.button("Generate Single").clicked() {
                             let settings = match &ui_state.picked_tileset {
                                 TileSetUi::BasicTileset(settings) => settings,
                                 TileSetUi::Carcassonne(settings) => settings,
                             };
-                            let graph = tileset.create_graph(settings);
-
-                            // prepare tile rendering
-                            let mut tile_entities = Vec::new();
-                            for i in 0..graph.tiles.len() {
-                                let pos = Vec2::new(
-                                    (i / settings.height) as f32,
-                                    (i % settings.height) as f32,
-                                );
-                                tile_entities.push(
-                                    commands
-                                        .spawn((
-                                            SpriteBundle {
-                                                transform: Transform::from_translation(
-                                                    ((pos + 0.5) / settings.width as f32 - 0.5)
-                                                        .extend(-0.5),
-                                                ),
-                                                sprite: Sprite {
-                                                    custom_size: Some(Vec2::splat(
-                                                        1.0 / settings.width as f32,
-                                                    )),
-                                                    ..default()
-                                                },
-                                                ..default()
-                                            },
-                                            TileSprite,
-                                        ))
-                                        .id(),
-                                );
-                            }
-                            for tile_entity in ui_state.tile_entities.iter() {
-                                commands.entity(*tile_entity).despawn();
-                            }
-
-                            ui_state.tile_entities = tile_entities;
-                            ui_state.graph = Some(graph);
-
-                            ui_state.graph_dirty = true;
-                            ui_state.render_dirty = RenderState::Init;
-
-                            // start generation task
                             let seed = if !ui_state.random_seed {
                                 ui_state.seed
                             } else {
                                 rand::random()
                             };
-                            let constraints = Arc::new(tileset.get_constraints());
-                            let graph = ui_state.graph.as_ref().unwrap().clone();
-                            let weights = ui_state.weights.clone();
-                            let peasant = Peasant {
-                                graph,
-                                constraints,
-                                weights,
+
+                            generate_events.send(GenerateEvent::Single {
+                                tileset: tileset.clone(),
+                                settings: settings.clone(),
+                                weights: ui_state.weights.clone(),
                                 seed,
+                            });
+                        }
+                        if ui.button("Generate Chunked").clicked() {
+                            let settings = match &ui_state.picked_tileset {
+                                TileSetUi::BasicTileset(settings) => settings,
+                                TileSetUi::Carcassonne(settings) => settings,
                             };
-                            ui_state.guild.cpu_executer.queue_peasant(peasant).unwrap();
+                            let seed = if !ui_state.random_seed {
+                                ui_state.seed
+                            } else {
+                                rand::random()
+                            };
+
+                            generate_events.send(GenerateEvent::Chunked {
+                                tileset: tileset.clone(),
+                                settings: settings.clone(),
+                                weights: ui_state.weights.clone(),
+                                seed,
+                                chunk_size: ui_state.chunk_size,
+                            });
                         }
                     });
 
@@ -230,60 +171,115 @@ fn ui(
             });
         });
 
-    if let Some(peasant) = ui_state.guild.output.pop() {
-        ui_state.graph = Some(peasant.graph);
-        ui_state.graph_dirty = true;
-        ui_state.render_dirty = RenderState::Dirty;
-    }
+    // if let Some(peasant) = ui_state.guild.output.pop() {
+    //     ui_state.graph = Some(peasant.graph);
+    //     ui_state.graph_dirty = true;
+    //     ui_state.render_dirty = RenderState::Dirty;
+    // }
 }
 
-fn render_grid_graph(
+#[derive(Event)]
+pub struct RenderUpdateEvent;
+
+// disgusting
+fn render_world(
+    mut commands: Commands,
     mut ui_state: ResMut<UiState>,
     asset_server: Res<AssetServer>,
     mut tile_entity_query: Query<(&mut Transform, &mut Handle<Image>), With<TileSprite>>,
+    world: Res<World>,
+    mut render_world_event: EventReader<RenderUpdateEvent>,
+    mut current_size: Local<IVec2>,
 ) {
-    let render_span = info_span!("wfc_render").entered();
-    if let Some(graph) = &ui_state.graph {
-        if ui_state.render_dirty == RenderState::Dirty {
-            let tileset = match &ui_state.picked_tileset {
-                TileSetUi::BasicTileset(_) => Box::new(BasicTileset::default())
-                    as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
-                TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset::default())
-                    as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
-            };
+    for _ in render_world_event.iter() {
+        let tileset = match &ui_state.picked_tileset {
+            TileSetUi::BasicTileset(_) => Box::new(BasicTileset::default())
+                as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
+            TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset::default())
+                as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
+        };
 
-            // tileset
-            let mut tile_handles: Vec<Handle<Image>> = Vec::new();
-            for tile in tileset.get_tile_paths() {
-                tile_handles.push(asset_server.load(tile));
-            }
+        // tileset
+        let mut tile_handles: Vec<Handle<Image>> = Vec::new();
+        for tile in tileset.get_tile_paths() {
+            tile_handles.push(asset_server.load(tile));
+        }
 
-            // result
-            for i in 0..graph.tiles.len() {
-                if let Some(mut tile_index) = graph.tiles[i].collapse() {
-                    let mut tile_rotation = 0;
-                    if tileset.tile_count() > 100 {
-                        tile_rotation = tile_index / (tileset.tile_count() / 4);
-                        tile_index = tile_index % (tileset.tile_count() / 4);
+        let world_size = IVec2::new(world.world.len() as i32, world.world[0].len() as i32);
+        if world_size != *current_size {
+            *current_size = world_size;
+
+            // prepare tile rendering
+            let mut tile_entities = Vec::new();
+            for x in 0..world_size.x as usize {
+                tile_entities.push(Vec::new());
+                for y in 0..world_size.y as usize {
+                    let pos = Vec2::new(x as f32, y as f32);
+                    let mut transform = Transform::from_translation(
+                        ((pos + 0.5) / world_size.y as f32 - 0.5).extend(-0.5),
+                    );
+                    let mut texture = Default::default();
+
+                    if let Some(mut tile_index) = world.world[x][y].collapse() {
+                        let mut tile_rotation = 0;
+                        if tileset.tile_count() > 100 {
+                            tile_rotation = tile_index / (tileset.tile_count() / 4);
+                            tile_index = tile_index % (tileset.tile_count() / 4);
+                        }
+
+                        transform = transform.with_rotation(Quat::from_rotation_z(
+                            -std::f32::consts::PI * tile_rotation as f32 / 2.0,
+                        ));
+                        texture = tile_handles[tile_index].clone();
                     }
 
-                    let (mut transform, mut sprite) = tile_entity_query
-                        .get_mut(ui_state.tile_entities[i])
-                        .unwrap();
-
-                    transform.rotation =
-                        Quat::from_rotation_z(-std::f32::consts::PI * tile_rotation as f32 / 2.0);
-                    *sprite = tile_handles[tile_index].clone();
+                    tile_entities[x].push(
+                        commands
+                            .spawn((
+                                SpriteBundle {
+                                    transform,
+                                    sprite: Sprite {
+                                        custom_size: Some(Vec2::splat(1.0 / world_size.y as f32)),
+                                        ..default()
+                                    },
+                                    texture,
+                                    ..default()
+                                },
+                                TileSprite,
+                            ))
+                            .id(),
+                    );
                 }
             }
+            for tile_entitys in ui_state.tile_entities.iter() {
+                for tile_entity in tile_entitys.iter() {
+                    commands.entity(*tile_entity).despawn();
+                }
+            }
+            ui_state.tile_entities = tile_entities;
+        } else {
+            for x in 0..current_size.x as usize {
+                for y in 0..current_size.y as usize {
+                    if let Some(mut tile_index) = world.world[x][y].collapse() {
+                        let mut tile_rotation = 0;
+                        if tileset.tile_count() > 100 {
+                            tile_rotation = tile_index / (tileset.tile_count() / 4);
+                            tile_index = tile_index % (tileset.tile_count() / 4);
+                        }
 
-            ui_state.render_dirty = RenderState::Done;
-        }
-        if ui_state.render_dirty == RenderState::Init {
-            ui_state.render_dirty = RenderState::Dirty;
+                        let (mut transform, mut sprite) = tile_entity_query
+                            .get_mut(ui_state.tile_entities[x][y])
+                            .unwrap();
+
+                        transform.rotation = Quat::from_rotation_z(
+                            -std::f32::consts::PI * tile_rotation as f32 / 2.0,
+                        );
+                        *sprite = tile_handles[tile_index].clone();
+                    }
+                }
+            }
         }
     }
-    render_span.exit();
 }
 
 impl Default for TileSetUi {
