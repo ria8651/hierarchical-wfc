@@ -8,7 +8,7 @@ use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::sync::Arc;
 use utilities::{
     carcassonne_tileset::CarcassonneTileset,
-    graph_grid::{Direction, GridGraphSettings},
+    graph_grid::GridGraphSettings,
     world::{ChunkState, World},
 };
 
@@ -72,66 +72,20 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 current_constraints: constraints.clone(),
                 current_weights: weights.clone(),
             };
-
-            let graph = world.extract_chunk(start_chunk);
-            let peasant = Peasant {
-                graph,
-                constraints: constraints.clone(),
-                weights: weights.clone(),
-                seed,
-                user_data: Some(Box::new(start_chunk)),
-            };
-
-            cpu_executor.queue_peasant(peasant).unwrap();
+            world.start_generation(start_chunk, &mut cpu_executor, Some(Box::new(start_chunk)));
 
             // process output
             let chunk_count = (chunks.x * chunks.y) as usize;
             while world.generated_chunks.len() < chunk_count {
                 if let Some(peasant) = output.pop() {
-                    let chunk = *peasant.user_data.unwrap().downcast::<IVec2>().unwrap();
-                    world.merge_chunk(chunk, peasant.graph);
-                    world.generated_chunks.insert(chunk, ChunkState::Done);
+                    let chunk = peasant.user_data.as_ref().unwrap().downcast_ref().unwrap();
 
-                    // queue neighbors
-                    'outer: for direction in 0..4 {
-                        let neighbor = chunk + Direction::from(direction).to_ivec2();
-                        let chunks = IVec2::new(
-                            world.world.len() as i32 / world.chunk_size as i32,
-                            world.world[0].len() as i32 / world.chunk_size as i32,
-                        );
-                        if !world.generated_chunks.contains_key(&neighbor)
-                            && neighbor.cmpge(IVec2::ZERO).all()
-                            && neighbor.cmplt(chunks).all()
-                        {
-                            // check if neighbor's neighbors are done
-                            for direction in 0..4 {
-                                let neighbor = neighbor + Direction::from(direction).to_ivec2();
-                                if let Some(state) = world.generated_chunks.get(&neighbor) {
-                                    if *state == ChunkState::Scheduled {
-                                        continue 'outer;
-                                    }
-                                }
-                            }
-
-                            world
-                                .generated_chunks
-                                .insert(neighbor, ChunkState::Scheduled);
-                            let graph = world.extract_chunk(neighbor);
-                            let seed = world.seed
-                                + neighbor.x as u64 * chunks.y as u64
-                                + neighbor.y as u64;
-
-                            let peasant = Peasant {
-                                graph,
-                                constraints: world.current_constraints.clone(),
-                                weights: world.current_weights.clone(),
-                                seed,
-                                user_data: Some(Box::new(neighbor)),
-                            };
-
-                            cpu_executor.queue_peasant(peasant).unwrap();
-                        }
-                    }
+                    world.process_chunk(
+                        *chunk,
+                        peasant,
+                        &mut cpu_executor,
+                        Box::new(|chunk| Some(Box::new(chunk))),
+                    );
                 }
             }
         })
@@ -155,66 +109,24 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 current_constraints: constraints.clone(),
                 current_weights: weights.clone(),
             };
-
-            let graph = world.extract_chunk(start_chunk);
-            let peasant = Peasant {
-                graph,
-                constraints: constraints.clone(),
-                weights: weights.clone(),
-                seed,
-                user_data: Some(Box::new(start_chunk)),
-            };
-
-            multithreaded_executor.queue_peasant(peasant).unwrap();
+            world.start_generation(
+                start_chunk,
+                &mut multithreaded_executor,
+                Some(Box::new(start_chunk)),
+            );
 
             // process output
             let chunk_count = (chunks.x * chunks.y) as usize;
             while world.generated_chunks.len() < chunk_count {
                 if let Some(peasant) = output.pop() {
-                    let chunk = *peasant.user_data.unwrap().downcast::<IVec2>().unwrap();
-                    world.merge_chunk(chunk, peasant.graph);
-                    world.generated_chunks.insert(chunk, ChunkState::Done);
+                    let chunk = peasant.user_data.as_ref().unwrap().downcast_ref().unwrap();
 
-                    // queue neighbors
-                    'outer: for direction in 0..4 {
-                        let neighbor = chunk + Direction::from(direction).to_ivec2();
-                        let chunks = IVec2::new(
-                            world.world.len() as i32 / world.chunk_size as i32,
-                            world.world[0].len() as i32 / world.chunk_size as i32,
-                        );
-                        if !world.generated_chunks.contains_key(&neighbor)
-                            && neighbor.cmpge(IVec2::ZERO).all()
-                            && neighbor.cmplt(chunks).all()
-                        {
-                            // check if neighbor's neighbors are done
-                            for direction in 0..4 {
-                                let neighbor = neighbor + Direction::from(direction).to_ivec2();
-                                if let Some(state) = world.generated_chunks.get(&neighbor) {
-                                    if *state == ChunkState::Scheduled {
-                                        continue 'outer;
-                                    }
-                                }
-                            }
-
-                            world
-                                .generated_chunks
-                                .insert(neighbor, ChunkState::Scheduled);
-                            let graph = world.extract_chunk(neighbor);
-                            let seed = world.seed
-                                + neighbor.x as u64 * chunks.y as u64
-                                + neighbor.y as u64;
-
-                            let peasant = Peasant {
-                                graph,
-                                constraints: world.current_constraints.clone(),
-                                weights: world.current_weights.clone(),
-                                seed,
-                                user_data: Some(Box::new(neighbor)),
-                            };
-
-                            multithreaded_executor.queue_peasant(peasant).unwrap();
-                        }
-                    }
+                    world.process_chunk(
+                        *chunk,
+                        peasant,
+                        &mut multithreaded_executor,
+                        Box::new(|chunk| Some(Box::new(chunk))),
+                    );
                 }
             }
         })

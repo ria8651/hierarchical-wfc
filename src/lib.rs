@@ -16,12 +16,14 @@ pub trait Executor {
     fn queue_peasant(&mut self, peasant: Peasant) -> Result<()>;
 }
 
+pub type UserData = Option<Box<dyn Any + Send + Sync>>;
+
 pub struct Peasant {
     pub graph: Graph<WaveFunction>,
     pub constraints: Arc<Vec<Vec<WaveFunction>>>,
     pub weights: Arc<Vec<u32>>,
     pub seed: u64,
-    pub user_data: Option<Box<dyn Any + Send + Sync>>,
+    pub user_data: UserData,
 }
 
 impl Peasant {
