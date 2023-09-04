@@ -2,9 +2,6 @@ use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::cam
 use ui::UiPlugin;
 use world::WorldPlugin;
 
-mod basic_tileset;
-mod carcassonne_tileset;
-mod graph_grid;
 mod ui;
 mod world;
 

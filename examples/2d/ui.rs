@@ -1,9 +1,3 @@
-use crate::{
-    basic_tileset::BasicTileset,
-    carcassonne_tileset::CarcassonneTileset,
-    graph_grid::GridGraphSettings,
-    world::{GenerateEvent, World},
-};
 use bevy::prelude::*;
 use bevy_inspector_egui::{
     bevy_egui::{EguiContexts, EguiPlugin},
@@ -16,6 +10,12 @@ use bevy_inspector_egui::{
 };
 use hierarchical_wfc::TileSet;
 use std::sync::Arc;
+use utilities::{
+    basic_tileset::BasicTileset, carcassonne_tileset::CarcassonneTileset,
+    graph_grid::GridGraphSettings, world::World,
+};
+
+use crate::world::GenerateEvent;
 
 pub struct UiPlugin;
 
@@ -114,17 +114,17 @@ fn ui(
                     .show(ui, |ui| {
                         ui_for_value(ui_state.as_mut(), ui, &type_registry.read());
 
-                        if ui.button("Generate Single").clicked() {
-                            let settings = match &ui_state.picked_tileset {
-                                TileSetUi::BasicTileset(settings) => settings,
-                                TileSetUi::Carcassonne(settings) => settings,
-                            };
-                            let seed = if !ui_state.random_seed {
-                                ui_state.seed
-                            } else {
-                                rand::random()
-                            };
+                        let settings = match &ui_state.picked_tileset {
+                            TileSetUi::BasicTileset(settings) => settings,
+                            TileSetUi::Carcassonne(settings) => settings,
+                        };
+                        let seed = if !ui_state.random_seed {
+                            ui_state.seed
+                        } else {
+                            rand::random()
+                        };
 
+                        if ui.button("Generate Single").clicked() {
                             generate_events.send(GenerateEvent::Single {
                                 tileset: tileset.clone(),
                                 settings: settings.clone(),
@@ -133,17 +133,16 @@ fn ui(
                             });
                         }
                         if ui.button("Generate Chunked").clicked() {
-                            let settings = match &ui_state.picked_tileset {
-                                TileSetUi::BasicTileset(settings) => settings,
-                                TileSetUi::Carcassonne(settings) => settings,
-                            };
-                            let seed = if !ui_state.random_seed {
-                                ui_state.seed
-                            } else {
-                                rand::random()
-                            };
-
                             generate_events.send(GenerateEvent::Chunked {
+                                tileset: tileset.clone(),
+                                settings: settings.clone(),
+                                weights: Arc::new(ui_state.weights.clone()),
+                                seed,
+                                chunk_size: ui_state.chunk_size,
+                            });
+                        }
+                        if ui.button("Generate Multi Threaded").clicked() {
+                            generate_events.send(GenerateEvent::MultiThreaded {
                                 tileset: tileset.clone(),
                                 settings: settings.clone(),
                                 weights: Arc::new(ui_state.weights.clone()),

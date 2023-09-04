@@ -15,3 +15,11 @@ dyn-clone = "1.0"
 
 [profile.release]
 debug = true
+
+[dev-dependencies]
+utilities = { path = "utilities" }
+criterion = "0.5"
+
+[[bench]]
+name = "wfc"
+harness = false

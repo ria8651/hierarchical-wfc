@@ -1,15 +1,17 @@
 use anyhow::Result;
-pub use cpu_executer::*;
+pub use cpu_executor::*;
 pub use graph::*;
+pub use multithreaded_executor::*;
 use rand::Rng;
 use std::{any::Any, sync::Arc};
 pub use tileset::*;
 
-mod cpu_executer;
+mod cpu_executor;
 mod graph;
+mod multithreaded_executor;
 mod tileset;
 
-pub trait Executer {
+pub trait Executor {
     // fn execute(&mut self, graph: &mut Peasant) -> bool;
     fn queue_peasant(&mut self, peasant: Peasant) -> Result<()>;
 }

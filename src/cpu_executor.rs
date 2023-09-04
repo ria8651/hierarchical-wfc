@@ -1,4 +1,4 @@
-use crate::{Executer, Peasant};
+use crate::{Executor, Peasant};
 use anyhow::Result;
 use crossbeam::{
     channel::{self, Sender},
@@ -7,16 +7,16 @@ use crossbeam::{
 use rand::{rngs::SmallRng, SeedableRng};
 use std::{sync::Arc, thread};
 
-pub struct CpuExecuter {
+pub struct CpuExecutor {
     queue: Sender<Peasant>,
 }
 
-impl CpuExecuter {
+impl CpuExecutor {
     pub fn new(output: Arc<SegQueue<Peasant>>) -> Self {
         let (tx, rx) = channel::unbounded();
 
         thread::Builder::new()
-            .name("CPU WFC Executer".to_string())
+            .name("CPU WFC Executor".to_string())
             .spawn(move || {
                 while let Ok(mut peasant) = rx.recv() {
                     Self::execute(&mut peasant);
@@ -28,7 +28,7 @@ impl CpuExecuter {
         Self { queue: tx }
     }
 
-    fn execute(peasant: &mut Peasant) {
+    pub fn execute(peasant: &mut Peasant) {
         let mut rng = SmallRng::seed_from_u64(peasant.seed);
 
         let mut stack: Vec<usize> = (0..peasant.graph.tiles.len()).collect();
@@ -63,7 +63,7 @@ impl CpuExecuter {
     }
 }
 
-impl Executer for CpuExecuter {
+impl Executor for CpuExecutor {
     fn queue_peasant(&mut self, peasant: Peasant) -> Result<()> {
         self.queue.send(peasant)?;
 
