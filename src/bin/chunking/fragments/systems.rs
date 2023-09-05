@@ -1,28 +1,14 @@
-use std::ops::Div;
-
 use crate::fragments::{
-    graph_utils::{graph_merge, subgraph_with_positions},
-    plugin::{ChunkEntry, FragmentMarker, GenerateDebugMarker},
+    plugin::ChunkEntry,
     table::{EdgeFragmentEntry, EdgeKey, FaceFragmentEntry, FaceKey, NodeFragmentEntry, NodeKey},
 };
 
-use bevy::{
-    math::{ivec3, uvec3, vec3},
-    prelude::*,
-    utils::HashSet,
-};
-use hierarchical_wfc::{
-    graphs::regular_grid_3d::{self, GraphData, GraphSettings},
-    wfc::{Superposition, TileSet, WaveFunctionCollapse},
-};
+use bevy::{prelude::*, utils::HashSet};
+
 use itertools::Itertools;
-use rand::{rngs::StdRng, SeedableRng};
 
 use super::{
-    plugin::{
-        ChunkLoadEvent, ChunkTable, CollapsedData, FragmentGenerateEvent, GenerationDebugSettings,
-        LayoutSettings,
-    },
+    plugin::{ChunkLoadEvent, ChunkTable, FragmentGenerateEvent},
     table::FragmentTable,
 };
 

@@ -1,18 +1,7 @@
-use bevy::{
-    ecs::system::SystemState,
-    math::{ivec3, uvec3},
-    prelude::*,
-};
-use bevy_inspector_egui::reflect_inspector;
-use bevy_render::camera::Projection;
-use hierarchical_wfc::{
-    camera_plugin::{
-        cam_switcher::{CameraController, SwitchingCameraController},
-        fps::FpsCameraSettings,
-    },
-    ui_plugin::{EcsTab, EcsUiTab},
-};
-use itertools::{iproduct, Itertools};
+use bevy::{ecs::system::SystemState, math::ivec3, prelude::*};
+
+use hierarchical_wfc::ui_plugin::{EcsTab, EcsUiTab};
+use itertools::iproduct;
 
 use crate::fragments::plugin::ChunkLoadEvent;
 
@@ -43,7 +32,7 @@ impl EcsTab for EcsUiSendChunkLoads {
         &mut self,
         world: &mut World,
         ui: &mut egui::Ui,
-        type_registry: &bevy_reflect::TypeRegistry,
+        _type_registry: &bevy_reflect::TypeRegistry,
     ) {
         let (mut ev_chunk_load, mut chunk_location, mut chunk_area) =
             self.system_state.get_mut(world);

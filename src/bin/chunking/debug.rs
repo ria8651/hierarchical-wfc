@@ -2,7 +2,7 @@ use bevy::{math::vec4, prelude::*};
 use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, RigidBody};
 use hierarchical_wfc::{
     graphs::regular_grid_3d,
-    materials::{debug_arc_material::DebugLineMaterial, tile_pbr_material::TilePbrMaterial},
+    materials::debug_arc_material::DebugLineMaterial,
     tools::MeshBuilder,
     wfc::{Neighbour, WfcGraph},
 };
@@ -79,7 +79,7 @@ pub fn layout_debug_system(
         let material = tile_materials.add(StandardMaterial {
             base_color: match (fragment, chunk) {
                 (Some(_), None) => Color::rgb(0.8, 0.6, 0.6),
-                (Some(_), None) => Color::rgb(0.6, 0.6, 0.8),
+                (None, Some(_)) => Color::rgb(0.6, 0.6, 0.8),
                 _ => Color::rgb(0.6, 0.6, 0.8),
             },
             ..Default::default()
@@ -111,7 +111,7 @@ pub fn layout_debug_system(
     }
 }
 
-pub fn layout_debug_arcs_system(
+pub fn _layout_debug_arcs_system(
     mut commands: Commands,
     q_debug_chunks: Query<
         (
@@ -126,7 +126,7 @@ pub fn layout_debug_arcs_system(
     mut line_materials: ResMut<Assets<DebugLineMaterial>>,
 ) {
     for (transform, collapsed_data, graph_settings, graph_data) in q_debug_chunks.iter() {
-        let arcs_mesh = create_debug_arcs(&collapsed_data.graph, graph_data, graph_settings);
+        let arcs_mesh = _create_debug_arcs(&collapsed_data.graph, graph_data, graph_settings);
         commands
             .spawn((
                 MaterialMeshBundle {
@@ -143,7 +143,7 @@ pub fn layout_debug_arcs_system(
     }
 }
 
-const ARC_COLORS: [Vec4; 7] = [
+const _ARC_COLORS: [Vec4; 7] = [
     vec4(1.0, 0.1, 0.1, 1.0),
     vec4(0.1, 1.0, 1.0, 1.0),
     vec4(0.1, 1.0, 0.1, 1.0),
@@ -153,7 +153,7 @@ const ARC_COLORS: [Vec4; 7] = [
     vec4(0.1, 0.1, 0.1, 1.0),
 ];
 
-fn create_debug_arcs(
+fn _create_debug_arcs(
     result: &WfcGraph<usize>,
     data: &regular_grid_3d::GraphData,
     settings: &regular_grid_3d::GraphSettings,
@@ -165,7 +165,7 @@ fn create_debug_arcs(
 
     for (u, neighbours) in result.neighbours.iter().enumerate() {
         for Neighbour { index: v, arc_type } in neighbours.iter() {
-            let color = ARC_COLORS[*arc_type.min(&6)];
+            let color = _ARC_COLORS[*arc_type.min(&6)];
 
             let u = (data.node_positions[u].as_vec3() + 0.5) * settings.spacing;
             let v = (data.node_positions[*v].as_vec3() + 0.5) * settings.spacing;

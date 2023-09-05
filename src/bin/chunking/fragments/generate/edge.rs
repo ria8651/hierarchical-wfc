@@ -1,51 +1,25 @@
+use super::{
+    super::{
+        plugin::{CollapsedData, FragmentGenerateEvent, GenerationDebugSettings, LayoutSettings},
+        table::FragmentTable,
+    },
+    FragmentQueue, FRAGMENT_EDGE_PADDING, FRAGMENT_FACE_SIZE, NODE_RADIUS,
+};
+use crate::fragments::{
+    graph_utils::graph_merge,
+    plugin::{FragmentMarker, GenerateDebugMarker},
+    table::{EdgeFragmentEntry, FaceFragmentEntry, NodeFragmentEntry},
+};
+use bevy::{math::ivec3, prelude::*};
+use hierarchical_wfc::{
+    graphs::{
+        regular_grid_3d,
+        regular_grid_3d::{GraphData, GraphSettings},
+    },
+    wfc::{Superposition, WaveFunctionCollapse},
+};
+use rand::{rngs::StdRng, SeedableRng};
 use std::ops::Div;
-
-use bevy::prelude::*;
-use rand::SeedableRng;
-
-use super::super::plugin::FragmentGenerateEvent;
-
-use crate::fragments::table::FaceFragmentEntry;
-
-use crate::fragments::table::EdgeFragmentEntry;
-
-use crate::fragments::plugin::GenerateDebugMarker;
-
-use crate::fragments::plugin::FragmentMarker;
-
-use rand::rngs::StdRng;
-
-use hierarchical_wfc::wfc::WaveFunctionCollapse;
-
-use hierarchical_wfc::graphs::regular_grid_3d;
-
-use crate::fragments::graph_utils::graph_merge;
-
-use super::NODE_RADIUS;
-
-use super::FRAGMENT_FACE_SIZE;
-
-use super::FRAGMENT_EDGE_PADDING;
-
-use crate::fragments::table::NodeFragmentEntry;
-
-use bevy::math::ivec3;
-
-use super::FragmentQueue;
-
-use super::super::plugin::GenerationDebugSettings;
-
-use hierarchical_wfc::wfc::Superposition;
-
-use super::super::plugin::CollapsedData;
-
-use hierarchical_wfc::graphs::regular_grid_3d::GraphData;
-
-use hierarchical_wfc::graphs::regular_grid_3d::GraphSettings;
-
-use super::super::plugin::LayoutSettings;
-
-use super::super::table::FragmentTable;
 
 pub(crate) fn generate_edge(
     edge_pos: IVec3,

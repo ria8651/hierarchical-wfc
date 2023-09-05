@@ -212,9 +212,7 @@ fn fps_character_keyboard(
                 let movement = local_x * input.x + local_z * input.z;
 
                 let snap = Vec3::NEG_Y
-                    * match output.map(|output| output.grounded)
-                        .unwrap_or(false)
-                    {
+                    * match output.map(|output| output.grounded).unwrap_or(false) {
                         true => 0.1,
                         false => 2e-5,
                     };

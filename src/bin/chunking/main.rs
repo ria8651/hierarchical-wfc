@@ -1,7 +1,7 @@
 use bevy::{asset::ChangeWatcher, window::PresentMode};
 use bevy_render::texture::ImageSampler;
-use debug::{layout_debug_arcs_system, layout_debug_system};
-use fragments::plugin::{self, GenerationPlugin};
+use debug::layout_debug_system;
+use fragments::plugin::GenerationPlugin;
 
 use std::time::Duration;
 use tabs::*;

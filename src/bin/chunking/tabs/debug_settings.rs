@@ -1,15 +1,8 @@
 use bevy::{ecs::system::SystemState, prelude::*};
-use bevy_inspector_egui::{bevy_inspector::ui_for_value, reflect_inspector};
-use bevy_render::camera::Projection;
-use hierarchical_wfc::{
-    camera_plugin::{
-        cam_switcher::{CameraController, SwitchingCameraController},
-        fps::FpsCameraSettings,
-    },
-    ui_plugin::{EcsTab, EcsUiTab},
-};
 
-use crate::fragments::plugin::{ChunkLoadEvent, GenerationDebugSettings, LayoutSettings};
+use hierarchical_wfc::ui_plugin::{EcsTab, EcsUiTab};
+
+use crate::fragments::plugin::{GenerationDebugSettings, LayoutSettings};
 
 pub struct EcsUiDebugSettings {
     system_state: SystemState<(
@@ -37,7 +30,7 @@ impl EcsTab for EcsUiDebugSettings {
         &mut self,
         world: &mut World,
         ui: &mut egui::Ui,
-        type_registry: &bevy_reflect::TypeRegistry,
+        _type_registry: &bevy_reflect::TypeRegistry,
     ) {
         let (mut settings, mut layout_settings) = self.system_state.get_mut(world);
 

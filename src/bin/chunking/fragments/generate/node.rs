@@ -1,43 +1,23 @@
-use super::super::plugin::FragmentGenerateEvent;
-
-use crate::fragments::table::EdgeFragmentEntry;
-
-use crate::fragments::table::NodeFragmentEntry;
-
-use crate::fragments::plugin::GenerateDebugMarker;
-
-use super::super::plugin::CollapsedData;
-
-use bevy::math::vec3;
-use hierarchical_wfc::wfc::TileSet;
-use rand::SeedableRng;
-
-use super::FRAGMENT_FACE_SIZE;
-
-use crate::fragments::plugin::FragmentMarker;
-
-use rand::rngs::StdRng;
-
-use hierarchical_wfc::wfc::WaveFunctionCollapse;
-
-use super::FRAGMENT_EDGE_PADDING;
-
-use super::FRAGMENT_NODE_PADDING;
-
-use bevy::math::uvec3;
-
-use hierarchical_wfc::graphs::regular_grid_3d;
-
-use super::FragmentQueue;
-
-use super::super::table::FragmentTable;
-
-use super::super::plugin::GenerationDebugSettings;
-
-use hierarchical_wfc::wfc::Superposition;
-
-use super::super::plugin::LayoutSettings;
-use bevy::prelude::*;
+use super::{
+    super::{
+        plugin::{CollapsedData, FragmentGenerateEvent, GenerationDebugSettings, LayoutSettings},
+        table::FragmentTable,
+    },
+    FragmentQueue, FRAGMENT_EDGE_PADDING, FRAGMENT_FACE_SIZE, FRAGMENT_NODE_PADDING,
+};
+use crate::fragments::{
+    plugin::{FragmentMarker, GenerateDebugMarker},
+    table::{EdgeFragmentEntry, NodeFragmentEntry},
+};
+use bevy::{
+    math::{uvec3, vec3},
+    prelude::*,
+};
+use hierarchical_wfc::{
+    graphs::regular_grid_3d,
+    wfc::{Superposition, TileSet, WaveFunctionCollapse},
+};
+use rand::{rngs::StdRng, SeedableRng};
 
 pub(crate) fn generate_node(
     layout_settings: &Res<'_, LayoutSettings>,

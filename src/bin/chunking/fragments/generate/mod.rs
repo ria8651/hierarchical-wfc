@@ -1,13 +1,8 @@
-use std::ops::Div;
-
-use crate::{fragments, fragments::graph_utils::graph_merge};
-
 use bevy::{self, prelude::*};
 use hierarchical_wfc::{
-    graphs::regular_grid_3d::{self, GraphData, GraphSettings},
+    graphs::regular_grid_3d::{self},
     wfc::{Superposition, TileSet},
 };
-use rand::{rngs::StdRng, SeedableRng};
 
 use super::{
     plugin::{CollapsedData, FragmentGenerateEvent, GenerationDebugSettings, LayoutSettings},

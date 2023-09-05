@@ -1,43 +1,28 @@
-use std::ops::Div;
-
-use crate::fragments::table::FaceFragmentEntry;
-
-use crate::fragments::plugin::GenerateDebugMarker;
-
-use crate::fragments::plugin::FragmentMarker;
-
-use crate::fragments::graph_utils::subgraph_with_positions;
-
-use bevy::prelude::*;
+use super::{
+    super::{
+        plugin::{CollapsedData, GenerationDebugSettings, LayoutSettings},
+        table::FragmentTable,
+    },
+    FRAGMENT_FACE_SIZE,
+};
+use crate::fragments::{
+    graph_utils::{graph_merge, subgraph_with_positions},
+    plugin::{FragmentMarker, GenerateDebugMarker},
+    table::{EdgeFragmentEntry, FaceFragmentEntry},
+};
+use bevy::{
+    math::{ivec3, uvec3},
+    prelude::*,
+};
+use hierarchical_wfc::{
+    graphs::{
+        regular_grid_3d,
+        regular_grid_3d::{GraphData, GraphSettings},
+    },
+    wfc::{Superposition, WaveFunctionCollapse},
+};
 use rand::{rngs::StdRng, SeedableRng};
-
-use hierarchical_wfc::wfc::WaveFunctionCollapse;
-
-use bevy::math::uvec3;
-
-use hierarchical_wfc::graphs::regular_grid_3d;
-
-use crate::fragments::graph_utils::graph_merge;
-
-use super::FRAGMENT_FACE_SIZE;
-
-use crate::fragments::table::EdgeFragmentEntry;
-
-use bevy::math::ivec3;
-
-use super::super::plugin::GenerationDebugSettings;
-
-use hierarchical_wfc::wfc::Superposition;
-
-use super::super::plugin::LayoutSettings;
-
-use super::super::plugin::CollapsedData;
-
-use hierarchical_wfc::graphs::regular_grid_3d::GraphData;
-
-use hierarchical_wfc::graphs::regular_grid_3d::GraphSettings;
-
-use super::super::table::FragmentTable;
+use std::ops::Div;
 
 pub(crate) fn generate_face(
     face_pos: IVec3,
