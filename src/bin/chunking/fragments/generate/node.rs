@@ -22,7 +22,7 @@ use rand::{rngs::StdRng, SeedableRng};
 pub(crate) fn generate_node(
     layout_settings: &Res<'_, LayoutSettings>,
     node_pos: IVec3,
-    constraints: &Box<[Box<[Superposition]>]>,
+    constraints: &[Box<[Superposition]>],
     weights: &Vec<u32>,
     commands: &mut Commands<'_, '_>,
     debug_settings: &ResMut<'_, GenerationDebugSettings>,
@@ -41,8 +41,8 @@ pub(crate) fn generate_node(
         &|(_, _)| Superposition::filled(layout_settings.tileset.tile_count()),
     );
     let seed = node_pos.to_array();
-    let mut seed: Vec<u8> = seed.map(|i| i.to_be_bytes()).concat().into();
-    seed.extend([0u8; 20].into_iter());
+    let mut seed: Vec<u8> = seed.map(|i| i.to_be_bytes()).concat();
+    seed.extend([0u8; 20]);
     let seed: [u8; 32] = seed.try_into().unwrap();
     WaveFunctionCollapse::collapse(
         &mut graph,

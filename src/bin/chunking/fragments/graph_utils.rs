@@ -35,14 +35,10 @@ pub fn subgraph_with_positions<T, U, P: Clone>(
                     graph.neighbours[*old_index]
                         .iter()
                         .flat_map(|neighbour| {
-                            if let Some(new_index) = new_indices[neighbour.index] {
-                                Some(Neighbour {
-                                    arc_type: neighbour.arc_type,
-                                    index: new_index,
-                                })
-                            } else {
-                                None
-                            }
+                            new_indices[neighbour.index].map(|new_index| Neighbour {
+                                arc_type: neighbour.arc_type,
+                                index: new_index,
+                            })
                         })
                         .collect()
                 })
@@ -101,10 +97,10 @@ pub fn graph_merge<T, U, V, P: Eq + PartialEq + std::hash::Hash + Clone + Copy>(
             lhs.chain(rhs)
                 .sorted_by(|a, b| Ord::cmp(&a.arc_type, &b.arc_type))
                 .dedup_by(|a, b| {
-                    if &a.arc_type == &b.arc_type {
+                    if a.arc_type == b.arc_type {
                         assert_eq!(a.index, b.index);
                     }
-                    &a.arc_type == &b.arc_type
+                    a.arc_type == b.arc_type
                 })
                 .collect::<Box<[Neighbour]>>()
         })

@@ -44,16 +44,18 @@ pub fn transform_chunk_loads(
                     *chunk_pos + IVec3::Z,
                 ];
 
-                let edge_loaded =
-                    edges_pos.map(|pos| match fragment_table.loaded_edges.get(&pos) {
-                        Some(EdgeFragmentEntry::Generated(_)) => true,
-                        _ => false,
-                    });
-                let node_loaded =
-                    nodes_pos.map(|pos| match fragment_table.loaded_nodes.get(&pos) {
-                        Some(NodeFragmentEntry::Generated(_)) => true,
-                        _ => false,
-                    });
+                let edge_loaded = edges_pos.map(|pos| {
+                    matches!(
+                        fragment_table.loaded_edges.get(&pos),
+                        Some(EdgeFragmentEntry::Generated(_))
+                    )
+                });
+                let node_loaded = nodes_pos.map(|pos| {
+                    matches!(
+                        fragment_table.loaded_nodes.get(&pos),
+                        Some(NodeFragmentEntry::Generated(_))
+                    )
+                });
 
                 let face: FaceKey = nodes_pos.iter().sum();
                 assert_eq!(face, faces_pos[0]);
@@ -121,11 +123,10 @@ pub fn transform_chunk_loads(
                     let waiting_for = edges_pos
                         .into_iter()
                         .zip(edge_loaded.into_iter())
-                        .map(|(pos, loaded)| match loaded {
+                        .filter_map(|(pos, loaded)| match loaded {
                             true => None,
                             false => Some(pos),
                         })
-                        .flatten()
                         .collect_vec();
 
                     for edge in waiting_for.clone() {

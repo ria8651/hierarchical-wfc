@@ -27,7 +27,7 @@ pub(crate) fn generate_edge(
     layout_settings: &Res<'_, LayoutSettings>,
     q_fragments: &Query<'_, '_, (&GraphSettings, &GraphData, &CollapsedData)>,
     fill_with: Superposition,
-    constraints: &Box<[Box<[Superposition]>]>,
+    constraints: &[Box<[Superposition]>],
     weights: &Vec<u32>,
     commands: &mut Commands<'_, '_>,
     debug_settings: &ResMut<'_, GenerationDebugSettings>,
@@ -46,7 +46,7 @@ pub(crate) fn generate_edge(
     let edge_normal = node_end_pos - node_start_pos;
     let node_entity_ids = [node_start_pos, node_end_pos].map(|node| {
         match fragment_table.loaded_nodes.get(&node).unwrap() {
-            NodeFragmentEntry::Generated(entity) => entity.clone(),
+            NodeFragmentEntry::Generated(entity) => *entity,
             _ => unreachable!(),
         }
     });
@@ -80,29 +80,28 @@ pub(crate) fn generate_edge(
     let (merged_graph, merged_positions) = graph_merge(
         (&node_start.2.graph, &node_start_positions),
         (&node_end.2.graph, &node_end_positions),
-        &|a: Option<&usize>, b| a.or(b).unwrap().clone(),
+        &|a: Option<&usize>, b| *a.or(b).unwrap(),
     );
     let (edge_data, edge_graph) =
-        regular_grid_3d::create_cuboid(edge_volume.0, edge_volume.1, &|(_, _)| fill_with.clone());
+        regular_grid_3d::create_cuboid(edge_volume.0, edge_volume.1, &|(_, _)| fill_with);
     let (mut merged_graph, merged_positions) = graph_merge(
         (&merged_graph, &merged_positions),
         (&edge_graph, &edge_data.node_positions),
         &|a: Option<&usize>, b: Option<&Superposition>| {
             b.copied()
-                .or(a.and_then(|a| {
+                .or(a.map(|a| {
                     if *a != 404 {
-                        Some(Superposition::single(*a))
+                        Superposition::single(*a)
                     } else {
-                        Some(Superposition::empty())
+                        Superposition::empty()
                     }
                 }))
                 .unwrap()
-                .clone()
         },
     );
     let seed = edge_pos.to_array();
-    let mut seed: Vec<u8> = seed.map(|i| i.to_be_bytes()).concat().into();
-    seed.extend([0u8; 20].into_iter());
+    let mut seed: Vec<u8> = seed.map(|i| i.to_be_bytes()).concat();
+    seed.extend([0u8; 20]);
     let seed: [u8; 32] = seed.try_into().unwrap();
     WaveFunctionCollapse::collapse(
         &mut merged_graph,

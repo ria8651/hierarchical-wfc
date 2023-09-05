@@ -139,7 +139,7 @@ pub fn _layout_debug_arcs_system(
                 },
                 DebugArcs,
             ))
-            .insert(transform.clone());
+            .insert(*transform);
     }
 }
 
@@ -192,7 +192,7 @@ fn _create_debug_arcs(
     edges.insert_attribute(Mesh::ATTRIBUTE_NORMAL, arc_vertex_normals);
     edges.insert_attribute(Mesh::ATTRIBUTE_UV_0, arc_vertex_uvs);
     edges.insert_attribute(Mesh::ATTRIBUTE_COLOR, arc_vertex_colors);
-    return edges;
+    edges
 }
 
 #[derive(Component)]

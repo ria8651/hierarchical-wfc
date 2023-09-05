@@ -60,7 +60,7 @@ impl EcsTab for EcsUiSendChunkLoads {
         });
 
         if ui.button("Send Event").clicked() {
-            ev_chunk_load.send(ChunkLoadEvent::Load(chunk_location.clone()))
+            ev_chunk_load.send(ChunkLoadEvent::Load(*chunk_location))
         }
 
         ui.label("Multiple Load Events");

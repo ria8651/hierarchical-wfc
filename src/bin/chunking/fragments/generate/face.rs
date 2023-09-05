@@ -30,7 +30,7 @@ pub(crate) fn generate_face(
     q_fragments: &Query<'_, '_, (&GraphSettings, &GraphData, &CollapsedData)>,
     layout_settings: &Res<'_, LayoutSettings>,
     fill_with: Superposition,
-    constraints: &Box<[Box<[Superposition]>]>,
+    constraints: &[Box<[Superposition]>],
     weights: &Vec<u32>,
     commands: &mut Commands<'_, '_>,
     debug_settings: &ResMut<'_, GenerationDebugSettings>,
@@ -48,7 +48,7 @@ pub(crate) fn generate_face(
     ];
     let edge_entity_ids = edges.map(
         |edge| match fragment_table.loaded_edges.get(&edge).unwrap() {
-            EdgeFragmentEntry::Generated(entity) => entity.clone(),
+            EdgeFragmentEntry::Generated(entity) => *entity,
             _ => unreachable!(),
         },
     );
@@ -66,7 +66,7 @@ pub(crate) fn generate_face(
         graph_merge(
             (&edge_entities[0].2.graph, neg_z_edge_positions),
             (&edge_entities[2].2.graph, &z_edge_positions),
-            &|a: Option<&usize>, b| a.or(b).unwrap().clone(),
+            &|a: Option<&usize>, b| *a.or(b).unwrap(),
         )
     };
     let merged_z_normal = {
@@ -82,13 +82,13 @@ pub(crate) fn generate_face(
         graph_merge(
             (&edge_entities[1].2.graph, neg_x_edge_positions),
             (&edge_entities[3].2.graph, &x_edge_positions),
-            &|a: Option<&usize>, b| a.or(b).unwrap().clone(),
+            &|a: Option<&usize>, b| *a.or(b).unwrap(),
         )
     };
     let (merged_graph, merged_positions) = graph_merge(
         (&merged_x_normal.0, &merged_x_normal.1),
         (&merged_z_normal.0, &merged_z_normal.1),
-        &|a: Option<&usize>, b| a.or(b).unwrap().clone(),
+        &|a: Option<&usize>, b| *a.or(b).unwrap(),
     );
     let (face_data, face_graph) = regular_grid_3d::create_graph(
         &GraphSettings {
@@ -99,27 +99,26 @@ pub(crate) fn generate_face(
             ),
             spacing: layout_settings.settings.spacing,
         },
-        &|(_, _)| fill_with.clone(),
+        &|(_, _)| fill_with,
     );
     let (mut merged_graph, merged_positions) = graph_merge(
         (&merged_graph, &merged_positions),
         (&face_graph, &face_data.node_positions),
         &|a: Option<&usize>, b: Option<&Superposition>| {
             b.copied()
-                .or(a.and_then(|a| {
+                .or(a.map(|a| {
                     if *a != 404 {
-                        Some(Superposition::single(*a))
+                        Superposition::single(*a)
                     } else {
-                        Some(Superposition::empty())
+                        Superposition::empty()
                     }
                 }))
                 .unwrap()
-                .clone()
         },
     );
     let seed = face_pos.to_array();
-    let mut seed: Vec<u8> = seed.map(|i| i.to_be_bytes()).concat().into();
-    seed.extend([0u8; 20].into_iter());
+    let mut seed: Vec<u8> = seed.map(|i| i.to_be_bytes()).concat();
+    seed.extend([0u8; 20]);
     let seed: [u8; 32] = seed.try_into().unwrap();
     WaveFunctionCollapse::collapse(
         &mut merged_graph,
@@ -143,7 +142,7 @@ pub(crate) fn generate_face(
                             ))
                             .all()
                     {
-                        Some(tile.clone())
+                        Some(*tile)
                     } else {
                         None
                     }

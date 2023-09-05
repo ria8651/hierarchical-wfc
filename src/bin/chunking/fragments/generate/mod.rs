@@ -39,14 +39,13 @@ pub fn generate_fragments(
     let fill_with = Superposition::filled(tileset.tile_count());
 
     for ev in ev_generate_fragment.iter() {
-        generate_fragment_queue.queue.push(ev.clone());
+        generate_fragment_queue.queue.push(*ev);
     }
 
     let queue = generate_fragment_queue.queue.clone();
     generate_fragment_queue.queue.clear();
 
-    for ev in queue {
-        let event = ev.clone();
+    for event in queue {
         match event {
             FragmentGenerateEvent::Node(node_pos) => node::generate_node(
                 &layout_settings,
