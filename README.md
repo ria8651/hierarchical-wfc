@@ -1,4 +1,4 @@
-# Hierarchical WFC
+ # Hierarchical WFC
 
 ## Existing Research
 

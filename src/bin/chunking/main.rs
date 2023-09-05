@@ -23,7 +23,6 @@ use hierarchical_wfc::{
     ui_plugin::{EcsUiPlugin, EcsUiState, EcsUiTab},
 };
 
-mod chunks;
 mod debug;
 mod fragments;
 mod tabs;
@@ -74,7 +73,7 @@ fn main() {
         (
             set_ground_sampler,
             layout_debug_system,
-            layout_debug_arcs_system,
+            // layout_debug_arcs_system,
         ),
     )
     .add_systems(Startup, (setup, init_inspector));

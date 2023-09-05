@@ -41,9 +41,14 @@ impl EcsTab for EcsUiDebugSettings {
     ) {
         let (mut settings, mut layout_settings) = self.system_state.get_mut(world);
 
-        ui.label("Spawn Debug Meshes");
+        ui.label("Debug Chunks");
         ui.checkbox(&mut settings.debug_chunks, "Chunks");
-        ui.checkbox(&mut settings.debug_fragments, "Fragments");
+
+        ui.spacing();
+        ui.label("Debug Fragments");
+        ui.checkbox(&mut settings.debug_fragment_nodes, "Nodes");
+        ui.checkbox(&mut settings.debug_fragment_edges, "Edges");
+        ui.checkbox(&mut settings.debug_fragment_faces, "Faces");
 
         ui.label("Layout Settings");
         ui.horizontal(|ui| {
