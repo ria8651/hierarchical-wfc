@@ -9,7 +9,7 @@ use hierarchical_wfc::{
     ui_plugin::{EcsTab, EcsUiTab},
 };
 
-use crate::fragments::generate::{ChunkLoadEvent, GenerationDebugSettings, LayoutSettings};
+use crate::fragments::plugin::{ChunkLoadEvent, GenerationDebugSettings, LayoutSettings};
 
 pub struct EcsUiDebugSettings {
     system_state: SystemState<(

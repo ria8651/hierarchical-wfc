@@ -1,2 +1,6 @@
-pub mod generate;
-pub mod graph_operations;
+pub mod plugin;
+
+mod generate;
+mod graph_utils;
+mod systems;
+mod table;

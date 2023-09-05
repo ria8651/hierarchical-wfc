@@ -14,7 +14,7 @@ use hierarchical_wfc::{
 };
 use itertools::{iproduct, Itertools};
 
-use crate::fragments::generate::ChunkLoadEvent;
+use crate::fragments::plugin::ChunkLoadEvent;
 
 pub struct EcsUiSendChunkLoads {
     system_state: SystemState<(

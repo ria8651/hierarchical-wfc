@@ -52,54 +52,6 @@ pub fn subgraph_with_positions<T, U, P: Clone>(
     )
 }
 
-// pub fn subgraph<T, U>(
-//     graph: &WfcGraph<T>,
-//     predicate: &dyn Fn(usize, &T) -> Option<U>,
-// ) -> WfcGraph<U> {
-//     let mut nodes: Vec<U> = Vec::new();
-//     let mut new_positions: Vec<P> = Vec::new();
-//     let mut new_indices = vec![None; graph.nodes.len()];
-//     let mut old_indices = Vec::new();
-
-//     for (index, node) in graph.nodes.iter().enumerate() {
-//         if let Some(node) = predicate(index, node) {
-//             nodes.push(node);
-//             new_positions.push(positions[index].clone());
-//             new_indices[index] = Some(old_indices.len());
-//             old_indices.push(index);
-//         }
-//     }
-
-//     (
-//         WfcGraph {
-//             nodes,
-//             order: graph
-//                 .order
-//                 .iter()
-//                 .flat_map(|index| new_indices[*index])
-//                 .collect_vec(),
-//             neighbours: old_indices
-//                 .iter()
-//                 .map(|old_index| {
-//                     graph.neighbours[*old_index]
-//                         .iter()
-//                         .flat_map(|neighbour| {
-//                             if let Some(new_index) = new_indices[neighbour.index] {
-//                                 Some(Neighbour {
-//                                     arc_type: neighbour.arc_type,
-//                                     index: new_index,
-//                                 })
-//                             } else {
-//                                 None
-//                             }
-//                         })
-//                         .collect()
-//                 })
-//                 .collect(),
-//         },
-//         new_positions.into(),
-//     )}
-
 pub fn graph_merge<T, U, V, P: Eq + PartialEq + std::hash::Hash + Clone + Copy>(
     lhs: (&WfcGraph<T>, &[P]),
     rhs: (&WfcGraph<U>, &[P]),

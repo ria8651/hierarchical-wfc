@@ -7,7 +7,7 @@ use hierarchical_wfc::{
     wfc::{Neighbour, WfcGraph},
 };
 
-use crate::fragments::generate::{ChunkMarker, CollapsedData, FragmentMarker, GenerateDebugMarker};
+use crate::fragments::plugin::{ChunkMarker, CollapsedData, FragmentMarker, GenerateDebugMarker};
 
 fn debug_mesh(
     result: &WfcGraph<usize>,
