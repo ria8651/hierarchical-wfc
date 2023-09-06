@@ -12,7 +12,8 @@ use hierarchical_wfc::TileSet;
 use std::sync::Arc;
 use utilities::{
     basic_tileset::BasicTileset, carcassonne_tileset::CarcassonneTileset,
-    circuit_tileset::CircuitTileset, graph_grid::GridGraphSettings, world::World,
+    circuit_tileset::CircuitTileset, graph_grid::GridGraphSettings, mxgmn_tileset::MxgmnTileset,
+    world::World,
 };
 
 use crate::world::GenerateEvent;
@@ -40,7 +41,9 @@ struct UiState {
     timeout: Option<f64>,
     chunk_size: usize,
     #[reflect(ignore)]
-    weights: Vec<u32>,
+    tile_sets: Vec<Arc<dyn TileSet<GraphSettings = GridGraphSettings>>>,
+    #[reflect(ignore)]
+    weights: Vec<f32>,
     #[reflect(ignore)]
     image_handles: Vec<(TextureId, Handle<Image>)>,
     #[reflect(ignore)]
@@ -49,12 +52,23 @@ struct UiState {
 
 impl Default for UiState {
     fn default() -> Self {
+        let tile_sets: Vec<Arc<dyn TileSet<GraphSettings = GridGraphSettings>>> = vec![
+            Arc::new(BasicTileset::default()),
+            Arc::new(CarcassonneTileset::default()),
+            Arc::new(CircuitTileset::default()),
+            Arc::new(MxgmnTileset::new(
+                "/Users/brian/Documents/Code/Rust/hierarchical-wfc/assets/mxgmn/Circuit.xml"
+                    .to_string(),
+            )),
+        ];
+
         Self {
             seed: 0,
             random_seed: true,
             picked_tileset: TileSetUi::default(),
             timeout: Some(0.05),
             chunk_size: 4,
+            tile_sets,
             weights: Vec::new(),
             image_handles: Vec::new(),
             tile_entities: Vec::new(),
@@ -67,6 +81,7 @@ enum TileSetUi {
     Carcassonne(GridGraphSettings),
     BasicTileset(GridGraphSettings),
     CircuitTileset(GridGraphSettings),
+    MxgmnTileset(GridGraphSettings),
 }
 
 #[derive(Component)]
@@ -79,12 +94,12 @@ fn ui(
     asset_server: Res<AssetServer>,
     mut generate_events: EventWriter<GenerateEvent>,
 ) {
-    let tileset: Box<dyn TileSet<GraphSettings = GridGraphSettings>> =
-        match &ui_state.picked_tileset {
-            TileSetUi::BasicTileset(_) => Box::new(BasicTileset::default()),
-            TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset::default()),
-            TileSetUi::CircuitTileset(_) => Box::new(CircuitTileset::default()),
-        };
+    let tileset = match &ui_state.picked_tileset {
+        TileSetUi::BasicTileset(_) => ui_state.tile_sets[0].clone(),
+        TileSetUi::Carcassonne(_) => ui_state.tile_sets[1].clone(),
+        TileSetUi::CircuitTileset(_) => ui_state.tile_sets[2].clone(),
+        TileSetUi::MxgmnTileset(_) => ui_state.tile_sets[3].clone(),
+    };
 
     if ui_state.weights.len() != tileset.tile_count() {
         ui_state.weights = tileset.get_weights();
@@ -118,6 +133,7 @@ fn ui(
                             TileSetUi::BasicTileset(settings) => settings,
                             TileSetUi::Carcassonne(settings) => settings,
                             TileSetUi::CircuitTileset(settings) => settings,
+                            TileSetUi::MxgmnTileset(settings) => settings,
                         };
                         let seed = if !ui_state.random_seed {
                             ui_state.seed
@@ -194,11 +210,10 @@ fn render_world(
 ) {
     for _ in render_world_event.iter() {
         let tileset = match &ui_state.picked_tileset {
-            TileSetUi::BasicTileset(_) => Box::new(BasicTileset::default())
-                as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
-            TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset::default())
-                as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
-            TileSetUi::CircuitTileset(_) => Box::new(CircuitTileset::default()),
+            TileSetUi::BasicTileset(_) => ui_state.tile_sets[0].clone(),
+            TileSetUi::Carcassonne(_) => ui_state.tile_sets[1].clone(),
+            TileSetUi::CircuitTileset(_) => ui_state.tile_sets[2].clone(),
+            TileSetUi::MxgmnTileset(_) => ui_state.tile_sets[3].clone(),
         };
 
         // tileset
@@ -296,6 +311,6 @@ fn render_world(
 
 impl Default for TileSetUi {
     fn default() -> Self {
-        Self::Carcassonne(GridGraphSettings::default())
+        Self::MxgmnTileset(GridGraphSettings::default())
     }
 }

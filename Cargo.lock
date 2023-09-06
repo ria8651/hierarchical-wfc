@@ -3378,6 +3378,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-xml-rs"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb3aa78ecda1ebc9ec9847d5d3aba7d618823446a049ba2491940506da6e2782"
+dependencies = [
+ "log",
+ "serde",
+ "thiserror",
+ "xml-rs",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.187"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3785,6 +3797,8 @@ dependencies = [
  "crossbeam",
  "hierarchical-wfc",
  "rand",
+ "serde",
+ "serde-xml-rs",
 ]
 
 [[package]]

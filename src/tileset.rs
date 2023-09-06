@@ -8,7 +8,7 @@ pub trait TileSet: DynClone + Send + Sync {
     fn directions(&self) -> usize;
     fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<WaveFunction>;
     fn get_constraints(&self) -> Vec<Vec<WaveFunction>>;
-    fn get_weights(&self) -> Vec<u32>;
+    fn get_weights(&self) -> Vec<f32>;
     fn get_tile_paths(&self) -> Vec<String>;
 }
 

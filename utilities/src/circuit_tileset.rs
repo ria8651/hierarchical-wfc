@@ -79,10 +79,10 @@ impl TileSet for CircuitTileset {
         allowed_neighbors
     }
 
-    fn get_weights(&self) -> Vec<u32> {
+    fn get_weights(&self) -> Vec<f32> {
         let mut weights = Vec::with_capacity(self.tile_count());
         for _ in 0..self.tile_count() {
-            weights.push(100);
+            weights.push(1.0);
         }
         weights
     }
