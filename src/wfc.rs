@@ -16,6 +16,22 @@ impl GraphWfc {
         let start = Instant::now();
 
         let mut stack = Vec::new();
+        // fill the stack with all cells of entropy 1
+        // for (index, node) in graph.tiles.iter().enumerate() {
+        //     if node.count_bits() == 1 {
+        //         stack.push(index);
+        //     }
+        // }
+        // while let Some(index) = stack.pop() {
+        //     for i in 0..graph.neighbors[index].len() {
+        //         // propagate changes
+        //         let neighbor = graph.neighbors[index][i];
+        //         if GraphWfc::propagate(graph, index, neighbor, &constraints) {
+        //             stack.push(neighbor.index);
+        //         }
+        //     }
+        // }
+
         while let Some(cell) = GraphWfc::lowest_entropy(graph) {
             // collapse cell
             graph.tiles[cell].select_random(rng, weights);
