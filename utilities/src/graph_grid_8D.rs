@@ -1,6 +1,6 @@
-use crate::graph::{Graph, Neighbor};
 use crate::graph_grid::GridGraphSettings;
 use bevy::prelude::*;
+use hierarchical_wfc::{Graph, Neighbor};
 
 fn directions() -> [IVec2; 8] {
     [

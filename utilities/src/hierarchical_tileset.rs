@@ -1,11 +1,9 @@
-use crate::{
-    graph::{Cell, Graph},
-    graph_grid::GridGraphSettings,
-    graph_grid_8D::{self, Direction8D},
-    tileset::TileSet,
-};
+use crate::graph_grid::GridGraphSettings;
+use crate::graph_grid_8D::{self, Direction8D};
+use bevy::prelude::{Quat, Transform};
+use hierarchical_wfc::{Graph, TileSet, WaveFunction};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct HierarchicalTileset;
 
 impl HierarchicalTileset {
@@ -23,7 +21,7 @@ impl TileSet for HierarchicalTileset {
         8
     }
 
-    fn get_constraints(&self) -> Vec<Vec<Cell>> {
+    fn get_constraints(&self) -> Vec<Vec<WaveFunction>> {
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum TileType {
             Ocean,
@@ -124,7 +122,7 @@ impl TileSet for HierarchicalTileset {
                 let dir = Direction8D::from(dir_idx);
                 let tile_types = edge_to_tiles(*edge);
 
-                let mut cell = Cell::empty();
+                let mut wave_function = WaveFunction::empty();
                 for tile_type in &tile_types {
                     let indices = tile_to_indices(*tile_type);
                     for idx in indices {
@@ -132,12 +130,12 @@ impl TileSet for HierarchicalTileset {
                         // the current tile as its neighbor in the opposite direction.
                         let other_edge = rotated_tile_edge_types[idx][dir.other() as usize];
                         if edge_to_tiles(other_edge).contains(&index_to_tile(tile_idx)) {
-                            cell.add_tile(idx);
+                            wave_function.add_tile(idx);
                         }
                     }
                 }
 
-                allowed_neighbors_for_tile.push(cell);
+                allowed_neighbors_for_tile.push(wave_function);
             }
 
             allowed_neighbors.push(allowed_neighbors_for_tile);
@@ -146,29 +144,44 @@ impl TileSet for HierarchicalTileset {
         allowed_neighbors
     }
 
-    fn get_weights(&self) -> Vec<u32> {
+    fn get_weights(&self) -> Vec<f32> {
         let mut weights = Vec::with_capacity(self.tile_count());
-        weights.push(100);
+        weights.push(1.0);
         for _ in 0..HierarchicalTileset::ROTATED_TILES.len() * self.directions() {
-            weights.push(100 / self.directions() as u32);
+            weights.push(1.0);
         }
-        weights.push(100);
+        weights.push(1.0);
         weights
     }
 
-    fn get_tile_paths(&self) -> Vec<String> {
-        let mut paths = Vec::new();
-        paths.push("hierarchical/layer0/0.png".to_string());
-        for _ in 0..self.directions() {
-            paths.push("hierarchical/layer0/1.png".to_string());
+    fn get_tile_paths(&self) -> Vec<(String, Transform)> {
+        let mut paths = Vec::with_capacity(self.tile_count());
+
+        // Start with the 0 tile
+        let start_transform = Transform::from_rotation(Quat::from_rotation_z(0.0));
+        paths.push((format!("hierarchical/layer0/0.png"), start_transform));
+
+        // Add tiles for 1 (middle tiles)
+        for tile in 1..self.tile_count() - 1 {
+            let transform = Transform::from_rotation(Quat::from_rotation_z(
+                -std::f32::consts::PI / 2.0 * (4 * tile / self.tile_count()) as f32,
+            ));
+            paths.push((format!("hierarchical/layer0/1.png"), transform));
         }
-        paths.push("hierarchical/layer0/2.png".to_string());
+
+        // Finish with the 2 tile
+
+        let end_transform = Transform::from_rotation(Quat::from_rotation_z(
+            -std::f32::consts::PI / 2.0 * (4 * (self.tile_count() - 1) / self.tile_count()) as f32,
+        ));
+        paths.push((format!("hierarchical/layer0/2.png"), end_transform));
+
         paths
     }
 
-    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Cell> {
-        let cell = Cell::filled(self.tile_count());
-        let mut graph = graph_grid_8D::create(settings, cell);
+    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<WaveFunction> {
+        let wave_function = WaveFunction::filled(self.tile_count());
+        let mut graph = graph_grid_8D::create(settings, wave_function);
 
         // // Fill boundaries of graph with ocean
         // let mut ocean_cell = Cell::empty();

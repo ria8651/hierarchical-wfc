@@ -12,8 +12,8 @@ use hierarchical_wfc::TileSet;
 use std::sync::Arc;
 use utilities::{
     basic_tileset::BasicTileset, carcassonne_tileset::CarcassonneTileset,
-    circuit_tileset::CircuitTileset, graph_grid::GridGraphSettings, mxgmn_tileset::MxgmnTileset,
-    world::World,
+    circuit_tileset::CircuitTileset, graph_grid::GridGraphSettings,
+    hierarchical_tileset::HierarchicalTileset, mxgmn_tileset::MxgmnTileset, world::World,
 };
 
 use crate::world::GenerateEvent;
@@ -65,6 +65,10 @@ impl Default for UiState {
             (
                 Arc::new(CircuitTileset::default()),
                 "CircuitTileset".to_string(),
+            ),
+            (
+                Arc::new(HierarchicalTileset::default()),
+                "HierarcicalTileset".to_string(),
             ),
         ];
 
