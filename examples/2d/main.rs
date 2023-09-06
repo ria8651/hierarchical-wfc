@@ -1,24 +1,23 @@
-#![allow(incomplete_features)]
-#![feature(generic_const_exprs)]
-
 use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::ScalingMode};
 use ui::UiPlugin;
+use world::WorldPlugin;
 
-mod basic_tileset;
-mod carcassonne_tileset;
-mod graph;
-mod graph_grid;
-#[allow(non_snake_case)]
-mod graph_grid_8D;
-mod hierarchical_tileset;
-mod tileset;
 mod ui;
-mod wfc;
+mod world;
 
 fn main() {
+    #[cfg(target_arch = "wasm32")]
+    console_error_panic_hook::set_once();
+
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins(UiPlugin)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                fit_canvas_to_parent: true,
+                ..default()
+            }),
+            ..default()
+        }))
+        .add_plugins((UiPlugin, WorldPlugin))
         .add_systems(Startup, setup)
         .run();
 }

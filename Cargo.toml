@@ -6,8 +6,20 @@ edition = "2021"
 [dependencies]
 bevy = "0.11"
 bevy-inspector-egui = "0.19"
-rand = "0.8"
+rand = { version = "0.8", features = ["small_rng"] }
 anyhow = "1.0"
+console_error_panic_hook = "0.1"
+web-time = "0.2"
+crossbeam = "0.8"
+dyn-clone = "1.0"
 
 [profile.release]
 debug = true
+
+[dev-dependencies]
+utilities = { path = "utilities" }
+criterion = "0.5"
+
+[[bench]]
+name = "wfc"
+harness = false

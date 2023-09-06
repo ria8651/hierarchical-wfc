@@ -1,7 +1,7 @@
-use crate::graph::{Graph, Neighbor};
 use bevy::prelude::*;
+use hierarchical_wfc::{Graph, Neighbor};
 
-#[derive(Reflect)]
+#[derive(Reflect, Clone)]
 #[reflect(Default)]
 pub struct GridGraphSettings {
     pub width: usize,
@@ -12,9 +12,9 @@ pub struct GridGraphSettings {
 impl Default for GridGraphSettings {
     fn default() -> Self {
         Self {
-            width: 10,
-            height: 10,
-            periodic: false,
+            width: 32,
+            height: 32,
+            periodic: true,
         }
     }
 }
@@ -78,22 +78,46 @@ pub enum Direction {
 
 impl Direction {
     pub fn other(&self) -> Self {
-        self.rotate(2)
+        match self {
+            Self::Up => Self::Down,
+            Self::Down => Self::Up,
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
+        }
     }
 
     pub fn rotate(&self, rotation: usize) -> Self {
-        if rotation == 0 {
-            return *self;
+        match rotation {
+            0 => *self,
+            1 => match self {
+                Self::Up => Self::Right,
+                Self::Down => Self::Left,
+                Self::Left => Self::Up,
+                Self::Right => Self::Down,
+            },
+            2 => match self {
+                Self::Up => Self::Down,
+                Self::Down => Self::Up,
+                Self::Left => Self::Right,
+                Self::Right => Self::Left,
+            },
+            3 => match self {
+                Self::Up => Self::Left,
+                Self::Down => Self::Right,
+                Self::Left => Self::Down,
+                Self::Right => Self::Up,
+            },
+            _ => panic!("Invalid rotation: {}", rotation),
         }
-        if rotation >= 4 {
-            panic!("Invalid rotation: {}", rotation);
-        }
+    }
 
-        // Array that specifies the correct rotation order
-        let rotation_order = [Self::Up, Self::Right, Self::Down, Self::Left];
-        let current_idx = rotation_order.iter().position(|&dir| dir == *self).unwrap();
-        let new_idx = (current_idx + rotation) % 4;
-        rotation_order[new_idx]
+    pub fn to_ivec2(&self) -> IVec2 {
+        match self {
+            Self::Up => IVec2::new(0, 1),
+            Self::Down => IVec2::new(0, -1),
+            Self::Left => IVec2::new(-1, 0),
+            Self::Right => IVec2::new(1, 0),
+        }
     }
 }
 

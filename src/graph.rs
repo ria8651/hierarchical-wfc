@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bevy::prelude::*;
-use rand::{distributions::WeightedIndex, Rng, prelude::Distribution};
+use rand::{distributions::WeightedIndex, prelude::Distribution, Rng};
 
 pub const TILE_U32S: usize = 4;
 
@@ -11,7 +11,7 @@ pub struct Graph<C> {
 }
 
 #[allow(dead_code)]
-impl Graph<Cell> {
+impl Graph<WaveFunction> {
     /// Consumes the graph and returns the collapsed tiles
     pub fn validate(self) -> Result<Graph<usize>> {
         let mut result = Graph {
@@ -35,10 +35,10 @@ pub struct Neighbor {
     pub index: usize,
 }
 
-#[derive(Deref, DerefMut, Clone, Copy, PartialEq, Eq)]
-pub struct Cell(pub [u32; TILE_U32S]);
+#[derive(Deref, DerefMut, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct WaveFunction(pub [u32; TILE_U32S]);
 
-impl Cell {
+impl WaveFunction {
     /// Cell fill with ones up to size
     pub fn filled(size: usize) -> Self {
         let mut result = [0; TILE_U32S];
@@ -67,7 +67,7 @@ impl Cell {
                 }
             }
         }
-        
+
         let selected = weighted_rng.sample(rng);
         self.0 = [0; TILE_U32S];
         self.add_tile(selected);
@@ -121,7 +121,7 @@ impl Cell {
     }
 }
 
-impl std::fmt::Debug for Cell {
+impl std::fmt::Debug for WaveFunction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // print all the bits
         for i in 0..TILE_U32S {
@@ -137,7 +137,7 @@ impl std::fmt::Debug for Cell {
     }
 }
 
-impl std::fmt::Display for Cell {
+impl std::fmt::Display for WaveFunction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // print the number of bits
         write!(f, "{}", self.count_bits())

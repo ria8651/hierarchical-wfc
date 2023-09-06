@@ -1,0 +1,10 @@
+[package]
+name = "utilities"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hierarchical-wfc = { path = "../" }
+bevy = "0.11"
+crossbeam = "0.8"
+rand = { version = "0.8", features = ["small_rng"] }

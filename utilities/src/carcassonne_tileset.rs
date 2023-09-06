@@ -1,14 +1,14 @@
-use crate::{
-    graph::{Cell, Graph},
-    graph_grid::{self, Direction, GridGraphSettings},
-    tileset::TileSet,
-};
+use crate::graph_grid::{self, Direction, GridGraphSettings};
+use hierarchical_wfc::{Graph, TileSet, WaveFunction};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct CarcassonneTileset;
 
 impl TileSet for CarcassonneTileset {
     type GraphSettings = GridGraphSettings;
+
+    // const TILE_COUNT: usize = 120;
+    // const DIRECTIONS: usize = 4;
 
     fn tile_count(&self) -> usize {
         120
@@ -18,7 +18,7 @@ impl TileSet for CarcassonneTileset {
         4
     }
 
-    fn get_constraints(&self) -> Vec<Vec<Cell>> {
+    fn get_constraints(&self) -> Vec<Vec<WaveFunction>> {
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum TileEdgeType {
             Grass,
@@ -80,7 +80,7 @@ impl TileSet for CarcassonneTileset {
             let mut allowed_neighbors_for_tile = Vec::with_capacity(self.directions());
             for (edge_index, edge) in edges.into_iter().enumerate() {
                 let direction = Direction::from(edge_index);
-                let mut cell = Cell::empty();
+                let mut cell = WaveFunction::empty();
 
                 // add all tiles with this edge type to the neighbor set
                 for (other_tile, other_edges) in rotated_tile_edge_types.iter().enumerate() {
@@ -113,8 +113,8 @@ impl TileSet for CarcassonneTileset {
         paths
     }
 
-    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<Cell> {
-        let cell = Cell::filled(self.tile_count());
+    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<WaveFunction> {
+        let cell = WaveFunction::filled(self.tile_count());
         graph_grid::create(settings, cell)
     }
 }
