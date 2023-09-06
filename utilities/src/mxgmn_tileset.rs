@@ -100,12 +100,21 @@ impl MxgmnTileset {
 
                 action.push(map);
 
-                let path = image_folder.join(&format!("{}.png", tile.name));
-                let transform = Transform::from_rotation(Quat::from_rotation_z(
-                    std::f32::consts::PI / 2.0 * t as f32,
-                ))
-                .with_scale(Vec3::new(if t >= 4 { -1.0 } else { 1.0 }, 1.0, 1.0));
-                tile_paths.push((path.to_str().unwrap().to_string(), transform));
+                if config.unique {
+                    let path = image_folder.join(&format!("{} {}.png", tile.name, t));
+                    tile_paths.push((path.to_str().unwrap().to_string(), Transform::IDENTITY));
+                } else {
+                    let path = image_folder.join(&format!("{}.png", tile.name));
+                    let transform = Transform::from_rotation(Quat::from_rotation_z(
+                        std::f32::consts::PI / 2.0 * t as f32,
+                    ))
+                    .with_scale(Vec3::new(
+                        if t >= 4 { -1.0 } else { 1.0 },
+                        1.0,
+                        1.0,
+                    ));
+                    tile_paths.push((path.to_str().unwrap().to_string(), transform));
+                }
                 weights.push(tile.weight);
             }
         }
@@ -229,6 +238,8 @@ impl TileSet for MxgmnTileset {
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename = "set")]
 struct Config {
+    #[serde(default)]
+    unique: bool,
     tiles: Tiles,
     neighbors: Neighbors,
     subsets: Option<Subsets>,
