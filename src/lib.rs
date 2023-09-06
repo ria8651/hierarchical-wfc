@@ -21,7 +21,7 @@ pub type UserData = Option<Box<dyn Any + Send + Sync>>;
 pub struct Peasant {
     pub graph: Graph<WaveFunction>,
     pub constraints: Arc<Vec<Vec<WaveFunction>>>,
-    pub weights: Arc<Vec<u32>>,
+    pub weights: Arc<Vec<f32>>,
     pub seed: u64,
     pub user_data: UserData,
 }
@@ -36,7 +36,6 @@ impl Peasant {
         for (index, node) in self.graph.tiles.iter().enumerate() {
             let entropy = node.count_bits();
             if entropy > 1 && entropy <= min_entropy {
-                with_min += 1;
                 if entropy < min_entropy {
                     with_min = 1;
                     min_entropy = entropy;

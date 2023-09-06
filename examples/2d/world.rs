@@ -25,22 +25,22 @@ impl Plugin for WorldPlugin {
 #[derive(Event, Clone)]
 pub enum GenerateEvent {
     Single {
-        tileset: Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
+        tileset: Arc<dyn TileSet<GraphSettings = GridGraphSettings>>,
         settings: GridGraphSettings,
-        weights: Arc<Vec<u32>>,
+        weights: Arc<Vec<f32>>,
         seed: u64,
     },
     Chunked {
-        tileset: Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
+        tileset: Arc<dyn TileSet<GraphSettings = GridGraphSettings>>,
         settings: GridGraphSettings,
-        weights: Arc<Vec<u32>>,
+        weights: Arc<Vec<f32>>,
         seed: u64,
         chunk_size: usize,
     },
     MultiThreaded {
-        tileset: Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
+        tileset: Arc<dyn TileSet<GraphSettings = GridGraphSettings>>,
         settings: GridGraphSettings,
-        weights: Arc<Vec<u32>>,
+        weights: Arc<Vec<f32>>,
         seed: u64,
         chunk_size: usize,
     },

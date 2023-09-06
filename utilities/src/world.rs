@@ -16,7 +16,7 @@ pub struct World {
     pub chunk_size: usize,
     pub seed: u64,
     pub current_constraints: Arc<Vec<Vec<WaveFunction>>>,
-    pub current_weights: Arc<Vec<u32>>,
+    pub current_weights: Arc<Vec<f32>>,
 }
 
 impl Default for World {

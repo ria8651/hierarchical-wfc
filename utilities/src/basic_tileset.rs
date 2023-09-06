@@ -1,4 +1,5 @@
 use crate::graph_grid::{self, Direction, GridGraphSettings};
+use bevy::prelude::*;
 use hierarchical_wfc::{Graph, TileSet, WaveFunction};
 
 #[derive(Default, Clone)]
@@ -6,9 +7,6 @@ pub struct BasicTileset;
 
 impl TileSet for BasicTileset {
     type GraphSettings = GridGraphSettings;
-
-    // const TILE_COUNT: usize = 17;
-    // const DIRECTIONS: usize = 4;
 
     fn tile_count(&self) -> usize {
         17
@@ -80,18 +78,18 @@ impl TileSet for BasicTileset {
         allowed_neighbors
     }
 
-    fn get_weights(&self) -> Vec<u32> {
+    fn get_weights(&self) -> Vec<f32> {
         let mut weights = Vec::new();
         for _ in 0..self.tile_count() {
-            weights.push(100);
+            weights.push(1.0);
         }
         weights
     }
 
-    fn get_tile_paths(&self) -> Vec<String> {
+    fn get_tile_paths(&self) -> Vec<(String, Transform)> {
         let mut paths = Vec::new();
         for tile in 0..=16 {
-            paths.push(format!("tileset/{}.png", tile));
+            paths.push((format!("tileset/{}.png", tile), Transform::IDENTITY));
         }
         paths
     }

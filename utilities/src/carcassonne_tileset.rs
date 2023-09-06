@@ -1,4 +1,5 @@
 use crate::graph_grid::{self, Direction, GridGraphSettings};
+use bevy::prelude::*;
 use hierarchical_wfc::{Graph, TileSet, WaveFunction};
 
 #[derive(Debug, Default, Clone)]
@@ -6,9 +7,6 @@ pub struct CarcassonneTileset;
 
 impl TileSet for CarcassonneTileset {
     type GraphSettings = GridGraphSettings;
-
-    // const TILE_COUNT: usize = 120;
-    // const DIRECTIONS: usize = 4;
 
     fn tile_count(&self) -> usize {
         120
@@ -97,18 +95,24 @@ impl TileSet for CarcassonneTileset {
         allowed_neighbors
     }
 
-    fn get_weights(&self) -> Vec<u32> {
+    fn get_weights(&self) -> Vec<f32> {
         let mut weights = Vec::with_capacity(self.tile_count());
         for _ in 0..self.tile_count() {
-            weights.push(100);
+            weights.push(1.0);
         }
         weights
     }
 
-    fn get_tile_paths(&self) -> Vec<String> {
+    fn get_tile_paths(&self) -> Vec<(String, Transform)> {
         let mut paths = Vec::new();
-        for tile in 0..self.tile_count() / 4 {
-            paths.push(format!("carcassonne/{}.png", tile));
+        for tile in 0..self.tile_count() {
+            let transform = Transform::from_rotation(Quat::from_rotation_z(
+                -std::f32::consts::PI / 2.0 * (4 * tile / self.tile_count()) as f32,
+            ));
+            paths.push((
+                format!("carcassonne/{}.png", tile % (self.tile_count() / 4)),
+                transform,
+            ));
         }
         paths
     }
