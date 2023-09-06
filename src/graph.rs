@@ -2,7 +2,7 @@ use anyhow::Result;
 use bevy::prelude::*;
 use rand::{distributions::WeightedIndex, prelude::Distribution, Rng};
 
-pub const TILE_U32S: usize = 4;
+pub const TILE_U32S: usize = 2;
 
 #[derive(Debug, Clone)]
 pub struct Graph<C> {
@@ -57,13 +57,13 @@ impl WaveFunction {
     }
 
     /// Leaves a random bit set to 1 and the rest to 0
-    pub fn select_random<R: Rng>(&mut self, rng: &mut R, weights: &Vec<f32>) {
-        let mut weighted_rng = WeightedIndex::new(weights).unwrap();
+    pub fn select_random<R: Rng>(&mut self, rng: &mut R, weights: &Vec<f32>) -> Result<()> {
+        let mut weighted_rng = WeightedIndex::new(weights)?;
         for i in 0..TILE_U32S {
             for j in 0..32 {
                 let index = i * 32 + j;
                 if self[i] & (1 << j) == 0 && index < weights.len() {
-                    weighted_rng.update_weights(&[(index, &0.0)]).unwrap();
+                    weighted_rng.update_weights(&[(index, &0.0)])?;
                 }
             }
         }
@@ -71,6 +71,8 @@ impl WaveFunction {
         let selected = weighted_rng.sample(rng);
         self.0 = [0; TILE_U32S];
         self.add_tile(selected);
+
+        Ok(())
     }
 
     /// Returns the one and only tile if there is only one
@@ -118,6 +120,10 @@ impl WaveFunction {
                 }
             })
         })
+    }
+
+    pub fn contains(&self, tile: usize) -> bool {
+        self[tile / 32] & (1 << (tile % 32)) != 0
     }
 }
 

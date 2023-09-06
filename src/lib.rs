@@ -36,7 +36,6 @@ impl Peasant {
         for (index, node) in self.graph.tiles.iter().enumerate() {
             let entropy = node.count_bits();
             if entropy > 1 && entropy <= min_entropy {
-                with_min += 1;
                 if entropy < min_entropy {
                     with_min = 1;
                     min_entropy = entropy;

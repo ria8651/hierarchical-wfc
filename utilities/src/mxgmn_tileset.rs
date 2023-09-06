@@ -1,5 +1,5 @@
-use crate::graph_grid::{self, GridGraphSettings};
-use bevy::utils::HashMap;
+use crate::graph_grid::{self, Direction, GridGraphSettings};
+use bevy::{prelude::*, utils::HashMap};
 use hierarchical_wfc::{Graph, TileSet, WaveFunction};
 use serde::Deserialize;
 use std::path::Path;
@@ -9,10 +9,11 @@ pub struct MxgmnTileset {
     tile_count: usize,
     constraints: Vec<Vec<WaveFunction>>,
     weights: Vec<f32>,
-    tile_paths: Vec<String>,
+    tile_paths: Vec<(String, Transform)>,
 }
 
 impl MxgmnTileset {
+    // based off https://github.com/mxgmn/WaveFunctionCollapse/blob/master/SimpleTiledModel.cs
     pub fn new(path: String) -> Self {
         let path = Path::new(&path);
         let name = path.file_stem().unwrap().to_str().unwrap();
@@ -21,51 +22,152 @@ impl MxgmnTileset {
         let xml = std::fs::read_to_string(path).unwrap();
         let config: Config = serde_xml_rs::from_str(&xml).unwrap();
 
-        let tile_count = config.tiles.tile.len();
+        // let subset: Vec<&str> = config.tiles.tile.iter().map(|t| t.name.as_str()).collect();
 
-        let mut tile_ids = HashMap::new();
+        let mut action: Vec<Vec<usize>> = Vec::new();
+        let mut first_occurrence = HashMap::new();
         let mut weights = Vec::new();
         let mut tile_paths = Vec::new();
-        for (i, tile) in config.tiles.tile.iter().enumerate() {
-            tile_ids.insert(tile.name.clone(), i);
-            weights.push(tile.weight);
+        for tile in config.tiles.tile.iter() {
+            let base = action.len();
+            first_occurrence.insert(tile.name.clone(), base);
 
-            let path = image_folder.join(&format!("{}.png", tile.name));
-            tile_paths.push(path.to_str().unwrap().to_string());
+            let (cardinality, a, b): (
+                usize,
+                Box<dyn Fn(usize) -> usize>,
+                Box<dyn Fn(usize) -> usize>,
+            ) = match tile.symmetry {
+                'L' => (
+                    4,
+                    Box::new(|i| (i + 1) % 4),
+                    Box::new(|i| if i % 2 == 0 { i + 1 } else { i - 1 }),
+                ),
+                'T' => (
+                    4,
+                    Box::new(|i| (i + 1) % 4),
+                    Box::new(|i| if i % 2 == 0 { i } else { 4 - i }),
+                ),
+                'I' => (
+                    2, //
+                    Box::new(|i| 1 - i),
+                    Box::new(|i| i),
+                ),
+                '\\' => (
+                    2, //
+                    Box::new(|i| 1 - i),
+                    Box::new(|i| 1 - i),
+                ),
+                'F' => (
+                    8,
+                    Box::new(|i| if i < 4 { (i + 1) % 4 } else { 4 + (i - 1) % 4 }),
+                    Box::new(|i| if i < 4 { i + 4 } else { i - 4 }),
+                ),
+                'X' => (
+                    1, //
+                    Box::new(|i| i),
+                    Box::new(|i| i),
+                ),
+                _ => unreachable!("unsupported symmetry"),
+            };
+
+            for t in 0..cardinality {
+                let mut map = vec![base; 8];
+
+                map[0] += t;
+                map[1] += a(t);
+                map[2] += a(a(t));
+                map[3] += a(a(a(t)));
+                map[4] += b(t);
+                map[5] += b(a(t));
+                map[6] += b(a(a(t)));
+                map[7] += b(a(a(a(t))));
+
+                action.push(map);
+
+                let path = image_folder.join(&format!("{}.png", tile.name));
+                let transform = Transform::from_rotation(Quat::from_rotation_z(
+                    std::f32::consts::PI / 2.0 * t as f32,
+                ))
+                .with_scale(Vec3::new(if t >= 4 { -1.0 } else { 1.0 }, 1.0, 1.0));
+                tile_paths.push((path.to_str().unwrap().to_string(), transform));
+                weights.push(tile.weight);
+            }
         }
 
-        let inner = vec![
-            WaveFunction::filled(tile_count),
-            WaveFunction::filled(tile_count),
-            WaveFunction::empty(),
-            WaveFunction::empty(),
-        ];
-        let mut constraints = vec![inner; tile_count];
+        let tile_count = action.len();
+        let mut constraints = vec![vec![WaveFunction::empty(); 4]; tile_count];
         for neighbor in config.neighbors.neighbor.iter() {
-            if !tile_ids.contains_key(&neighbor.left) {
-                continue;
-            }
-            if !tile_ids.contains_key(&neighbor.right) {
-                continue;
-            }
+            let mut left = neighbor.left.split(" ");
+            let mut right = neighbor.right.split(" ");
+            let left = (
+                left.next().unwrap(),
+                left.next()
+                    .and_then(|f| f.parse::<usize>().ok())
+                    .unwrap_or(0),
+            );
+            let right = (
+                right.next().unwrap(),
+                right
+                    .next()
+                    .and_then(|f| f.parse::<usize>().ok())
+                    .unwrap_or(0),
+            );
 
-            let left = tile_ids[&neighbor.left];
-            let right = tile_ids[&neighbor.right];
-            constraints[left][3].add_tile(right);
-            constraints[right][2].add_tile(left);
-            match config.tiles.tile[left].symmetry.as_str() {
-                "X" | "I" | "T" => {
-                    constraints[left][2].add_tile(right);
+            let l = action[first_occurrence[left.0]][left.1];
+            let d = action[l][1];
+            let r = action[first_occurrence[right.0]][right.1];
+            let u = action[r][1];
+
+            constraints[r][2].add_tile(l);
+            constraints[action[r][6]][2].add_tile(action[l][6]);
+            constraints[action[l][4]][2].add_tile(action[r][4]);
+            constraints[action[l][2]][2].add_tile(action[r][2]);
+
+            constraints[u][1].add_tile(d);
+            constraints[action[d][6]][1].add_tile(action[u][6]);
+            constraints[action[u][4]][1].add_tile(action[d][4]);
+            constraints[action[d][2]][1].add_tile(action[u][2]);
+        }
+
+        // make sure all constraints are reciprocal
+        for i in 0..tile_count {
+            for direction in 0..4 {
+                for allowed in constraints[i][direction].clone().tile_iter() {
+                    let other_direction = Direction::from(direction).other();
+                    constraints[allowed][other_direction as usize].add_tile(i);
                 }
-                _ => {}
-            }
-            match config.tiles.tile[right].symmetry.as_str() {
-                "X" | "I" | "T" => {
-                    constraints[right][3].add_tile(left);
-                }
-                _ => {}
             }
         }
+
+        // make sure no constraint is empty
+        for i in 0..tile_count {
+            for direction in 0..4 {
+                if constraints[i][direction].count_bits() == 0 {
+                    println!(
+                        "empty constraint found: Tile: {} Direction: {}",
+                        i, direction
+                    );
+                }
+            }
+        }
+
+        // println!("{a:?}");
+        // println!("{b:?}");
+        // println!("{}", a == b);
+
+        // for tile in 0..tile_count {
+        //     for direction in 0..4 {
+        //         if a[tile][direction] != b[tile][direction] {
+        //             println!("vvvvvvvvvvvvv");
+        //             println!("{:?}", a[tile][direction]);
+        //             println!("{:?}", b[tile][direction]);
+        //             println!("^^^^^^^^^^^^^");
+
+        //         } else {
+        //             println!("{:?}", a[tile][direction]);
+        //         }
+        //     }
+        // }
 
         Self {
             tile_count,
@@ -95,7 +197,7 @@ impl TileSet for MxgmnTileset {
         self.weights.clone()
     }
 
-    fn get_tile_paths(&self) -> Vec<String> {
+    fn get_tile_paths(&self) -> Vec<(String, Transform)> {
         self.tile_paths.clone()
     }
 
@@ -110,7 +212,7 @@ impl TileSet for MxgmnTileset {
 struct Config {
     tiles: Tiles,
     neighbors: Neighbors,
-    subsets: Subsets,
+    subsets: Option<Subsets>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -121,8 +223,13 @@ struct Tiles {
 #[derive(Debug, Deserialize, PartialEq)]
 struct Tile {
     name: String,
-    symmetry: String,
+    symmetry: char,
+    #[serde(default = "default_weight")]
     weight: f32,
+}
+
+fn default_weight() -> f32 {
+    1.0
 }
 
 #[derive(Debug, Deserialize, PartialEq)]

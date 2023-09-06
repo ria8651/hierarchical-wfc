@@ -108,7 +108,7 @@ fn ui(
             contexts.remove_image(&handle.1);
         }
         for path in tileset.get_tile_paths() {
-            let bevy_handle = asset_server.load(path);
+            let bevy_handle = asset_server.load(path.0);
             let handle = contexts.add_image(bevy_handle.clone_weak());
             ui_state.image_handles.push((handle, bevy_handle));
         }
@@ -218,9 +218,9 @@ fn render_world(
 
         // tileset
         let bad_tile = asset_server.load("fail.png");
-        let mut tile_handles: Vec<Handle<Image>> = Vec::new();
+        let mut tile_handles: Vec<(Handle<Image>, Transform)> = Vec::new();
         for tile in tileset.get_tile_paths() {
-            tile_handles.push(asset_server.load(tile));
+            tile_handles.push((asset_server.load(tile.0), tile.1));
         }
 
         let world_size = IVec2::new(world.world.len() as i32, world.world[0].len() as i32);
@@ -233,22 +233,15 @@ fn render_world(
                 tile_entities.push(Vec::new());
                 for y in 0..world_size.y as usize {
                     let pos = Vec2::new(x as f32, y as f32);
+                    let mut texture = Default::default();
                     let mut transform = Transform::from_translation(
                         ((pos + 0.5) / world_size.y as f32 - 0.5).extend(-0.5),
                     );
-                    let mut texture = Default::default();
 
-                    if let Some(mut tile_index) = world.world[x][y].collapse() {
-                        let mut tile_rotation = 0;
-                        if tileset.tile_count() > 20 {
-                            tile_rotation = tile_index / (tileset.tile_count() / 4);
-                            tile_index = tile_index % (tileset.tile_count() / 4);
-                        }
-
-                        transform = transform.with_rotation(Quat::from_rotation_z(
-                            -std::f32::consts::PI * tile_rotation as f32 / 2.0,
-                        ));
-                        texture = tile_handles[tile_index].clone();
+                    if let Some(tile_index) = world.world[x][y].collapse() {
+                        texture = tile_handles[tile_index].0.clone();
+                        transform.rotation = tile_handles[tile_index].1.rotation;
+                        transform.scale = tile_handles[tile_index].1.scale;
                     }
                     if world.world[x][y].count_bits() == 0 {
                         texture = bad_tile.clone();
@@ -285,17 +278,11 @@ fn render_world(
                         .get_mut(ui_state.tile_entities[x][y])
                         .unwrap();
 
-                    if let Some(mut tile_index) = world.world[x][y].collapse() {
-                        let mut tile_rotation = 0;
-                        if tileset.tile_count() > 20 {
-                            tile_rotation = tile_index / (tileset.tile_count() / 4);
-                            tile_index = tile_index % (tileset.tile_count() / 4);
-                        }
-
-                        transform.rotation = Quat::from_rotation_z(
-                            -std::f32::consts::PI * tile_rotation as f32 / 2.0,
-                        );
-                        *sprite = tile_handles[tile_index].clone();
+                    if let Some(tile_index) = world.world[x][y].collapse() {
+                        let new_transform = &tile_handles[tile_index].1;
+                        transform.rotation = new_transform.rotation;
+                        transform.scale = new_transform.scale;
+                        *sprite = tile_handles[tile_index].0.clone();
                     } else {
                         if world.world[x][y].count_bits() == 0 {
                             *sprite = bad_tile.clone();

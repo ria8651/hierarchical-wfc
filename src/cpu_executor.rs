@@ -32,7 +32,7 @@ impl CpuExecutor {
         let mut rng = SmallRng::seed_from_u64(peasant.seed);
 
         let mut stack: Vec<usize> = (0..peasant.graph.tiles.len()).collect();
-        while let Some(cell) = peasant.lowest_entropy(&mut rng) {
+        loop {
             // propagate changes
             while let Some(index) = stack.pop() {
                 for i in 0..peasant.graph.neighbors[index].len() {
@@ -48,18 +48,32 @@ impl CpuExecutor {
                 }
             }
 
-            // collapse cell
-            peasant.graph.tiles[cell].select_random(&mut rng, &peasant.weights);
-            stack.push(cell);
-        }
+            if let Some(cell) = peasant.lowest_entropy(&mut rng) {
+                // collapse cell
+                peasant.graph.tiles[cell].select_random(&mut rng, &peasant.weights).unwrap();
+                stack.push(cell);
+            } else {
+                // all cells collapsed
+                return;
+            }
 
-        // for y in (0..grid_wfc.grid[0].len()).rev() {
-        //     for x in 0..grid_wfc.grid.len() {
-        //         let tiles = &grid_wfc.grid[x][y];
-        //         print!("{:<22}", format!("{:?}", tiles));
-        //     }
-        //     println!();
-        // }
+            // // propagate changes
+            // while let Some(index) = stack.pop() {
+            //     for i in 0..peasant.graph.neighbors[index].len() {
+            //         // propagate changes
+            //         let neighbor = peasant.graph.neighbors[index][i];
+            //         if peasant.propagate(index, neighbor) {
+            //             stack.push(neighbor.index);
+            //         }
+            //         if peasant.graph.tiles[neighbor.index].count_bits() == 0 {
+            //             // contradiction found
+            //             return;
+            //         }
+            //     }
+            // }
+
+            // break;
+        }
     }
 }
 

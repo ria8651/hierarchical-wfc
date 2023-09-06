@@ -1,4 +1,5 @@
 use crate::graph_grid::{self, Direction, GridGraphSettings};
+use bevy::prelude::*;
 use hierarchical_wfc::{Graph, TileSet, WaveFunction};
 
 #[derive(Debug, Default, Clone)]
@@ -87,10 +88,10 @@ impl TileSet for CircuitTileset {
         weights
     }
 
-    fn get_tile_paths(&self) -> Vec<String> {
+    fn get_tile_paths(&self) -> Vec<(String, Transform)> {
         let mut paths = Vec::new();
         for tile in 0..self.tile_count() / 4 {
-            paths.push(format!("circuit/{}.png", tile));
+            paths.push((format!("circuit/{}.png", tile), Transform::IDENTITY));
         }
         paths
     }
