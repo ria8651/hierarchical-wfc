@@ -12,7 +12,7 @@ use hierarchical_wfc::TileSet;
 use std::sync::Arc;
 use utilities::{
     basic_tileset::BasicTileset, carcassonne_tileset::CarcassonneTileset,
-    graph_grid::GridGraphSettings, world::World,
+    circuit_tileset::CircuitTileset, graph_grid::GridGraphSettings, world::World,
 };
 
 use crate::world::GenerateEvent;
@@ -66,6 +66,7 @@ impl Default for UiState {
 enum TileSetUi {
     Carcassonne(GridGraphSettings),
     BasicTileset(GridGraphSettings),
+    CircuitTileset(GridGraphSettings),
 }
 
 #[derive(Component)]
@@ -78,13 +79,12 @@ fn ui(
     asset_server: Res<AssetServer>,
     mut generate_events: EventWriter<GenerateEvent>,
 ) {
-    let tileset = match &ui_state.picked_tileset {
-        TileSetUi::BasicTileset(_) => {
-            Box::new(BasicTileset::default()) as Box<dyn TileSet<GraphSettings = GridGraphSettings>>
-        }
-        TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset::default())
-            as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
-    };
+    let tileset: Box<dyn TileSet<GraphSettings = GridGraphSettings>> =
+        match &ui_state.picked_tileset {
+            TileSetUi::BasicTileset(_) => Box::new(BasicTileset::default()),
+            TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset::default()),
+            TileSetUi::CircuitTileset(_) => Box::new(CircuitTileset::default()),
+        };
 
     if ui_state.weights.len() != tileset.tile_count() {
         ui_state.weights = tileset.get_weights();
@@ -117,6 +117,7 @@ fn ui(
                         let settings = match &ui_state.picked_tileset {
                             TileSetUi::BasicTileset(settings) => settings,
                             TileSetUi::Carcassonne(settings) => settings,
+                            TileSetUi::CircuitTileset(settings) => settings,
                         };
                         let seed = if !ui_state.random_seed {
                             ui_state.seed
@@ -158,7 +159,7 @@ fn ui(
                         egui::Grid::new("some_unique_id").show(ui, |ui| {
                             for i in 0..ui_state.weights.len() {
                                 ui.vertical_centered(|ui| {
-                                    ui.image(ui_state.image_handles[i % 30].0, [64.0, 64.0]);
+                                    ui.image(ui_state.image_handles[i % 14].0, [64.0, 64.0]);
                                     ui.add(DragValue::new(&mut ui_state.weights[i]));
                                 });
 
@@ -197,6 +198,7 @@ fn render_world(
                 as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
             TileSetUi::Carcassonne(_) => Box::new(CarcassonneTileset::default())
                 as Box<dyn TileSet<GraphSettings = GridGraphSettings>>,
+            TileSetUi::CircuitTileset(_) => Box::new(CircuitTileset::default()),
         };
 
         // tileset
@@ -223,7 +225,7 @@ fn render_world(
 
                     if let Some(mut tile_index) = world.world[x][y].collapse() {
                         let mut tile_rotation = 0;
-                        if tileset.tile_count() > 100 {
+                        if tileset.tile_count() > 20 {
                             tile_rotation = tile_index / (tileset.tile_count() / 4);
                             tile_index = tile_index % (tileset.tile_count() / 4);
                         }
@@ -270,7 +272,7 @@ fn render_world(
 
                     if let Some(mut tile_index) = world.world[x][y].collapse() {
                         let mut tile_rotation = 0;
-                        if tileset.tile_count() > 100 {
+                        if tileset.tile_count() > 20 {
                             tile_rotation = tile_index / (tileset.tile_count() / 4);
                             tile_index = tile_index % (tileset.tile_count() / 4);
                         }
