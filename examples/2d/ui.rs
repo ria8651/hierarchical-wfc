@@ -27,7 +27,6 @@ impl Plugin for UiPlugin {
             .add_event::<RenderUpdateEvent>()
             .init_resource::<UiState>()
             .register_type::<UiState>()
-            .register_type::<TileSetUi>()
             .register_type::<GridGraphSettings>()
             .add_systems(Update, (ui, render_world).chain());
     }
@@ -37,11 +36,13 @@ impl Plugin for UiPlugin {
 struct UiState {
     seed: u64,
     random_seed: bool,
-    picked_tileset: TileSetUi,
+    grid_graph_settings: GridGraphSettings,
     timeout: Option<f64>,
     chunk_size: usize,
     #[reflect(ignore)]
-    tile_sets: Vec<Arc<dyn TileSet<GraphSettings = GridGraphSettings>>>,
+    picked_tileset: usize,
+    #[reflect(ignore)]
+    tile_sets: Vec<(Arc<dyn TileSet<GraphSettings = GridGraphSettings>>, String)>,
     #[reflect(ignore)]
     weights: Vec<f32>,
     #[reflect(ignore)]
@@ -52,38 +53,47 @@ struct UiState {
 
 impl Default for UiState {
     fn default() -> Self {
-        let tile_sets: Vec<Arc<dyn TileSet<GraphSettings = GridGraphSettings>>> =
-            vec![
-            Arc::new(BasicTileset::default()),
-            Arc::new(CarcassonneTileset::default()),
-            Arc::new(CircuitTileset::default()),
-            Arc::new(MxgmnTileset::new(
-                "/Users/brian/Documents/Code/Rust/hierarchical-wfc/assets/mxgmn/Circuit.xml"
-                    .to_string(),
-                Some("Turnless".to_string()),
-            ).unwrap()),
+        let mut tile_sets: Vec<(Arc<dyn TileSet<GraphSettings = GridGraphSettings>>, String)> = vec![
+            (
+                Arc::new(CarcassonneTileset::default()),
+                "CarcassonneTileset".to_string(),
+            ),
+            (
+                Arc::new(BasicTileset::default()),
+                "BasicTileset".to_string(),
+            ),
+            (
+                Arc::new(CircuitTileset::default()),
+                "CircuitTileset".to_string(),
+            ),
         ];
+
+        let paths = std::fs::read_dir("assets/mxgmn").unwrap();
+        for path in paths {
+            let path = path.unwrap().path();
+            if let Some(ext) = path.extension() {
+                if ext == "xml" {
+                    tile_sets.push((
+                        Arc::new(MxgmnTileset::new(&path, None).unwrap()),
+                        path.file_stem().unwrap().to_str().unwrap().to_string(),
+                    ));
+                }
+            }
+        }
 
         Self {
             seed: 0,
             random_seed: true,
-            picked_tileset: TileSetUi::default(),
+            grid_graph_settings: GridGraphSettings::default(),
             timeout: Some(0.05),
-            chunk_size: 4,
+            chunk_size: 16,
+            picked_tileset: 0,
             tile_sets,
             weights: Vec::new(),
             image_handles: Vec::new(),
             tile_entities: Vec::new(),
         }
     }
-}
-
-#[derive(Reflect)]
-enum TileSetUi {
-    Carcassonne(GridGraphSettings),
-    BasicTileset(GridGraphSettings),
-    CircuitTileset(GridGraphSettings),
-    MxgmnTileset(GridGraphSettings),
 }
 
 #[derive(Component)]
@@ -96,12 +106,7 @@ fn ui(
     asset_server: Res<AssetServer>,
     mut generate_events: EventWriter<GenerateEvent>,
 ) {
-    let tileset = match &ui_state.picked_tileset {
-        TileSetUi::BasicTileset(_) => ui_state.tile_sets[0].clone(),
-        TileSetUi::Carcassonne(_) => ui_state.tile_sets[1].clone(),
-        TileSetUi::CircuitTileset(_) => ui_state.tile_sets[2].clone(),
-        TileSetUi::MxgmnTileset(_) => ui_state.tile_sets[3].clone(),
-    };
+    let tileset = ui_state.tile_sets[ui_state.picked_tileset].0.clone();
 
     if ui_state.weights.len() != tileset.tile_count() {
         ui_state.weights = tileset.get_weights();
@@ -129,14 +134,21 @@ fn ui(
                 CollapsingHeader::new("WFC Settings")
                     .default_open(true)
                     .show(ui, |ui| {
+                        let selected = ui_state.tile_sets[ui_state.picked_tileset].1.clone();
+                        egui::ComboBox::from_label("Tileset")
+                            .selected_text(format!("{selected}"))
+                            .show_ui(ui, |ui| {
+                                for (i, tileset) in ui_state.tile_sets.clone().iter().enumerate() {
+                                    ui.selectable_value(
+                                        &mut ui_state.picked_tileset,
+                                        i,
+                                        tileset.1.clone(),
+                                    );
+                                }
+                            });
+
                         ui_for_value(ui_state.as_mut(), ui, &type_registry.read());
 
-                        let settings = match &ui_state.picked_tileset {
-                            TileSetUi::BasicTileset(settings) => settings,
-                            TileSetUi::Carcassonne(settings) => settings,
-                            TileSetUi::CircuitTileset(settings) => settings,
-                            TileSetUi::MxgmnTileset(settings) => settings,
-                        };
                         let seed = if !ui_state.random_seed {
                             ui_state.seed
                         } else {
@@ -146,7 +158,7 @@ fn ui(
                         if ui.button("Generate Single").clicked() {
                             generate_events.send(GenerateEvent::Single {
                                 tileset: tileset.clone(),
-                                settings: settings.clone(),
+                                settings: ui_state.grid_graph_settings.clone(),
                                 weights: Arc::new(ui_state.weights.clone()),
                                 seed,
                             });
@@ -154,7 +166,7 @@ fn ui(
                         if ui.button("Generate Chunked").clicked() {
                             generate_events.send(GenerateEvent::Chunked {
                                 tileset: tileset.clone(),
-                                settings: settings.clone(),
+                                settings: ui_state.grid_graph_settings.clone(),
                                 weights: Arc::new(ui_state.weights.clone()),
                                 seed,
                                 chunk_size: ui_state.chunk_size,
@@ -163,7 +175,7 @@ fn ui(
                         if ui.button("Generate Multi Threaded").clicked() {
                             generate_events.send(GenerateEvent::MultiThreaded {
                                 tileset: tileset.clone(),
-                                settings: settings.clone(),
+                                settings: ui_state.grid_graph_settings.clone(),
                                 weights: Arc::new(ui_state.weights.clone()),
                                 seed,
                                 chunk_size: ui_state.chunk_size,
@@ -177,7 +189,7 @@ fn ui(
                         egui::Grid::new("some_unique_id").show(ui, |ui| {
                             for i in 0..ui_state.weights.len() {
                                 ui.vertical_centered(|ui| {
-                                    ui.image(ui_state.image_handles[i % 14].0, [64.0, 64.0]);
+                                    ui.image(ui_state.image_handles[i].0, [64.0, 64.0]);
                                     ui.add(DragValue::new(&mut ui_state.weights[i]));
                                 });
 
@@ -189,12 +201,6 @@ fn ui(
                     });
             });
         });
-
-    // if let Some(peasant) = ui_state.guild.output.pop() {
-    //     ui_state.graph = Some(peasant.graph);
-    //     ui_state.graph_dirty = true;
-    //     ui_state.render_dirty = RenderState::Dirty;
-    // }
 }
 
 #[derive(Event)]
@@ -211,12 +217,7 @@ fn render_world(
     mut current_size: Local<IVec2>,
 ) {
     for _ in render_world_event.iter() {
-        let tileset = match &ui_state.picked_tileset {
-            TileSetUi::BasicTileset(_) => ui_state.tile_sets[0].clone(),
-            TileSetUi::Carcassonne(_) => ui_state.tile_sets[1].clone(),
-            TileSetUi::CircuitTileset(_) => ui_state.tile_sets[2].clone(),
-            TileSetUi::MxgmnTileset(_) => ui_state.tile_sets[3].clone(),
-        };
+        let tileset = ui_state.tile_sets[ui_state.picked_tileset].0.clone();
 
         // tileset
         let bad_tile = asset_server.load("fail.png");
@@ -295,11 +296,5 @@ fn render_world(
                 }
             }
         }
-    }
-}
-
-impl Default for TileSetUi {
-    fn default() -> Self {
-        Self::MxgmnTileset(GridGraphSettings::default())
     }
 }
