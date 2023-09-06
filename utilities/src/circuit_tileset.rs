@@ -90,8 +90,14 @@ impl TileSet for CircuitTileset {
 
     fn get_tile_paths(&self) -> Vec<(String, Transform)> {
         let mut paths = Vec::new();
-        for tile in 0..self.tile_count() / 4 {
-            paths.push((format!("circuit/{}.png", tile), Transform::IDENTITY));
+        for tile in 0..self.tile_count() {
+            let transform = Transform::from_rotation(Quat::from_rotation_z(
+                -std::f32::consts::PI / 2.0 * (4 * tile / self.tile_count()) as f32,
+            ));
+            paths.push((
+                format!("circuit/{}.png", tile % (self.tile_count() / 4)),
+                transform,
+            ));
         }
         paths
     }

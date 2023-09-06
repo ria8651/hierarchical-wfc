@@ -52,14 +52,16 @@ struct UiState {
 
 impl Default for UiState {
     fn default() -> Self {
-        let tile_sets: Vec<Arc<dyn TileSet<GraphSettings = GridGraphSettings>>> = vec![
+        let tile_sets: Vec<Arc<dyn TileSet<GraphSettings = GridGraphSettings>>> =
+            vec![
             Arc::new(BasicTileset::default()),
             Arc::new(CarcassonneTileset::default()),
             Arc::new(CircuitTileset::default()),
             Arc::new(MxgmnTileset::new(
                 "/Users/brian/Documents/Code/Rust/hierarchical-wfc/assets/mxgmn/Circuit.xml"
                     .to_string(),
-            )),
+                Some("Turnless".to_string()),
+            ).unwrap()),
         ];
 
         Self {

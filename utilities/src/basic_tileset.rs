@@ -8,9 +8,6 @@ pub struct BasicTileset;
 impl TileSet for BasicTileset {
     type GraphSettings = GridGraphSettings;
 
-    // const TILE_COUNT: usize = 17;
-    // const DIRECTIONS: usize = 4;
-
     fn tile_count(&self) -> usize {
         17
     }

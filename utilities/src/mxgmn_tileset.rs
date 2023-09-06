@@ -1,4 +1,5 @@
 use crate::graph_grid::{self, Direction, GridGraphSettings};
+use anyhow::Result;
 use bevy::{prelude::*, utils::HashMap};
 use hierarchical_wfc::{Graph, TileSet, WaveFunction};
 use serde::Deserialize;
@@ -14,7 +15,7 @@ pub struct MxgmnTileset {
 
 impl MxgmnTileset {
     // based off https://github.com/mxgmn/WaveFunctionCollapse/blob/master/SimpleTiledModel.cs
-    pub fn new(path: String) -> Self {
+    pub fn new(path: String, subset_name: Option<String>) -> Result<Self> {
         let path = Path::new(&path);
         let name = path.file_stem().unwrap().to_str().unwrap();
         let image_folder = path.parent().unwrap().join(name);
@@ -22,13 +23,26 @@ impl MxgmnTileset {
         let xml = std::fs::read_to_string(path).unwrap();
         let config: Config = serde_xml_rs::from_str(&xml).unwrap();
 
-        // let subset: Vec<&str> = config.tiles.tile.iter().map(|t| t.name.as_str()).collect();
+        let mut subset: Vec<String> = config.tiles.tile.iter().map(|t| t.name.clone()).collect();
+        if let Some(subset_name) = subset_name {
+            let subsets = config.subsets.ok_or(anyhow::anyhow!("subset not found"))?;
+            let config_subset = subsets
+                .subset
+                .iter()
+                .find(|s| s.name == subset_name)
+                .ok_or(anyhow::anyhow!("subset not found"))?;
+            subset = config_subset.tile.iter().map(|t| t.name.clone()).collect();
+        }
 
         let mut action: Vec<Vec<usize>> = Vec::new();
         let mut first_occurrence = HashMap::new();
         let mut weights = Vec::new();
         let mut tile_paths = Vec::new();
         for tile in config.tiles.tile.iter() {
+            if !subset.contains(&tile.name) {
+                continue;
+            }
+
             let base = action.len();
             first_occurrence.insert(tile.name.clone(), base);
 
@@ -112,6 +126,9 @@ impl MxgmnTileset {
                     .and_then(|f| f.parse::<usize>().ok())
                     .unwrap_or(0),
             );
+            if !subset.contains(&left.0.to_string()) || !subset.contains(&right.0.to_string()) {
+                continue;
+            }
 
             let l = action[first_occurrence[left.0]][left.1];
             let d = action[l][1];
@@ -169,12 +186,12 @@ impl MxgmnTileset {
         //     }
         // }
 
-        Self {
+        Ok(Self {
             tile_count,
             constraints,
             weights,
             tile_paths,
-        }
+        })
     }
 }
 
