@@ -1,6 +1,6 @@
 pub mod plugin;
 
-mod generate;
+pub mod generate;
 mod graph_utils;
-mod systems;
+pub mod systems;
 mod table;

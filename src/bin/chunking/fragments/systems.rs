@@ -4,56 +4,163 @@ use crate::fragments::{
 };
 
 use bevy::{prelude::*, utils::HashSet};
+use std::sync::Arc;
+use tokio::runtime;
 
 use itertools::Itertools;
 
 use super::{
+    generate::{generate_fragments, node::generate_node, FragmentInstantiatedEvent, WfcConfig},
     plugin::{ChunkLoadEvent, ChunkTable, FragmentGenerateEvent},
     table::FragmentTable,
 };
+use tokio::sync::{broadcast, mpsc, RwLock};
+
+pub struct AsyncTaskChannels {
+    pub tx_generate_fragment: broadcast::Sender<FragmentGenerateEvent>,
+    pub tx_instantiate_fragment: broadcast::Sender<FragmentInstantiatedEvent>,
+}
+
+#[derive(Resource)]
+pub struct AsyncWorld {
+    channels: Arc<AsyncTaskChannels>,
+    pub tx_chunk_load: mpsc::Sender<ChunkLoadEvent>,
+    pub rx_fragment_instantiate: broadcast::Receiver<FragmentInstantiatedEvent>,
+    fragment_table: Arc<RwLock<FragmentTable>>,
+    chunk_table: Arc<RwLock<ChunkTable>>,
+    wfc_config: Arc<RwLock<WfcConfig>>,
+    rt: Arc<runtime::Runtime>,
+}
+impl Default for AsyncWorld {
+    fn default() -> Self {
+        let (tx_chunk_load, rx_chunk_load) = mpsc::channel(10);
+
+        let fragment_table = RwLock::new(FragmentTable::default());
+        let chunk_table = RwLock::new(ChunkTable::default());
+
+        let (tx_inst_frag, rx_inst_frag) = broadcast::channel(100);
+        let world = AsyncWorld {
+            channels: Arc::new(AsyncTaskChannels {
+                tx_generate_fragment: broadcast::channel(100).0,
+                tx_instantiate_fragment: tx_inst_frag,
+            }),
+            chunk_table: Arc::new(chunk_table),
+            fragment_table: Arc::new(fragment_table),
+            tx_chunk_load,
+            wfc_config: Arc::new(RwLock::new(WfcConfig::default())),
+            rx_fragment_instantiate: rx_inst_frag,
+            rt: Arc::new(runtime::Runtime::new().unwrap()),
+        };
+
+        {
+            let (fragment_table, chunk_table, channels) = (
+                world.fragment_table.clone(),
+                world.chunk_table.clone(),
+                world.channels.clone(),
+            );
+            world.rt.spawn(async move {
+                tokio_transform_chunk_loads(rx_chunk_load, fragment_table, chunk_table, channels)
+                    .await;
+            });
+        }
+
+        {
+            let rt = world.rt.clone();
+
+            let fragment_table = world.fragment_table.clone();
+            let rx_generate_fragment = world.channels.tx_generate_fragment.subscribe();
+
+            let rx_generate_fragment = world.channels.tx_generate_fragment.subscribe();
+            let tx_generate_fragment = world.channels.tx_generate_fragment.clone();
+
+            let tx_fragment_instantiate_event = world.channels.tx_instantiate_fragment.clone();
+            let wfc_config = world.wfc_config.clone();
+
+            world.rt.spawn(async move {
+                generate_fragments(
+                    rt,
+                    fragment_table,
+                    wfc_config,
+                    rx_generate_fragment,
+                    tx_generate_fragment,
+                    tx_fragment_instantiate_event,
+                )
+                .await;
+            });
+        }
+
+        world
+    }
+}
+
+pub fn async_world_system(
+    async_world: ResMut<AsyncWorld>,
+    mut ev_chunk_load: EventReader<ChunkLoadEvent>,
+) {
+    // Insert new chunk load events
+    for ev in ev_chunk_load.iter() {
+        async_world.tx_chunk_load.blocking_send(*ev).unwrap();
+        dbg!("Forwarded chunk load event!");
+    }
+
+    // Read back new entities
+}
 
 /// Transforms chunk load events into fragments which are registered for generation in the fragment table
-pub fn transform_chunk_loads(
-    mut ev_load_chunk: EventReader<ChunkLoadEvent>,
-    mut ev_generate_fragment: EventWriter<FragmentGenerateEvent>,
-    mut chunk_table: ResMut<ChunkTable>,
-    mut fragment_table: ResMut<FragmentTable>,
+pub async fn tokio_transform_chunk_loads(
+    mut rx_chunk_load_events: mpsc::Receiver<ChunkLoadEvent>,
+    fragment_table: Arc<RwLock<FragmentTable>>,
+    chunk_table: Arc<RwLock<ChunkTable>>,
+    channels: Arc<AsyncTaskChannels>,
 ) {
-    for load_chunk in ev_load_chunk.iter() {
+    loop {
+        dbg!("Waiting for event");
+        let load_chunk = rx_chunk_load_events.recv().await.unwrap();
+        let tx_generate_fragment = channels.tx_generate_fragment.clone();
+
         match load_chunk {
             ChunkLoadEvent::Load(chunk_pos) => {
-                if let Some(chunk) = chunk_table.loaded.get(chunk_pos) {
-                    match chunk {
-                        ChunkEntry::Waiting => continue,
+                dbg!("Got event {}", chunk_pos);
+
+                // Checkout new chunk
+                {
+                    let mut chunk_table = chunk_table.write().await;
+                    if let Some(chunk) = chunk_table.loaded.get(&chunk_pos) {
+                        match chunk {
+                            ChunkEntry::Waiting => continue,
+                        }
                     }
+                    chunk_table.loaded.insert(chunk_pos, ChunkEntry::Waiting);
                 }
-                chunk_table.loaded.insert(*chunk_pos, ChunkEntry::Waiting);
+
+                // Get write lock on fragment table
+                let mut fragment_table = fragment_table.write().await;
 
                 // Positions of chunks component fragments
-                let faces_pos = [4 * *chunk_pos + 2 * IVec3::X + 2 * IVec3::Z];
+                let faces_pos = [4 * chunk_pos + 2 * IVec3::X + 2 * IVec3::Z];
                 let edges_pos = [
-                    2 * *chunk_pos + IVec3::Z,
-                    2 * *chunk_pos + IVec3::X,
-                    2 * *chunk_pos + 2 * IVec3::X + IVec3::Z,
-                    2 * *chunk_pos + IVec3::X + 2 * IVec3::Z,
+                    2 * chunk_pos + IVec3::Z,
+                    2 * chunk_pos + IVec3::X,
+                    2 * chunk_pos + 2 * IVec3::X + IVec3::Z,
+                    2 * chunk_pos + IVec3::X + 2 * IVec3::Z,
                 ];
                 let nodes_pos = [
-                    *chunk_pos,
-                    *chunk_pos + IVec3::X,
-                    *chunk_pos + IVec3::X + IVec3::Z,
-                    *chunk_pos + IVec3::Z,
+                    chunk_pos,
+                    chunk_pos + IVec3::X,
+                    chunk_pos + IVec3::X + IVec3::Z,
+                    chunk_pos + IVec3::Z,
                 ];
 
                 let edge_loaded = edges_pos.map(|pos| {
                     matches!(
                         fragment_table.loaded_edges.get(&pos),
-                        Some(EdgeFragmentEntry::Generated(_))
+                        Some(EdgeFragmentEntry::Generated(..))
                     )
                 });
                 let node_loaded = nodes_pos.map(|pos| {
                     matches!(
                         fragment_table.loaded_nodes.get(&pos),
-                        Some(NodeFragmentEntry::Generated(_))
+                        Some(NodeFragmentEntry::Generated(..))
                     )
                 });
 
@@ -79,7 +186,9 @@ pub fn transform_chunk_loads(
                         fragment_table
                             .loaded_nodes
                             .insert(node, NodeFragmentEntry::Generating);
-                        ev_generate_fragment.send(FragmentGenerateEvent::Node(node));
+                        tx_generate_fragment
+                            .send(FragmentGenerateEvent::Node(node))
+                            .unwrap();
                     }
 
                     if !fragment_table.loaded_edges.contains_key(&edge) {
@@ -113,7 +222,9 @@ pub fn transform_chunk_loads(
                                 EdgeFragmentEntry::Waiting(HashSet::from_iter(waiting_for)),
                             );
                         } else {
-                            ev_generate_fragment.send(FragmentGenerateEvent::Edge(edge));
+                            tx_generate_fragment
+                                .send(FragmentGenerateEvent::Edge(edge))
+                                .unwrap();
                         }
                     }
                 }
@@ -144,7 +255,9 @@ pub fn transform_chunk_loads(
                             FaceFragmentEntry::Waiting(HashSet::from_iter(waiting_for)),
                         );
                     } else {
-                        ev_generate_fragment.send(FragmentGenerateEvent::Face(face));
+                        tx_generate_fragment
+                            .send(FragmentGenerateEvent::Face(face))
+                            .unwrap();
                     }
                 }
             }

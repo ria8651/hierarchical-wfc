@@ -2,13 +2,13 @@ use crate::wfc::{Neighbour, WfcGraph};
 use bevy::{math::ivec3, prelude::*};
 use itertools::{iproduct, Itertools};
 
-#[derive(Component, Clone)]
+#[derive(Debug, Component, Clone)]
 pub struct GraphSettings {
     pub size: UVec3,
     pub spacing: Vec3,
 }
 
-#[derive(Component, Clone)]
+#[derive(Debug, Component, Clone)]
 pub struct GraphData {
     pub node_positions: Box<[IVec3]>,
 }

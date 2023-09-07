@@ -1,14 +1,17 @@
 use super::{
     super::{
-        plugin::{CollapsedData, GenerationDebugSettings, LayoutSettings},
+        plugin::{CollapsedData, FragmentGenerateEvent, GenerationDebugSettings, LayoutSettings},
         table::FragmentTable,
     },
-    FRAGMENT_FACE_SIZE,
+    FragmentInstantiatedEvent, WfcConfig, FRAGMENT_EDGE_PADDING, FRAGMENT_FACE_SIZE, NODE_RADIUS,
 };
-use crate::fragments::{
-    graph_utils::{graph_merge, subgraph_with_positions},
-    plugin::{FragmentMarker, GenerateDebugMarker},
-    table::{EdgeFragmentEntry, FaceFragmentEntry},
+use crate::{
+    debug::debug_mesh,
+    fragments::{
+        graph_utils::{graph_merge, subgraph_with_positions},
+        plugin::{FragmentMarker, GenerateDebugMarker},
+        table::{EdgeFragmentEntry, FaceFragmentEntry, NodeFragmentEntry},
+    },
 };
 use bevy::{
     math::{ivec3, uvec3},
@@ -19,22 +22,22 @@ use hierarchical_wfc::{
         regular_grid_3d,
         regular_grid_3d::{GraphData, GraphSettings},
     },
-    wfc::{Superposition, WaveFunctionCollapse},
+    wfc::{self, Superposition, TileSet, WaveFunctionCollapse},
 };
 use rand::{rngs::StdRng, SeedableRng};
-use std::ops::Div;
+use std::{ops::Div, sync::Arc};
+use tokio::sync::{broadcast, RwLock};
 
 pub(crate) fn generate_face(
     face_pos: IVec3,
-    fragment_table: &mut ResMut<'_, FragmentTable>,
-    q_fragments: &Query<'_, '_, (&GraphSettings, &GraphData, &CollapsedData)>,
-    layout_settings: &Res<'_, LayoutSettings>,
-    fill_with: Superposition,
-    constraints: &[Box<[Superposition]>],
-    weights: &Vec<u32>,
-    commands: &mut Commands<'_, '_>,
-    debug_settings: &ResMut<'_, GenerationDebugSettings>,
+    wfc_config: Arc<RwLock<WfcConfig>>,
+    fragment_table: Arc<RwLock<FragmentTable>>,
+    tx_fragment_instantiate_event: broadcast::Sender<FragmentInstantiatedEvent>,
 ) {
+    let wfc_config = wfc_config.blocking_read();
+    let fill_with = Superposition::filled(wfc_config.layout_settings.tileset.tile_count());
+    let layout_settings = &wfc_config.layout_settings;
+
     let face_origin = ivec3(
         face_pos.x.div_euclid(4),
         face_pos.y.div_euclid(4),
@@ -46,42 +49,45 @@ pub(crate) fn generate_face(
         2 * face_origin + 2 * IVec3::X + IVec3::Z,
         2 * face_origin + IVec3::X + 2 * IVec3::Z,
     ];
-    let edge_entity_ids = edges.map(
-        |edge| match fragment_table.loaded_edges.get(&edge).unwrap() {
-            EdgeFragmentEntry::Generated(entity) => *entity,
-            _ => unreachable!(),
-        },
-    );
-    let edge_entities = q_fragments.get_many(edge_entity_ids).unwrap();
+    let edge_data = {
+        let fragment_table = fragment_table.blocking_read();
+        edges.map(
+            |edge| match fragment_table.loaded_edges.get(&edge).unwrap() {
+                EdgeFragmentEntry::Generated(a, b, c) => (a.clone(), b.clone(), c.clone()),
+                _ => unreachable!(),
+            },
+        )
+    };
+
     let merged_x_normal = {
-        let z_edge_positions = edge_entities[2]
+        let z_edge_positions = edge_data[2]
             .1
             .node_positions
             .iter()
             .copied()
             .map(|pos| pos + IVec3::X * FRAGMENT_FACE_SIZE as i32)
             .collect::<Box<[IVec3]>>();
-        let neg_z_edge_positions = &edge_entities[0].1.node_positions;
+        let neg_z_edge_positions = &edge_data[0].1.node_positions;
 
         graph_merge(
-            (&edge_entities[0].2.graph, neg_z_edge_positions),
-            (&edge_entities[2].2.graph, &z_edge_positions),
+            (&edge_data[0].2.graph, neg_z_edge_positions),
+            (&edge_data[2].2.graph, &z_edge_positions),
             &|a: Option<&usize>, b| *a.or(b).unwrap(),
         )
     };
     let merged_z_normal = {
-        let x_edge_positions = edge_entities[3]
+        let x_edge_positions = edge_data[3]
             .1
             .node_positions
             .iter()
             .copied()
             .map(|pos| pos + IVec3::Z * FRAGMENT_FACE_SIZE as i32)
             .collect::<Box<[IVec3]>>();
-        let neg_x_edge_positions = &edge_entities[1].1.node_positions;
+        let neg_x_edge_positions = &edge_data[1].1.node_positions;
 
         graph_merge(
-            (&edge_entities[1].2.graph, neg_x_edge_positions),
-            (&edge_entities[3].2.graph, &x_edge_positions),
+            (&edge_data[1].2.graph, neg_x_edge_positions),
+            (&edge_data[3].2.graph, &x_edge_positions),
             &|a: Option<&usize>, b| *a.or(b).unwrap(),
         )
     };
@@ -122,8 +128,8 @@ pub(crate) fn generate_face(
     let seed: [u8; 32] = seed.try_into().unwrap();
     WaveFunctionCollapse::collapse(
         &mut merged_graph,
-        constraints,
-        weights,
+        &wfc_config.constraints,
+        &wfc_config.weights,
         &mut StdRng::from_seed(seed),
     );
     if let Ok(result_graph) = merged_graph.validate() {
@@ -151,27 +157,40 @@ pub(crate) fn generate_face(
             )
         };
 
-        let mut fragment_commands = commands.spawn((
-            FragmentMarker,
-            Transform::from_translation(
-                (face_pos.div(4)).as_vec3()
-                    * FRAGMENT_FACE_SIZE as f32
-                    * layout_settings.settings.spacing
-                    + 2.0 * layout_settings.settings.spacing * Vec3::Y,
-            ),
-            layout_settings.settings.clone(),
-            GraphData {
-                node_positions: sub_graph_positions,
-            },
-            CollapsedData { graph: sub_graph },
-        ));
-        if debug_settings.debug_fragment_faces {
-            fragment_commands.insert(GenerateDebugMarker);
+        let graph = Arc::new(sub_graph).clone();
+        let data = GraphData {
+            node_positions: sub_graph_positions,
+        };
+        tx_fragment_instantiate_event
+            .send(FragmentInstantiatedEvent {
+                fragment_type: super::FragmentType::Face,
+                transform: Transform::from_translation(
+                    (face_pos.div(4)).as_vec3()
+                        * FRAGMENT_FACE_SIZE as f32
+                        * layout_settings.settings.spacing
+                        + 2.0 * layout_settings.settings.spacing * Vec3::Y,
+                ),
+                settings: wfc_config.layout_settings.settings.clone(),
+                data: data.clone(),
+                collapsed: CollapsedData {
+                    graph: graph.clone(),
+                },
+                meshes: debug_mesh(graph.as_ref(), &data, &wfc_config.layout_settings.settings),
+            })
+            .unwrap();
+
+        // Scope with write lock on fragment table
+        {
+            let mut fragment_table = fragment_table.blocking_write();
+            fragment_table.loaded_faces.insert(
+                face_pos,
+                FaceFragmentEntry::Generated(
+                    wfc_config.layout_settings.settings.clone(),
+                    data,
+                    CollapsedData { graph },
+                ),
+            );
         }
-        let fragment = fragment_commands.id();
-        fragment_table
-            .loaded_faces
-            .insert(face_pos, FaceFragmentEntry::Generated(fragment));
     } else {
         unimplemented!();
     }
