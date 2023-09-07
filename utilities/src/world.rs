@@ -87,6 +87,7 @@ impl World {
             weights: self.current_weights.clone(),
             seed: self.seed,
             user_data,
+            tile_count: self.current_weights.len(),
         };
 
         executor.queue_peasant(peasant).unwrap();
@@ -134,6 +135,7 @@ impl World {
                     weights: self.current_weights.clone(),
                     seed,
                     user_data: user_data(neighbor),
+                    tile_count: self.current_weights.len(),
                 };
 
                 executor.queue_peasant(peasant).unwrap();

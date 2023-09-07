@@ -124,6 +124,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                         weights: weights.clone(),
                         seed,
                         user_data: None,
+                        tile_count: tileset.tile_count(),
                     };
 
                     cpu_executor.queue_peasant(peasant).unwrap();

@@ -47,6 +47,7 @@ impl CpuExecutor {
             collapsed_cells: Vec::new(),
         };
         loop {
+            let mut backtrack_flag = false;
             // propagate changes
             while let Some(index) = stack.pop() {
                 for i in 0..peasant.graph.neighbors[index].len() {
@@ -59,14 +60,22 @@ impl CpuExecutor {
                         }
                         if peasant.graph.tiles[neighbor.index].count_bits() == 0 {
                             // contradiction found
-
-                            if Self::backtrack(&mut history, &mut peasant) {
-                            } else {
-                                // If there's no collapsed cell in the history,
-                                // there's an unsolvable configuration.
-                                return;
-                            }
+                            backtrack_flag = true;
+                            break;
                         }
+                    }
+                }
+                if backtrack_flag {
+                    let result = Self::backtrack(&mut history, &mut peasant, &mut rng);
+                    if let Ok(continue_from) = result {
+                        stack.clear();
+                        stack.push(continue_from);
+                        backtrack_flag = false;
+                        continue;
+                    } else {
+                        // If there's no collapsed cell in the history,
+                        // there's an unsolvable configuration.
+                        return;
                     }
                 }
             }
@@ -81,7 +90,7 @@ impl CpuExecutor {
                 options = WaveFunction::difference(&options, &peasant.graph.tiles[cell]);
                 history.stack.push(cell);
                 history.collapsed_cells.push(CollapsedCell {
-                    index: history.stack.len(),
+                    index: history.stack.len() - 1,
                     options,
                 });
             } else {
@@ -91,29 +100,36 @@ impl CpuExecutor {
         }
     }
 
-    fn backtrack(history: &mut History, peasant: &mut Peasant) -> bool {
+    fn backtrack(
+        history: &mut History,
+        peasant: &mut Peasant,
+        mut rng: &mut SmallRng,
+    ) -> Result<usize, String> {
         // Backtrack to most recent collapsed cell
         if history.collapsed_cells.is_empty() {
-            return false;
+            Err("No collapsed cells in history")?;
         }
-        let mut collapsed = history.collapsed_cells.pop().unwrap();
 
+        let mut collapsed = history.collapsed_cells.pop().unwrap();
         // Backtrack further if needed
-        while collapsed.options.count_bits() == 0 {
+        while collapsed.options.count_bits() < 4 {
             if history.collapsed_cells.is_empty() {
-                return false;
+                Err("No collapsed cells in history")?;
             }
             collapsed = history.collapsed_cells.pop().unwrap();
         }
 
         // Restore state until the most recent collapsed cell
-        while history.stack.len() > collapsed.index {
+        while history.stack.len() > collapsed.index + 1 {
             let index = history.stack.pop().unwrap();
             peasant.graph.tiles[index] = WaveFunction::filled(peasant.tile_count);
         }
+        let collapsed_index = history.stack.pop().unwrap();
+        peasant.graph.tiles[collapsed_index] = WaveFunction::filled(peasant.tile_count);
+
         // Unconstrain all tiles which are not fully collapsed
         for i in 0..peasant.graph.tiles.len() {
-            if peasant.graph.tiles[i].count_bits() > 1 {
+            if peasant.graph.tiles[i].count_bits() != 1 {
                 peasant.graph.tiles[i] = WaveFunction::filled(peasant.tile_count);
             }
         }
@@ -126,17 +142,30 @@ impl CpuExecutor {
                 let neighbor = peasant.graph.neighbors[index][i];
                 if peasant.propagate(index, neighbor) {
                     stack.push(neighbor.index);
-                    if peasant.graph.tiles[neighbor.index].count_bits() <= 1 {
-                        panic!("Contradiction found or tile set while backtracking this should never happen{}", peasant.graph.tiles[neighbor.index].count_bits());
+                    if peasant.graph.tiles[neighbor.index].count_bits() == 0 {
+                        panic!(
+                            "Contradiction found while backtracking, this should never happen{}",
+                            collapsed_index
+                        );
                     }
                 }
             }
         }
 
         // Restore state of the most recent collapsed cell
-        let collapsed_index = history.stack.pop().unwrap();
         peasant.graph.tiles[collapsed_index] = collapsed.options;
-        true
+        let mut options = collapsed.options.clone();
+        // collapse cell
+        peasant.graph.tiles[collapsed_index]
+            .select_random(&mut rng, &peasant.weights)
+            .unwrap();
+        options = WaveFunction::difference(&options, &peasant.graph.tiles[collapsed_index]);
+        history.stack.push(collapsed_index);
+        history.collapsed_cells.push(CollapsedCell {
+            index: history.stack.len() - 1,
+            options,
+        });
+        Ok(collapsed_index)
     }
 }
 
