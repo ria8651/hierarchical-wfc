@@ -1,6 +1,7 @@
 pub mod camera_plugin;
 pub mod castle;
 pub mod graphs;
+pub mod ground_plane_plugin;
 pub mod json;
 pub mod materials;
 pub mod tools;

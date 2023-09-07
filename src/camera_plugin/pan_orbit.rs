@@ -20,7 +20,14 @@ impl Plugin for PanOrbitCameraPlugin {
             // .add_systems(Startup, spawn_camera)
             // .insert_resource(Msaa::Off)
             // .add_plugins(TemporalAntiAliasPlugin)
-            .add_systems(Update, pan_orbit_camera);
+            .add_systems(
+                Update,
+                (
+                    pan_orbit_camera,
+                    align_view_pan_orbit_camera.after(pan_orbit_camera),
+                ),
+            )
+            .add_event::<AlignViewEvent>();
     }
 }
 
@@ -44,6 +51,9 @@ impl Default for PanOrbitCamera {
         }
     }
 }
+#[derive(Event)]
+pub struct AlignViewEvent(pub Vec3);
+
 struct DoubleClickTime(Instant);
 impl Default for DoubleClickTime {
     fn default() -> Self {
@@ -258,6 +268,39 @@ fn pan_orbit_camera(
                 pan_orbit.focus + rot_matrix.mul_vec3(Vec3::new(0.0, 0.0, pan_orbit.radius));
         }
     }
+}
+
+fn align_view_pan_orbit_camera(
+    // mut q_primary_window: Query<&mut Window, With<PrimaryWindow>>,
+    // mut ev_scroll: EventReader<MouseWheel>,
+    // input_mouse: Res<Input<MouseButton>>,
+    // mut double_click_time: Local<DoubleClickTime>,
+    mut q_camera: Query<
+        (
+            &mut PanOrbitCamera,
+            &mut Transform,
+            &Projection,
+            &Camera,
+            &GlobalTransform,
+        ),
+        With<MainCamera>,
+    >,
+    mut ev_align_view: EventReader<AlignViewEvent>, // rapier_context: Res<RapierContext>,
+                                                    // mut previous_cursor: Local<PreviousCursor>,
+) {
+    let Ok((mut pan_orbit, mut transform, projection, camera, global_transform)) =
+        q_camera.get_single_mut()
+    else {
+        return;
+    };
+
+    if let Some(AlignViewEvent(dir)) = ev_align_view.iter().last() {
+        transform.look_to(*dir, Vec3::Y);
+    }
+
+    let rot_matrix = Mat3::from_quat(transform.rotation);
+    transform.translation =
+        pan_orbit.focus + rot_matrix.mul_vec3(Vec3::new(0.0, 0.0, pan_orbit.radius));
 }
 
 fn get_primary_window_size(windows: &Query<&mut Window, With<PrimaryWindow>>) -> Vec2 {

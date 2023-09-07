@@ -1,7 +1,7 @@
 use bevy::{
     core_pipeline::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings,
-        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+        fxaa::{Fxaa, FxaaPlugin},
     },
     pbr::{
         ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionQualityLevel,
@@ -25,12 +25,7 @@ impl Plugin for SwitchingCameraPlugin {
         app.add_systems(Startup, spawn_camera)
             .insert_resource(Msaa::Off)
             .add_systems(Update, switching_system)
-            .add_plugins((
-                TemporalAntiAliasPlugin,
-                FpsCameraPlugin,
-                PanOrbitCameraPlugin,
-                AtmospherePlugin,
-            ));
+            .add_plugins((FpsCameraPlugin, PanOrbitCameraPlugin, AtmospherePlugin));
     }
 }
 
@@ -92,7 +87,7 @@ pub fn spawn_camera(mut commands: Commands) {
             },
             ..Default::default()
         })
-        .insert(TemporalAntiAliasBundle {
+        .insert(Fxaa {
             ..Default::default()
         });
 }
