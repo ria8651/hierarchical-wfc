@@ -150,6 +150,7 @@ fn handle_events(
                     weights,
                     seed,
                     user_data: Some(Box::new(PeasantData::Single { size })),
+                    tile_count: tileset.tile_count(),
                 };
 
                 executor.queue_peasant(peasant).unwrap();

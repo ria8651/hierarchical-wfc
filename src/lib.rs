@@ -24,6 +24,7 @@ pub struct Peasant {
     pub weights: Arc<Vec<f32>>,
     pub seed: u64,
     pub user_data: UserData,
+    pub tile_count: usize,
 }
 
 impl Peasant {
@@ -59,6 +60,7 @@ impl Peasant {
     pub fn propagate(&mut self, index: usize, neighbor: Neighbor) -> bool {
         let mut updated = false;
 
+        // Combine all constraints of all the tiles that the neighbor can be according to what the current tile can be
         let mut allowed = WaveFunction::empty();
         for tile in self.graph.tiles[index].tile_iter() {
             allowed = WaveFunction::join(&allowed, &self.constraints[tile][neighbor.direction]);
