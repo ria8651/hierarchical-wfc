@@ -111,7 +111,7 @@ impl CpuExecutor {
         }
 
         let mut collapsed = history.collapsed_cells.pop().unwrap();
-        // Backtrack further if needed
+        // Backtrack further, we skip cells with less than 4 options as this optimization provides great speedup, TODO: make this configurable
         while collapsed.options.count_bits() < 4 {
             if history.collapsed_cells.is_empty() {
                 Err("No collapsed cells in history")?;
