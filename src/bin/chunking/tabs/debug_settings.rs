@@ -33,6 +33,7 @@ impl EcsTab for EcsUiDebugSettings {
         world: &mut World,
         ui: &mut egui::Ui,
         type_registry: &bevy_reflect::TypeRegistry,
+        _active: bool,
     ) {
         let (mut debug_settings, fragment_settings) = self.system_state.get_mut(world);
 

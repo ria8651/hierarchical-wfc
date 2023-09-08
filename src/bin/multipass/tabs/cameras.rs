@@ -43,6 +43,7 @@ impl EcsTab for EcsUiCameras {
         world: &mut World,
         ui: &mut egui::Ui,
         type_registry: &bevy_reflect::TypeRegistry,
+        _active: bool,
     ) {
         let mut q_cameras = self.system_state.get_mut(world);
 

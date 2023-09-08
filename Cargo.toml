@@ -102,3 +102,4 @@ bevy_ui = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch
 bevy_utils = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
 bevy_window = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
 bevy_winit = {git = "https://github.com/KiwiRobbie/bevy-viewport-fixes.git", branch= "viewport-fixes"}
+egui-gizmo = {path = "/home/kiwi/Dev/egui-gizmo"}

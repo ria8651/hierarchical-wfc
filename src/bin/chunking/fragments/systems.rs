@@ -1,10 +1,13 @@
 use crate::fragments::{
+    generate::FragmentLocation,
     plugin::ChunkEntry,
-    table::{EdgeFragmentEntry, EdgeKey, FaceFragmentEntry, FaceKey, NodeFragmentEntry, NodeKey},
+    table::{
+        EdgeFragmentEntry, EdgeFragmentStatus, EdgeKey, FaceFragmentEntry, FaceFragmentStatus,
+        FaceKey, NodeFragmentEntry, NodeFragmentStatus, NodeKey,
+    },
 };
 
 use bevy::{prelude::*, utils::HashSet};
-use hierarchical_wfc::castle::LayoutTileset;
 use std::sync::Arc;
 use tokio::runtime;
 
@@ -12,24 +15,26 @@ use itertools::Itertools;
 
 use super::{
     generate::{
-        generate_fragments, node::generate_node, FragmentInstantiatedEvent, FragmentSettings,
+        generate_fragments, FragmentDestroyEvent, FragmentInstantiateEvent, FragmentSettings,
         WfcConfig,
     },
-    plugin::{ChunkLoadEvent, ChunkTable, FragmentGenerateEvent, LayoutSettings},
+    plugin::{ChunkLoadEvent, ChunkTable, FragmentGenerateEvent},
     table::FragmentTable,
 };
 use tokio::sync::{broadcast, mpsc, RwLock};
 
 pub struct AsyncTaskChannels {
     pub tx_generate_fragment: broadcast::Sender<FragmentGenerateEvent>,
-    pub tx_instantiate_fragment: broadcast::Sender<FragmentInstantiatedEvent>,
+    pub tx_instantiate_fragment: broadcast::Sender<FragmentInstantiateEvent>,
+    pub tx_destroy_fragment: broadcast::Sender<FragmentDestroyEvent>,
 }
 
 #[derive(Resource)]
 pub struct AsyncWorld {
     channels: Arc<AsyncTaskChannels>,
     pub tx_chunk_load: mpsc::Sender<ChunkLoadEvent>,
-    pub rx_fragment_instantiate: broadcast::Receiver<FragmentInstantiatedEvent>,
+    pub rx_fragment_instantiate: broadcast::Receiver<FragmentInstantiateEvent>,
+    pub rx_fragment_destroy: broadcast::Receiver<FragmentDestroyEvent>,
     fragment_table: Arc<RwLock<FragmentTable>>,
     chunk_table: Arc<RwLock<ChunkTable>>,
     wfc_config: Arc<RwLock<WfcConfig>>,
@@ -43,16 +48,19 @@ impl Default for AsyncWorld {
         let chunk_table = RwLock::new(ChunkTable::default());
 
         let (tx_inst_frag, rx_inst_frag) = broadcast::channel(100);
+        let (tx_dest_frag, rx_dest_frag) = broadcast::channel(100);
         let world = AsyncWorld {
             channels: Arc::new(AsyncTaskChannels {
                 tx_generate_fragment: broadcast::channel(100).0,
                 tx_instantiate_fragment: tx_inst_frag,
+                tx_destroy_fragment: tx_dest_frag,
             }),
             chunk_table: Arc::new(chunk_table),
             fragment_table: Arc::new(fragment_table),
             tx_chunk_load,
             wfc_config: Arc::new(RwLock::new(WfcConfig::default())),
             rx_fragment_instantiate: rx_inst_frag,
+            rx_fragment_destroy: rx_dest_frag,
             rt: Arc::new(runtime::Runtime::new().unwrap()),
         };
 
@@ -72,7 +80,6 @@ impl Default for AsyncWorld {
             let rt = world.rt.clone();
 
             let fragment_table = world.fragment_table.clone();
-            let rx_generate_fragment = world.channels.tx_generate_fragment.subscribe();
 
             let rx_generate_fragment = world.channels.tx_generate_fragment.subscribe();
             let tx_generate_fragment = world.channels.tx_generate_fragment.clone();
@@ -147,21 +154,123 @@ pub async fn tokio_transform_chunk_loads(
                     *fragment_table = FragmentTable::default();
                 }
             }
-            ChunkLoadEvent::Unload(..) => {}
-            ChunkLoadEvent::Load(chunk_pos) => {
-                // Checkout new chunk
-                {
-                    let mut chunk_table = chunk_table.write().await;
-                    if let Some(chunk) = chunk_table.loaded.get(&chunk_pos) {
-                        match chunk {
-                            ChunkEntry::Waiting => continue,
+            ChunkLoadEvent::Unload(chunk_pos) => {
+                let mut chunk_table = chunk_table.write().await;
+                let mut fragment_table = fragment_table.write().await;
+
+                if let Some(chunk) = chunk_table.loaded.remove(&chunk_pos) {
+                    match chunk {
+                        ChunkEntry::Waiting {
+                            associated_fragments,
+                        } => {
+                            for fragment in associated_fragments {
+                                match fragment {
+                                    FragmentLocation::Node(node_pos) => {
+                                        if let Some(node) =
+                                            fragment_table.loaded_nodes.get_mut(&node_pos)
+                                        {
+                                            node.chunks.remove(&chunk_pos);
+                                            if node.chunks.is_empty() {
+                                                fragment_table.loaded_nodes.remove(&node_pos);
+                                                fragment_table
+                                                    .edges_waiting_by_node
+                                                    .remove(&node_pos);
+                                                channels
+                                                    .tx_destroy_fragment
+                                                    .send(FragmentDestroyEvent {
+                                                        fragment_location: FragmentLocation::Node(
+                                                            node_pos,
+                                                        ),
+                                                    })
+                                                    .unwrap();
+                                            }
+                                        }
+                                    }
+                                    FragmentLocation::Edge(edge_pos) => {
+                                        if let Some(edge) =
+                                            fragment_table.loaded_edges.get_mut(&edge_pos)
+                                        {
+                                            edge.chunks.remove(&chunk_pos);
+                                            if edge.chunks.is_empty() {
+                                                if let Some(EdgeFragmentEntry {
+                                                    status: EdgeFragmentStatus::Waiting(nodes),
+                                                    ..
+                                                }) =
+                                                    fragment_table.loaded_edges.remove(&edge_pos)
+                                                {
+                                                    for node in nodes.into_iter() {
+                                                        if let Some(edges) = fragment_table
+                                                            .edges_waiting_by_node
+                                                            .get_mut(&node)
+                                                        {
+                                                            edges.remove(&edge_pos);
+                                                        }
+                                                    }
+                                                }
+
+                                                fragment_table
+                                                    .faces_waiting_by_edge
+                                                    .remove(&edge_pos);
+                                                channels
+                                                    .tx_destroy_fragment
+                                                    .send(FragmentDestroyEvent {
+                                                        fragment_location: FragmentLocation::Edge(
+                                                            edge_pos,
+                                                        ),
+                                                    })
+                                                    .unwrap();
+                                            }
+                                        }
+                                    }
+                                    FragmentLocation::Face(face_pos) => {
+                                        if let Some(face) =
+                                            fragment_table.loaded_faces.get_mut(&face_pos)
+                                        {
+                                            face.chunks.remove(&chunk_pos);
+                                            if face.chunks.is_empty() {
+                                                if let Some(FaceFragmentEntry {
+                                                    status: FaceFragmentStatus::Waiting(edges),
+                                                    ..
+                                                }) =
+                                                    fragment_table.loaded_faces.remove(&face_pos)
+                                                {
+                                                    for edge in edges.into_iter() {
+                                                        if let Some(faces) = fragment_table
+                                                            .faces_waiting_by_edge
+                                                            .get_mut(&edge)
+                                                        {
+                                                            faces.remove(&face_pos);
+                                                        }
+                                                    }
+                                                }
+
+                                                channels
+                                                    .tx_destroy_fragment
+                                                    .send(FragmentDestroyEvent {
+                                                        fragment_location: FragmentLocation::Face(
+                                                            face_pos,
+                                                        ),
+                                                    })
+                                                    .unwrap();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-                    chunk_table.loaded.insert(chunk_pos, ChunkEntry::Waiting);
+                }
+            }
+            ChunkLoadEvent::Load(chunk_pos) => {
+                // Checkout new chunk
+                let mut chunk_table = chunk_table.write().await;
+                let mut fragment_table = fragment_table.write().await;
+
+                if let Some(..) = chunk_table.loaded.get(&chunk_pos) {
+                    continue;
                 }
 
                 // Get write lock on fragment table
-                let mut fragment_table = fragment_table.write().await;
 
                 // Positions of chunks component fragments
                 let faces_pos = [4 * chunk_pos + 2 * IVec3::X + 2 * IVec3::Z];
@@ -178,16 +287,36 @@ pub async fn tokio_transform_chunk_loads(
                     chunk_pos + IVec3::Z,
                 ];
 
+                chunk_table.loaded.insert(
+                    chunk_pos,
+                    ChunkEntry::Waiting {
+                        associated_fragments: faces_pos
+                            .iter()
+                            .map(|pos| FragmentLocation::Face(*pos))
+                            .chain(edges_pos.iter().map(|pos| FragmentLocation::Edge(*pos)))
+                            .chain(nodes_pos.iter().map(|pos| FragmentLocation::Node(*pos)))
+                            .collect_vec(),
+                    },
+                );
+
+                drop(chunk_table);
+
                 let edge_loaded = edges_pos.map(|pos| {
                     matches!(
                         fragment_table.loaded_edges.get(&pos),
-                        Some(EdgeFragmentEntry::Generated(..))
+                        Some(EdgeFragmentEntry {
+                            status: EdgeFragmentStatus::Generated(..),
+                            ..
+                        })
                     )
                 });
                 let node_loaded = nodes_pos.map(|pos| {
                     matches!(
                         fragment_table.loaded_nodes.get(&pos),
-                        Some(NodeFragmentEntry::Generated(..))
+                        Some(NodeFragmentEntry {
+                            status: NodeFragmentStatus::Generated(..),
+                            ..
+                        })
                     )
                 });
 
@@ -208,17 +337,25 @@ pub async fn tokio_transform_chunk_loads(
                     assert_eq!(edge, edges_pos[(index).rem_euclid(4)]);
                     assert_eq!(next_edge, edges_pos[(index + 1).rem_euclid(4)]);
 
-                    if !fragment_table.loaded_nodes.contains_key(&node) {
+                    if let Some(node_entry) = fragment_table.loaded_nodes.get_mut(&node) {
+                        node_entry.chunks.insert(chunk_pos);
+                    } else {
                         // Announce new node to generate
-                        fragment_table
-                            .loaded_nodes
-                            .insert(node, NodeFragmentEntry::Generating);
+                        fragment_table.loaded_nodes.insert(
+                            node,
+                            NodeFragmentEntry {
+                                status: NodeFragmentStatus::Generating,
+                                chunks: HashSet::from_iter(Some(chunk_pos)),
+                            },
+                        );
                         tx_generate_fragment
                             .send(FragmentGenerateEvent::Node(node))
                             .unwrap();
                     }
 
-                    if !fragment_table.loaded_edges.contains_key(&edge) {
+                    if let Some(edge_entry) = fragment_table.loaded_edges.get_mut(&edge) {
+                        edge_entry.chunks.insert(chunk_pos);
+                    } else {
                         // Keep track of what the edge is waiting for to generate
                         let waiting_for = [
                             match node_loaded[prev_node_index] {
@@ -236,7 +373,7 @@ pub async fn tokio_transform_chunk_loads(
 
                         for node in waiting_for.clone() {
                             let waiting_on_node = fragment_table
-                                .edges_waiting_on_node
+                                .edges_waiting_by_node
                                 .entry(node)
                                 .or_insert(HashSet::new());
                             waiting_on_node.insert(edge);
@@ -246,7 +383,12 @@ pub async fn tokio_transform_chunk_loads(
                         if !waiting_for.is_empty() {
                             fragment_table.loaded_edges.insert(
                                 edge,
-                                EdgeFragmentEntry::Waiting(HashSet::from_iter(waiting_for)),
+                                EdgeFragmentEntry {
+                                    status: EdgeFragmentStatus::Waiting(HashSet::from_iter(
+                                        waiting_for,
+                                    )),
+                                    chunks: HashSet::from_iter(Some(chunk_pos)),
+                                },
                             );
                         } else {
                             tx_generate_fragment
@@ -256,7 +398,9 @@ pub async fn tokio_transform_chunk_loads(
                     }
                 }
 
-                if !fragment_table.loaded_faces.contains_key(&face) {
+                if let Some(face_entry) = fragment_table.loaded_faces.get_mut(&face) {
+                    face_entry.chunks.insert(chunk_pos);
+                } else {
                     // Keep track of fragments the face is waiting for
                     let waiting_for = edges_pos
                         .into_iter()
@@ -269,7 +413,7 @@ pub async fn tokio_transform_chunk_loads(
 
                     for edge in waiting_for.clone() {
                         let faces_awaiting_edge = fragment_table
-                            .faces_waiting_by_edges
+                            .faces_waiting_by_edge
                             .entry(edge)
                             .or_insert(HashSet::new());
                         faces_awaiting_edge.insert(face);
@@ -279,7 +423,12 @@ pub async fn tokio_transform_chunk_loads(
                     if !waiting_for.is_empty() {
                         fragment_table.loaded_faces.insert(
                             face,
-                            FaceFragmentEntry::Waiting(HashSet::from_iter(waiting_for)),
+                            FaceFragmentEntry {
+                                status: FaceFragmentStatus::Waiting(HashSet::from_iter(
+                                    waiting_for,
+                                )),
+                                chunks: HashSet::from_iter(Some(chunk_pos)),
+                            },
                         );
                     } else {
                         tx_generate_fragment

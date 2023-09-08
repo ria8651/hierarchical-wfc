@@ -2,8 +2,10 @@ use bevy::{asset::ChangeWatcher, math::Vec4Swizzles, window::PresentMode};
 use bevy_egui::EguiContexts;
 use bevy_render::texture::ImageSampler;
 use constants::{EGUI_X_COLOR, EGUI_Y_COLOR, EGUI_Z_COLOR};
-use debug::{layout_debug_reset_system, layout_debug_system, layout_debug_visibility_system};
-use egui_gizmo::Gizmo;
+use debug::{
+    fragment_debug_destruction_system, fragment_debug_instantiation_system,
+    layout_debug_reset_system, layout_debug_visibility_system,
+};
 use fragments::plugin::GenerationPlugin;
 
 use std::time::Duration;
@@ -17,7 +19,6 @@ use bevy::{
 
 use bevy::log::LogPlugin;
 use bevy_inspector_egui::{bevy_egui, DefaultInspectorConfigPlugin};
-use bevy_mod_billboard::prelude::*;
 
 use bevy_rapier3d::prelude::{Collider, NoUserData, RapierPhysicsPlugin, RigidBody};
 use hierarchical_wfc::{
@@ -68,7 +69,6 @@ fn main() {
         DefaultInspectorConfigPlugin,
         MaterialPlugin::<DebugLineMaterial>::default(),
         MaterialPlugin::<TilePbrMaterial>::default(),
-        BillboardPlugin,
         bevy_egui::EguiPlugin,
         EcsUiPlugin,
         GenerationPlugin,
@@ -77,10 +77,11 @@ fn main() {
         Update,
         (
             set_ground_sampler,
-            layout_debug_system,
+            fragment_debug_instantiation_system,
+            fragment_debug_destruction_system,
             layout_debug_visibility_system,
             layout_debug_reset_system,
-            orientation_gizmo,
+            orientation_gizmo_system,
         ),
     )
     .add_systems(Startup, (setup, init_inspector));
@@ -100,6 +101,7 @@ fn init_inspector(world: &mut World) {
     let mut tabs = vec![
         EcsUiCameras::tab_from_world(world),
         EcsUiPlayerPlaceholder::tab_from_world(world),
+        EcsUiSendChunkLoads::tab_from_world(world),
         EcsUiDebugSettings::tab_from_world(world),
     ];
     let total_tabs = tabs.len() as f32;
@@ -164,7 +166,7 @@ impl Default for TransformLocal {
     }
 }
 
-fn orientation_gizmo(
+fn orientation_gizmo_system(
     mut contexts: EguiContexts,
     q_camera: Query<(&Camera, &GlobalTransform)>,
     mut ev_align_view: EventWriter<AlignViewEvent>,

@@ -3,13 +3,16 @@ use super::{
         plugin::{CollapsedData, FragmentGenerateEvent},
         table::FragmentTable,
     },
-    FragmentInstantiatedEvent, WfcConfig,
+    FragmentInstantiateEvent, WfcConfig,
 };
 use crate::{
     debug::debug_mesh,
     fragments::{
         graph_utils::graph_merge,
-        table::{EdgeFragmentEntry, FaceFragmentEntry, NodeFragmentEntry},
+        table::{
+            EdgeFragmentStatus, FaceFragmentEntry, FaceFragmentStatus, NodeFragmentEntry,
+            NodeFragmentStatus,
+        },
     },
 };
 use bevy::{math::ivec3, prelude::*};
@@ -29,7 +32,7 @@ pub(crate) fn generate_edge(
     wfc_config: Arc<RwLock<WfcConfig>>,
     fragment_table: Arc<RwLock<FragmentTable>>,
     tx_fragment_generate_event: broadcast::Sender<FragmentGenerateEvent>,
-    tx_fragment_instantiate_event: broadcast::Sender<FragmentInstantiatedEvent>,
+    tx_fragment_instantiate_event: broadcast::Sender<FragmentInstantiateEvent>,
 ) {
     let wfc_config = wfc_config.blocking_read();
     let fragment_settings = &wfc_config.fragment_settings;
@@ -67,12 +70,19 @@ pub(crate) fn generate_edge(
 
     let [node_start, node_end] = {
         let fragment_table = fragment_table.blocking_read();
-        [node_start_pos, node_end_pos].map(|node| {
+        if let [Some(a), Some(b)] = [node_start_pos, node_end_pos].map(|node| {
             match fragment_table.loaded_nodes.get(&node).unwrap() {
-                NodeFragmentEntry::Generated(a, b, c) => (a.clone(), b.clone(), c.clone()), // TODO: Maybe don't clone hear
-                _ => unreachable!(),
+                NodeFragmentEntry {
+                    status: NodeFragmentStatus::Generated(a, b, c),
+                    ..
+                } => Some((a.clone(), b.clone(), c.clone())), // TODO: Maybe don't clone hear
+                _ => None, // Current fragment and its dependencies were unloaded
             }
-        })
+        }) {
+            [a, b]
+        } else {
+            return;
+        }
     };
 
     let node_start_positions = node_end
@@ -140,38 +150,54 @@ pub(crate) fn generate_edge(
             spacing: wfc_config.fragment_settings.spacing,
         };
 
-        tx_fragment_instantiate_event
-            .send(FragmentInstantiatedEvent {
-                fragment_type: super::FragmentType::Edge,
-                transform: Transform::from_translation(
-                    (edge_pos / 2).as_vec3()
-                        * fragment_settings.face_size as f32
-                        * fragment_settings.spacing,
-                ),
-                settings: layout_settings.clone(),
-                data: data.clone(),
-                collapsed: CollapsedData {
-                    graph: graph.clone(),
-                },
-                meshes: debug_mesh(graph.as_ref(), &data, &layout_settings),
-            })
-            .unwrap();
-
-        // Scope with write lock on fragment table
         {
+            // Update fragment table entry
             let mut fragment_table = fragment_table.blocking_write();
-            fragment_table.loaded_edges.insert(
-                edge_pos,
-                EdgeFragmentEntry::Generated(layout_settings, data, CollapsedData { graph }),
-            );
+            if let Some(edge) = fragment_table.loaded_edges.get_mut(&edge_pos) {
+                edge.status = EdgeFragmentStatus::Generated(
+                    layout_settings.clone(),
+                    data.clone(),
+                    CollapsedData {
+                        graph: graph.clone(),
+                    },
+                );
+            } else {
+                return; // Fragment was unloaded and our results aren't needed
+            }
+
+            // Instantiate data for debugging
+            tx_fragment_instantiate_event
+                .send(FragmentInstantiateEvent {
+                    fragment_location: super::FragmentLocation::Edge(edge_pos),
+                    transform: Transform::from_translation(
+                        ivec3(
+                            edge_pos.x.div_euclid(2),
+                            edge_pos.y.div_euclid(2),
+                            edge_pos.z.div_euclid(2),
+                        )
+                        .as_vec3()
+                            * fragment_settings.face_size as f32
+                            * fragment_settings.spacing,
+                    ),
+                    settings: layout_settings.clone(),
+                    data: data.clone(),
+                    collapsed: CollapsedData {
+                        graph: graph.clone(),
+                    },
+                    meshes: debug_mesh(graph.as_ref(), &data, &layout_settings),
+                })
+                .unwrap();
+
             // Update fragments that were waiting on this fragment
             for face in fragment_table
-                .faces_waiting_by_edges
+                .faces_waiting_by_edge
                 .remove(&edge_pos)
                 .unwrap()
             {
-                if let Some(FaceFragmentEntry::Waiting(waiting)) =
-                    fragment_table.loaded_faces.get_mut(&face)
+                if let Some(FaceFragmentEntry {
+                    status: FaceFragmentStatus::Waiting(waiting),
+                    ..
+                }) = fragment_table.loaded_faces.get_mut(&face)
                 {
                     waiting.remove(&edge_pos);
                     if waiting.is_empty() {
@@ -180,7 +206,7 @@ pub(crate) fn generate_edge(
                             .unwrap();
                     }
                 } else {
-                    unreachable!();
+                    panic!();
                 }
             }
         }

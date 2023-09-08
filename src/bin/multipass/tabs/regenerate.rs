@@ -36,6 +36,7 @@ impl EcsTab for EcsUiRegenerate {
         world: &mut World,
         ui: &mut egui::Ui,
         _type_registry: &bevy_reflect::TypeRegistry,
+        _active: bool,
     ) {
         let (mut commands, q_layout_pass_settings, mut regenerate_settings, mut gizmos, mut config) =
             self.system_state.get_mut(world);

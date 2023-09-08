@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::EguiContext;
 use bevy_reflect::TypeRegistry;
@@ -77,10 +79,15 @@ impl EcsUiState {
         let mut tab_viewer = TabViewer {
             world,
             viewport_rect: &mut self.viewport_rect,
+            active: self
+                .tree
+                .find_active_focused()
+                .and_then(|(_, tab)| Some(format!("{tab:?}"))),
             // selected_entities: &mut self.selected_entities,
             // selection: &mut self.selection,
             // gizmo_mode: self.gizmo_mode,
         };
+
         DockArea::new(&mut self.tree)
             .style(Style::from_egui(ctx.style().as_ref()))
             .show(ctx, &mut tab_viewer);
@@ -96,10 +103,17 @@ pub enum EcsUiTab {
 struct TabViewer<'a> {
     world: &'a mut World,
     viewport_rect: &'a mut egui::Rect,
+    active: Option<String>,
 }
 
 pub trait EcsTab: std::fmt::Debug {
-    fn ui(&mut self, world: &mut World, ui: &mut egui::Ui, type_registry: &TypeRegistry);
+    fn ui(
+        &mut self,
+        world: &mut World,
+        ui: &mut egui::Ui,
+        type_registry: &TypeRegistry,
+        active: bool,
+    );
 }
 
 impl egui_dock::TabViewer for TabViewer<'_> {
@@ -109,12 +123,14 @@ impl egui_dock::TabViewer for TabViewer<'_> {
         let type_registry = self.world.resource::<AppTypeRegistry>().0.clone();
         let type_registry = type_registry.read();
 
+        let window_id = Some(format!("{window:?}"));
+
         match window {
             EcsUiTab::Viewport => {
                 *self.viewport_rect = ui.clip_rect();
             }
             EcsUiTab::Ecs(node) => {
-                node.ui(self.world, ui, &type_registry);
+                node.ui(self.world, ui, &type_registry, window_id == self.active);
             }
         }
     }

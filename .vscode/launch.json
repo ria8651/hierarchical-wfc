@@ -50,7 +50,6 @@
         },
         {
             "type": "lldb",
-            "sourceLanguages": ["rust"],
             "request": "launch",
             "name": "Debug executable 'chunking'",
             "cargo": {
@@ -64,6 +63,19 @@
                     "kind": "bin"
                 }
             },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "LD_LIBRARY_PATH": "/home/kiwi/Dev/hierarchical-wfc/target/debug/deps:/home/kiwi/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib:$LD_LIBRARY_PATH",
+                "CARGO_MANIFEST_DIR":"${workspaceFolder}"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Bin 'chunking'",
+            "sourceLanguages": ["rust"],
+            "program": "${workspaceFolder}/target/debug/chunking",
             "args": [],
             "cwd": "${workspaceFolder}",
             "env": {

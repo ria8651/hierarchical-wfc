@@ -40,6 +40,7 @@ impl EcsTab for EcsUiReplay {
         world: &mut World,
         ui: &mut egui::Ui,
         _type_registry: &bevy_reflect::TypeRegistry,
+        _active: bool,
     ) {
         let mut q_passes = self.system_state.get_mut(world);
 

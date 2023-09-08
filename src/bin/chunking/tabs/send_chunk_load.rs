@@ -33,6 +33,7 @@ impl EcsTab for EcsUiSendChunkLoads {
         world: &mut World,
         ui: &mut egui::Ui,
         _type_registry: &bevy_reflect::TypeRegistry,
+        _active: bool,
     ) {
         let (mut ev_chunk_load, mut chunk_location, mut chunk_area) =
             self.system_state.get_mut(world);

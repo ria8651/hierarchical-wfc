@@ -1,12 +1,12 @@
 use super::{
     super::{plugin::CollapsedData, table::FragmentTable},
-    FragmentInstantiatedEvent, WfcConfig,
+    FragmentInstantiateEvent, WfcConfig,
 };
 use crate::{
     debug::debug_mesh,
     fragments::{
         graph_utils::{graph_merge, subgraph_with_positions},
-        table::{EdgeFragmentEntry, FaceFragmentEntry},
+        table::{EdgeFragmentEntry, EdgeFragmentStatus, FaceFragmentStatus},
     },
 };
 use bevy::{
@@ -28,7 +28,7 @@ pub(crate) fn generate_face(
     face_pos: IVec3,
     wfc_config: Arc<RwLock<WfcConfig>>,
     fragment_table: Arc<RwLock<FragmentTable>>,
-    tx_fragment_instantiate_event: broadcast::Sender<FragmentInstantiatedEvent>,
+    tx_fragment_instantiate_event: broadcast::Sender<FragmentInstantiateEvent>,
 ) {
     let wfc_config = wfc_config.blocking_read();
     let fill_with = Superposition::filled(wfc_config.tileset.tile_count());
@@ -50,7 +50,10 @@ pub(crate) fn generate_face(
         let fragment_table = fragment_table.blocking_read();
         edges.map(
             |edge| match fragment_table.loaded_edges.get(&edge).unwrap() {
-                EdgeFragmentEntry::Generated(a, b, c) => (a.clone(), b.clone(), c.clone()),
+                EdgeFragmentEntry {
+                    status: EdgeFragmentStatus::Generated(a, b, c),
+                    ..
+                } => (a.clone(), b.clone(), c.clone()),
                 _ => unreachable!(),
             },
         )
@@ -159,34 +162,42 @@ pub(crate) fn generate_face(
         let data = GraphData {
             node_positions: sub_graph_positions,
         };
-        tx_fragment_instantiate_event
-            .send(FragmentInstantiatedEvent {
-                fragment_type: super::FragmentType::Face,
-                transform: Transform::from_translation(
-                    (face_pos / 4).as_vec3()
-                        * fragment_settings.face_size as f32
-                        * fragment_settings.spacing,
-                ),
-                settings: layout_settings.clone(),
-                data: data.clone(),
-                collapsed: CollapsedData {
-                    graph: graph.clone(),
-                },
-                meshes: debug_mesh(graph.as_ref(), &data, &layout_settings),
-            })
-            .unwrap();
 
-        // Scope with write lock on fragment table
         {
             let mut fragment_table = fragment_table.blocking_write();
-            fragment_table.loaded_faces.insert(
-                face_pos,
-                FaceFragmentEntry::Generated(
+            if let Some(face) = fragment_table.loaded_faces.get_mut(&face_pos) {
+                face.status = FaceFragmentStatus::Generated(
                     layout_settings.clone(),
-                    data,
-                    CollapsedData { graph },
-                ),
-            );
+                    data.clone(),
+                    CollapsedData {
+                        graph: graph.clone(),
+                    },
+                );
+            } else {
+                return; // Fragment we
+            }
+
+            tx_fragment_instantiate_event
+                .send(FragmentInstantiateEvent {
+                    fragment_location: super::FragmentLocation::Face(face_pos),
+                    transform: Transform::from_translation(
+                        ivec3(
+                            face_pos.x.div_euclid(4),
+                            face_pos.y.div_euclid(4),
+                            face_pos.z.div_euclid(4),
+                        )
+                        .as_vec3()
+                            * fragment_settings.face_size as f32
+                            * fragment_settings.spacing,
+                    ),
+                    settings: layout_settings.clone(),
+                    data: data.clone(),
+                    collapsed: CollapsedData {
+                        graph: graph.clone(),
+                    },
+                    meshes: debug_mesh(graph.as_ref(), &data, &layout_settings),
+                })
+                .unwrap();
         }
     } else {
         unimplemented!();

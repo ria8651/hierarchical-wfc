@@ -22,20 +22,26 @@ pub mod face;
 pub mod node;
 
 #[derive(Debug, Clone)]
-pub struct FragmentInstantiatedEvent {
-    pub fragment_type: FragmentType,
+pub struct FragmentInstantiateEvent {
+    pub fragment_location: FragmentLocation,
     pub transform: Transform,
     pub settings: regular_grid_3d::GraphSettings,
     pub data: regular_grid_3d::GraphData,
     pub collapsed: CollapsedData,
     pub meshes: (Mesh, Mesh, Option<Collider>),
 }
-#[derive(Debug, Clone)]
 
-pub enum FragmentType {
-    Node,
-    Edge,
-    Face,
+#[derive(Debug, Clone)]
+pub struct FragmentDestroyEvent {
+    pub fragment_location: FragmentLocation,
+}
+
+#[derive(Hash, PartialEq, Eq, Component, Debug, Clone)]
+
+pub enum FragmentLocation {
+    Node(IVec3),
+    Edge(IVec3),
+    Face(IVec3),
 }
 pub async fn generate_fragments(
     rt: Arc<runtime::Runtime>,
@@ -43,7 +49,7 @@ pub async fn generate_fragments(
     wfc_config: Arc<RwLock<WfcConfig>>,
     mut rx_generate_fragment: broadcast::Receiver<FragmentGenerateEvent>,
     tx_generate_fragment: broadcast::Sender<FragmentGenerateEvent>,
-    tx_fragment_instantiate: broadcast::Sender<FragmentInstantiatedEvent>,
+    tx_fragment_instantiate: broadcast::Sender<FragmentInstantiateEvent>,
 ) {
     loop {
         tokio::select! {

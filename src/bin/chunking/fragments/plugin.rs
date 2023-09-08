@@ -3,8 +3,10 @@ use std::sync::Arc;
 use bevy::{math::vec3, prelude::*, utils::HashMap};
 use hierarchical_wfc::{castle::LayoutTileset, graphs::regular_grid_3d, wfc::WfcGraph};
 
+use crate::debug::{LoadedChunks, LoadedFragments};
+
 use super::{
-    generate::FragmentSettings,
+    generate::{FragmentLocation, FragmentSettings},
     systems::{async_world_system, AsyncWorld},
 };
 
@@ -16,7 +18,9 @@ pub enum ChunkLoadEvent {
 }
 
 pub enum ChunkEntry {
-    Waiting,
+    Waiting {
+        associated_fragments: Vec<FragmentLocation>,
+    },
 }
 
 #[derive(Resource, Default)]
@@ -88,6 +92,8 @@ impl Plugin for GenerationPlugin {
             .init_resource::<FragmentSettings>()
             .init_resource::<GenerationDebugSettings>()
             .init_resource::<AsyncWorld>()
+            .init_resource::<LoadedChunks>()
+            .init_resource::<LoadedFragments>()
             .add_event::<ChunkLoadEvent>()
             .add_event::<ChunkGenerateEvent>();
     }

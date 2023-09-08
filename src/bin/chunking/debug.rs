@@ -1,5 +1,5 @@
-use bevy::{math::vec4, prelude::*};
-use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, RigidBody};
+use bevy::{math::vec4, prelude::*, utils::HashMap};
+use bevy_rapier3d::prelude::{Collider, ComputedColliderShape};
 use hierarchical_wfc::{
     graphs::regular_grid_3d,
     materials::debug_arc_material::DebugLineMaterial,
@@ -8,10 +8,9 @@ use hierarchical_wfc::{
 };
 
 use crate::fragments::{
-    generate::FragmentType,
+    generate::FragmentLocation,
     plugin::{
-        ChunkLoadEvent, ChunkMarker, CollapsedData, FragmentMarker, GenerateDebugMarker,
-        GenerationDebugSettings,
+        ChunkLoadEvent, ChunkMarker, CollapsedData, GenerateDebugMarker, GenerationDebugSettings,
     },
     systems::AsyncWorld,
 };
@@ -59,14 +58,14 @@ pub fn debug_mesh(
 
 pub fn layout_debug_visibility_system(
     debug_settings: Res<GenerationDebugSettings>,
-    mut q_fragments: Query<(&FragmentMarker, &mut Visibility)>,
+    mut q_fragments: Query<(&FragmentLocation, &mut Visibility)>,
 ) {
     if debug_settings.is_changed() {
         for (frag_type, mut visibility) in q_fragments.iter_mut() {
             let show = match frag_type {
-                FragmentMarker::Node => debug_settings.show_fragment_nodes,
-                FragmentMarker::Edge => debug_settings.show_fragment_edges,
-                FragmentMarker::Face => debug_settings.show_fragment_faces,
+                FragmentLocation::Node(..) => debug_settings.show_fragment_nodes,
+                FragmentLocation::Edge(..) => debug_settings.show_fragment_edges,
+                FragmentLocation::Face(..) => debug_settings.show_fragment_faces,
             };
             *visibility = match show {
                 true => Visibility::Visible,
@@ -79,7 +78,7 @@ pub fn layout_debug_visibility_system(
 pub fn layout_debug_reset_system(
     mut commands: Commands,
     mut ev_chunk_load: EventReader<ChunkLoadEvent>,
-    q_fragments: Query<Entity, With<FragmentMarker>>,
+    q_fragments: Query<Entity, With<FragmentLocation>>,
     q_chunks: Query<Entity, With<ChunkMarker>>,
 ) {
     for ev in ev_chunk_load.iter() {
@@ -97,39 +96,44 @@ pub fn layout_debug_reset_system(
     }
 }
 
-pub fn layout_debug_system(
+#[derive(Default, Resource)]
+pub struct LoadedFragments {
+    loaded: HashMap<FragmentLocation, Entity>,
+}
+
+#[derive(Default, Resource)]
+pub struct LoadedChunks {
+    fragments: HashMap<IVec3, Vec<FragmentLocation>>,
+}
+
+pub fn fragment_debug_instantiation_system(
     mut commands: Commands,
-    // mut q_layout_pass: Query<LayoutCollapsedData, LayoutCollapsedRequired>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut tile_materials: ResMut<Assets<StandardMaterial>>,
     mut async_world: ResMut<AsyncWorld>,
+    mut loaded_fragments: ResMut<LoadedFragments>,
     debug_settings: Res<GenerationDebugSettings>,
 ) {
     // Process only one event per frame otherwise bevy will freeze while preparing lots of meshes at the same time
     if let Ok(event) = async_world.rx_fragment_instantiate.try_recv() {
-        match event.fragment_type {
-            FragmentType::Node => {
-                if !debug_settings.create_fragment_nodes {
-                    return;
-                }
-            }
-            FragmentType::Edge => {
-                if !debug_settings.create_fragment_edges {
-                    return;
-                }
-            }
-            FragmentType::Face => {
-                if !debug_settings.create_fragment_faces {
-                    return;
-                }
-            }
+        let (create, show) = match event.fragment_location {
+            FragmentLocation::Node(..) => (
+                debug_settings.create_fragment_nodes,
+                debug_settings.show_fragment_nodes,
+            ),
+            FragmentLocation::Edge(..) => (
+                debug_settings.create_fragment_edges,
+                debug_settings.show_fragment_edges,
+            ),
+            FragmentLocation::Face(..) => (
+                debug_settings.create_fragment_faces,
+                debug_settings.show_fragment_faces,
+            ),
+        };
+        if !create {
+            return;
         }
 
-        let show = match event.fragment_type {
-            FragmentType::Node => debug_settings.show_fragment_nodes,
-            FragmentType::Edge => debug_settings.show_fragment_edges,
-            FragmentType::Face => debug_settings.show_fragment_faces,
-        };
         let visibility = match show {
             true => Visibility::Visible,
             false => Visibility::Hidden,
@@ -137,53 +141,68 @@ pub fn layout_debug_system(
 
         let entity = commands
             .spawn((
-                match event.fragment_type {
-                    FragmentType::Node => FragmentMarker::Node,
-                    FragmentType::Edge => FragmentMarker::Edge,
-                    FragmentType::Face => FragmentMarker::Face,
-                },
+                event.fragment_location.clone(),
                 event.collapsed,
                 event.data,
                 event.settings,
                 SpatialBundle {
                     visibility,
+                    transform: event.transform,
                     ..Default::default()
                 },
             ))
             .id();
 
-        let (solid, air, collider) = event.meshes;
+        let (solid, air, _collider) = event.meshes;
         let material = tile_materials.add(StandardMaterial {
-            base_color: match event.fragment_type {
-                FragmentType::Node => Color::rgb(0.8, 0.6, 0.6),
-                FragmentType::Edge => Color::rgb(0.6, 0.8, 0.6),
-                FragmentType::Face => Color::rgb(0.6, 0.6, 0.8),
+            base_color: match event.fragment_location {
+                FragmentLocation::Node(..) => Color::rgb(0.8, 0.6, 0.6),
+                FragmentLocation::Edge(..) => Color::rgb(0.6, 0.8, 0.6),
+                FragmentLocation::Face(..) => Color::rgb(0.6, 0.6, 0.8),
             },
             ..Default::default()
         });
 
         {
-            let mut physics_mesh_commands = commands.spawn((MaterialMeshBundle {
+            let mut physics_mesh_commands = commands.spawn(MaterialMeshBundle {
                 material: material.clone(),
                 mesh: meshes.add(solid.clone()),
                 visibility: Visibility::Inherited,
                 ..Default::default()
-            },));
-            physics_mesh_commands.insert(event.transform);
-            if let Some(collider) = collider {
-                // physics_mesh_commands.insert((RigidBody::Fixed, collider));
-            }
+            });
+            // if let Some(collider) = collider {
+            //     physics_mesh_commands.insert((RigidBody::Fixed, collider));
+            // }
             physics_mesh_commands.set_parent(entity);
         }
         {
-            let mut mesh_commands = commands.spawn((MaterialMeshBundle {
+            let mut mesh_commands = commands.spawn(MaterialMeshBundle {
                 material: material.clone(),
                 mesh: meshes.add(air),
                 visibility: Visibility::Inherited,
                 ..Default::default()
-            },));
-            mesh_commands.insert(event.transform);
+            });
             mesh_commands.set_parent(entity);
+        }
+        if let Some(old) = loaded_fragments
+            .loaded
+            .insert(event.fragment_location, entity)
+        {
+            // Old chunk wasn't despawned yet !!! WON"T WORK!
+            // commands.entity(old).despawn_recursive();
+        }
+    }
+}
+
+pub fn fragment_debug_destruction_system(
+    mut commands: Commands,
+    mut async_world: ResMut<AsyncWorld>,
+    mut loaded_fragments: ResMut<LoadedFragments>,
+) {
+    // Process only one event per frame otherwise bevy will freeze while preparing lots of meshes at the same time
+    if let Ok(event) = async_world.rx_fragment_destroy.try_recv() {
+        if let Some(fragment) = loaded_fragments.loaded.remove(&event.fragment_location) {
+            commands.entity(fragment).despawn_recursive();
         }
     }
 }

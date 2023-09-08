@@ -11,7 +11,7 @@ pub type EdgeKey = IVec3;
 pub type FaceKey = IVec3;
 
 #[derive(Debug)]
-pub enum NodeFragmentEntry {
+pub enum NodeFragmentStatus {
     Generating,
     Generated(
         regular_grid_3d::GraphSettings,
@@ -21,8 +21,9 @@ pub enum NodeFragmentEntry {
 }
 
 #[derive(Debug)]
-pub enum EdgeFragmentEntry {
+pub enum EdgeFragmentStatus {
     Waiting(HashSet<IVec3>),
+    Generating,
     Generated(
         regular_grid_3d::GraphSettings,
         regular_grid_3d::GraphData,
@@ -31,13 +32,31 @@ pub enum EdgeFragmentEntry {
 }
 
 #[derive(Debug)]
-pub enum FaceFragmentEntry {
+pub enum FaceFragmentStatus {
     Waiting(HashSet<IVec3>),
+    Generating,
     Generated(
         regular_grid_3d::GraphSettings,
         regular_grid_3d::GraphData,
         CollapsedData,
     ),
+}
+#[derive(Debug)]
+pub struct NodeFragmentEntry {
+    pub status: NodeFragmentStatus,
+    pub chunks: HashSet<IVec3>,
+}
+
+#[derive(Debug)]
+pub struct EdgeFragmentEntry {
+    pub status: EdgeFragmentStatus,
+    pub chunks: HashSet<IVec3>,
+}
+
+#[derive(Debug)]
+pub struct FaceFragmentEntry {
+    pub status: FaceFragmentStatus,
+    pub chunks: HashSet<IVec3>,
 }
 
 #[derive(Resource, Default)]
@@ -46,6 +65,6 @@ pub struct FragmentTable {
     pub loaded_edges: HashMap<EdgeKey, EdgeFragmentEntry>,
     pub loaded_faces: HashMap<FaceKey, FaceFragmentEntry>,
 
-    pub edges_waiting_on_node: HashMap<NodeKey, HashSet<EdgeKey>>,
-    pub faces_waiting_by_edges: HashMap<EdgeKey, HashSet<FaceKey>>,
+    pub edges_waiting_by_node: HashMap<NodeKey, HashSet<EdgeKey>>,
+    pub faces_waiting_by_edge: HashMap<EdgeKey, HashSet<FaceKey>>,
 }

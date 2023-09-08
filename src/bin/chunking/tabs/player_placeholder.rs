@@ -1,16 +1,44 @@
-use bevy::{ecs::system::SystemState, prelude::*};
+use bevy::{
+    ecs::system::SystemState,
+    math::{ivec3, vec3},
+    prelude::*,
+};
 
 use bevy_egui::EguiContexts;
 use hierarchical_wfc::ui_plugin::{EcsTab, EcsUiTab};
 
-use crate::fragments::plugin::ChunkLoadEvent;
+use crate::{
+    constants::EGUI_X_COLOR,
+    fragments::{generate::FragmentSettings, plugin::ChunkLoadEvent},
+};
+use egui_gizmo::Gizmo;
+
+pub struct PlayerData {
+    position: Vec3,
+    chunk: IVec3,
+    view_distance: u32,
+    generate: bool,
+    destroy: bool,
+}
+impl Default for PlayerData {
+    fn default() -> Self {
+        Self {
+            position: Vec3::ZERO,
+            chunk: IVec3::ZERO,
+            view_distance: 0,
+            generate: false,
+            destroy: false,
+        }
+    }
+}
 
 pub struct EcsUiPlayerPlaceholder {
     system_state: SystemState<(
         EguiContexts<'static, 'static>,
         Query<'static, 'static, (&'static Camera, &'static GlobalTransform)>,
         EventWriter<'static, ChunkLoadEvent>,
-        Local<'static, Vec3>,
+        Local<'static, PlayerData>,
+        Res<'static, FragmentSettings>,
     )>,
 }
 
@@ -34,8 +62,9 @@ impl EcsTab for EcsUiPlayerPlaceholder {
         world: &mut World,
         ui: &mut egui::Ui,
         _type_registry: &bevy_reflect::TypeRegistry,
+        active: bool,
     ) {
-        let (mut contexts, q_camera, mut ev_chunk_load, mut player_location) =
+        let (mut contexts, q_camera, mut ev_chunk_load, mut player_data, fragment_settings) =
             self.system_state.get_mut(world);
 
         let (camera, camera_transform) = q_camera.get_single().unwrap();
@@ -56,51 +85,107 @@ impl EcsTab for EcsUiPlayerPlaceholder {
         } else {
             return;
         };
-        // if ui.button("Send Event").clicked() {
-        //     for (z, y, x) in iproduct!(z_0..=z_1, y_0..=y_1, x_0..=x_1) {
-        //         ev_chunk_load.send(ChunkLoadEvent::Load(ivec3(x, y, z)))
-        //     }
-        // }
+        player_data.chunk = chunk_from_position(player_data.position, &fragment_settings);
 
-        // egui::Area::new("Viewport")
-        //     .fixed_pos((0.0, 0.0))
-        //     .show(&contexts.ctx_mut(), |ui| {
-        //         ui.with_layer_id(egui::LayerId::background(), |ui| {
-        //             let painter = ui.painter();
+        ui.horizontal(|ui| {
+            ui.label(
+                egui::RichText::new("x:")
+                    .monospace()
+                    .color(egui::Rgba::from_rgb(0.8, 0.2, 0.2)),
+            );
+            ui.add(egui::DragValue::new(&mut player_data.chunk.x).speed(0.0));
+            ui.label(
+                egui::RichText::new("y:")
+                    .monospace()
+                    .color(egui::Rgba::from_rgb(0.2, 0.8, 0.2)),
+            );
+            ui.add(egui::DragValue::new(&mut player_data.chunk.y).speed(0.0));
+            ui.label(
+                egui::RichText::new("z:")
+                    .monospace()
+                    .color(egui::Rgba::from_rgb(0.2, 0.2, 0.8)),
+            );
+            ui.add(egui::DragValue::new(&mut player_data.chunk.z).speed(0.0));
+        });
+        ui.add(egui::DragValue::new(&mut player_data.view_distance));
+        ui.checkbox(&mut player_data.generate, "Generate");
+        ui.checkbox(&mut player_data.destroy, "Destroy");
 
-        //             let padding =
-        //                 egui::vec2(16.0, 16.0 + egui_dock::style::TabBarStyle::default().height);
-        //             let radius: f32 = 24.0f32;
-        //             // let center =
-        //             //     (0.5 * viewport.min.to_vec2() + 0.5 * viewport.max.to_vec2()).to_pos2();
+        let transform_gizmo = Gizmo::new("id_source")
+            .projection_matrix(camera.projection_matrix().to_cols_array_2d())
+            .view_matrix(
+                camera_transform
+                    .compute_matrix()
+                    .inverse()
+                    .to_cols_array_2d(),
+            )
+            .model_matrix(
+                Transform::from_translation(player_data.position)
+                    .compute_matrix()
+                    .to_cols_array_2d(),
+            )
+            .viewport(viewport)
+            .mode(egui_gizmo::GizmoMode::Translate);
 
-        //             let center = egui::pos2(
-        //                 viewport.max.x - radius - padding.x,
-        //                 viewport.min.y + radius + padding.y,
-        //             );
+        egui::Area::new("Viewport")
+            .fixed_pos((0.0, 0.0))
+            .show(&contexts.ctx_mut(), |ui| {
+                ui.with_layer_id(egui::LayerId::background(), |ui| {
+                    if active {
+                        if let Some(response) = transform_gizmo.interact(ui) {
+                            let new_position = response.translation * vec3(1.0, 0.0, 1.0);
 
-        //             if let Some(loc_viewport) =
-        //                 camera.world_to_viewport(camera_transform, *player_location)
-        //             {
-        //                 let loc_screen: egui::Pos2 =
-        //                     viewport.min + egui::vec2(loc_viewport.x, loc_viewport.y);
-        //                 painter.circle(
-        //                     loc_screen,
-        //                     32.0,
-        //                     egui::Color32::RED,
-        //                     (1.0, egui::Color32::WHITE),
-        //                 );
-        //             }
+                            let new_chunk = chunk_from_position(new_position, &fragment_settings);
+                            let view_dist = player_data.view_distance as i32;
 
-        //             painter.circle(
-        //                 center,
-        //                 32.0,
-        //                 egui::Color32::RED,
-        //                 (1.0, egui::Color32::WHITE),
-        //             );
-        //         })
-        //     });
+                            if player_data.chunk != new_chunk {
+                                if player_data.generate {
+                                    for dx in -view_dist..=view_dist {
+                                        for dz in -view_dist..=view_dist {
+                                            let loading_chunk = new_chunk + ivec3(dx, 0, dz);
+                                            let distance = (loading_chunk - player_data.chunk)
+                                                .abs()
+                                                .max_element()
+                                                as u32;
+                                            if distance >= player_data.view_distance {
+                                                ev_chunk_load
+                                                    .send(ChunkLoadEvent::Load(loading_chunk));
+                                            }
+                                            dbg!(loading_chunk);
+                                        }
+                                    }
+                                }
+                                if player_data.destroy {
+                                    for dx in -view_dist..=view_dist {
+                                        for dz in -view_dist..=view_dist {
+                                            let unloading_chunk =
+                                                player_data.chunk + ivec3(dx, 0, dz);
+                                            let distance =
+                                                (unloading_chunk - new_chunk).abs().max_element()
+                                                    as u32;
+                                            if distance > player_data.view_distance {
+                                                dbg!(new_chunk);
+                                                ev_chunk_load
+                                                    .send(ChunkLoadEvent::Unload(unloading_chunk));
+                                                dbg!(unloading_chunk);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            player_data.position = new_position;
+                        };
+                    }
+                })
+            });
 
         self.system_state.apply(world);
     }
+}
+
+fn chunk_from_position(position: Vec3, fragment_settings: &FragmentSettings) -> IVec3 {
+    (position / fragment_settings.spacing / fragment_settings.face_size as f32)
+        .floor()
+        .as_ivec3()
+        * ivec3(1, 0, 1)
 }
