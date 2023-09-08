@@ -1,10 +1,6 @@
 use std::sync::Arc;
 
-use bevy::{
-    self,
-    math::{uvec3, vec3},
-    prelude::*,
-};
+use bevy::{self, math::vec3, prelude::*};
 use bevy_rapier3d::prelude::Collider;
 use hierarchical_wfc::{
     castle::LayoutTileset,
@@ -17,7 +13,7 @@ use tokio::{
 };
 
 use super::{
-    plugin::{CollapsedData, FragmentGenerateEvent, LayoutSettings},
+    plugin::{CollapsedData, FragmentGenerateEvent},
     table::FragmentTable,
 };
 
@@ -41,12 +37,6 @@ pub enum FragmentType {
     Edge,
     Face,
 }
-
-const FRAGMENT_NODE_PADDING: u32 = 4;
-const FRAGMENT_EDGE_PADDING: u32 = 4;
-const FRAGMENT_FACE_SIZE: u32 = 32;
-const NODE_RADIUS: i32 = FRAGMENT_EDGE_PADDING as i32 + FRAGMENT_NODE_PADDING as i32;
-
 pub async fn generate_fragments(
     rt: Arc<runtime::Runtime>,
     fragment_table: Arc<RwLock<FragmentTable>>,
@@ -109,10 +99,31 @@ pub async fn generate_fragments(
     }
 }
 
+#[derive(Reflect, Resource, Clone)]
+pub struct FragmentSettings {
+    pub spacing: Vec3,
+    pub node_padding: u32,
+    pub edge_padding: u32,
+    pub face_size: u32,
+    pub height: u32,
+}
+
+impl Default for FragmentSettings {
+    fn default() -> Self {
+        Self {
+            spacing: vec3(2., 3., 2.),
+            node_padding: 4,
+            edge_padding: 4,
+            face_size: 32,
+            height: 8,
+        }
+    }
+}
 pub struct WfcConfig {
-    layout_settings: LayoutSettings,
-    constraints: Box<[Box<[Superposition]>]>,
-    weights: Vec<u32>,
+    pub fragment_settings: FragmentSettings,
+    pub tileset: LayoutTileset,
+    pub constraints: Box<[Box<[Superposition]>]>,
+    pub weights: Vec<u32>,
 }
 impl Default for WfcConfig {
     fn default() -> Self {
@@ -120,14 +131,9 @@ impl Default for WfcConfig {
         let constraints = tileset.get_constraints();
         let weights = tileset.get_weights();
         Self {
+            fragment_settings: FragmentSettings::default(),
+            tileset,
             constraints,
-            layout_settings: LayoutSettings {
-                tileset,
-                settings: regular_grid_3d::GraphSettings {
-                    size: uvec3(16, 4, 16),
-                    spacing: vec3(2., 3., 2.),
-                },
-            },
             weights,
         }
     }

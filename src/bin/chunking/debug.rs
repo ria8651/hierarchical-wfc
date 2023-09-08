@@ -10,7 +10,8 @@ use hierarchical_wfc::{
 use crate::fragments::{
     generate::FragmentType,
     plugin::{
-        ChunkMarker, CollapsedData, FragmentMarker, GenerateDebugMarker, GenerationDebugSettings,
+        ChunkLoadEvent, ChunkMarker, CollapsedData, FragmentMarker, GenerateDebugMarker,
+        GenerationDebugSettings,
     },
     systems::AsyncWorld,
 };
@@ -56,16 +57,46 @@ pub fn debug_mesh(
     (physical_mesh, non_physical_mesh, physical_mesh_collider)
 }
 
-// type LayoutCollapsedData = (
-//     Entity,
-//     &'static regular_grid_3d::GraphData,
-//     &'static regular_grid_3d::GraphSettings,
-//     &'static CollapsedData,
-//     &'static Transform,
-//     Option<&'static FragmentMarker>,
-//     Option<&'static ChunkMarker>,
-// );
-// type LayoutCollapsedRequired = With<GenerateDebugMarker>;
+pub fn layout_debug_visibility_system(
+    debug_settings: Res<GenerationDebugSettings>,
+    mut q_fragments: Query<(&FragmentMarker, &mut Visibility)>,
+) {
+    if debug_settings.is_changed() {
+        for (frag_type, mut visibility) in q_fragments.iter_mut() {
+            let show = match frag_type {
+                FragmentMarker::Node => debug_settings.show_fragment_nodes,
+                FragmentMarker::Edge => debug_settings.show_fragment_edges,
+                FragmentMarker::Face => debug_settings.show_fragment_faces,
+            };
+            *visibility = match show {
+                true => Visibility::Visible,
+                false => Visibility::Hidden,
+            };
+        }
+    }
+}
+
+pub fn layout_debug_reset_system(
+    mut commands: Commands,
+    mut ev_chunk_load: EventReader<ChunkLoadEvent>,
+    q_fragments: Query<Entity, With<FragmentMarker>>,
+    q_chunks: Query<Entity, With<ChunkMarker>>,
+) {
+    for ev in ev_chunk_load.iter() {
+        match ev {
+            ChunkLoadEvent::Reset => {
+                for entity in q_fragments.iter() {
+                    commands.entity(entity).despawn_recursive();
+                }
+                for entity in q_chunks.iter() {
+                    commands.entity(entity).despawn_recursive();
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 pub fn layout_debug_system(
     mut commands: Commands,
     // mut q_layout_pass: Query<LayoutCollapsedData, LayoutCollapsedRequired>,
@@ -74,34 +105,50 @@ pub fn layout_debug_system(
     mut async_world: ResMut<AsyncWorld>,
     debug_settings: Res<GenerationDebugSettings>,
 ) {
-    while let Ok(event) = async_world.rx_fragment_instantiate.try_recv() {
-        dbg!("Got instantiation event!");
-
+    // Process only one event per frame otherwise bevy will freeze while preparing lots of meshes at the same time
+    if let Ok(event) = async_world.rx_fragment_instantiate.try_recv() {
         match event.fragment_type {
             FragmentType::Node => {
-                if !debug_settings.debug_fragment_nodes {
-                    continue;
+                if !debug_settings.create_fragment_nodes {
+                    return;
                 }
             }
             FragmentType::Edge => {
-                if !debug_settings.debug_fragment_edges {
-                    continue;
+                if !debug_settings.create_fragment_edges {
+                    return;
                 }
             }
             FragmentType::Face => {
-                if !debug_settings.debug_fragment_faces {
-                    continue;
+                if !debug_settings.create_fragment_faces {
+                    return;
                 }
             }
         }
 
+        let show = match event.fragment_type {
+            FragmentType::Node => debug_settings.show_fragment_nodes,
+            FragmentType::Edge => debug_settings.show_fragment_edges,
+            FragmentType::Face => debug_settings.show_fragment_faces,
+        };
+        let visibility = match show {
+            true => Visibility::Visible,
+            false => Visibility::Hidden,
+        };
+
         let entity = commands
             .spawn((
-                FragmentMarker,
+                match event.fragment_type {
+                    FragmentType::Node => FragmentMarker::Node,
+                    FragmentType::Edge => FragmentMarker::Edge,
+                    FragmentType::Face => FragmentMarker::Face,
+                },
                 event.collapsed,
                 event.data,
                 event.settings,
-                SpatialBundle::default(),
+                SpatialBundle {
+                    visibility,
+                    ..Default::default()
+                },
             ))
             .id();
 
@@ -119,12 +166,12 @@ pub fn layout_debug_system(
             let mut physics_mesh_commands = commands.spawn((MaterialMeshBundle {
                 material: material.clone(),
                 mesh: meshes.add(solid.clone()),
-                visibility: Visibility::Visible,
+                visibility: Visibility::Inherited,
                 ..Default::default()
             },));
             physics_mesh_commands.insert(event.transform);
             if let Some(collider) = collider {
-                physics_mesh_commands.insert((RigidBody::Fixed, collider));
+                // physics_mesh_commands.insert((RigidBody::Fixed, collider));
             }
             physics_mesh_commands.set_parent(entity);
         }
@@ -132,57 +179,13 @@ pub fn layout_debug_system(
             let mut mesh_commands = commands.spawn((MaterialMeshBundle {
                 material: material.clone(),
                 mesh: meshes.add(air),
-                visibility: Visibility::Visible,
+                visibility: Visibility::Inherited,
                 ..Default::default()
             },));
             mesh_commands.insert(event.transform);
             mesh_commands.set_parent(entity);
         }
     }
-
-    // for (entity, graph_data, graph_settings, collapsed_data, transform, fragment, chunk) in
-    //     q_layout_pass.iter_mut()
-    // {
-    //     dbg!("Creating Debug Mesh");
-    //     commands
-    //         .entity(entity)
-    //         .insert(SpatialBundle::default())
-    //         .remove::<GenerateDebugMarker>();
-    //     let (solid, air, collider) = debug_mesh(&collapsed_data.graph, graph_data, graph_settings);
-
-    //     let material = tile_materials.add(StandardMaterial {
-    //         base_color: match (fragment, chunk) {
-    //             (Some(_), None) => Color::rgb(0.8, 0.6, 0.6),
-    //             (None, Some(_)) => Color::rgb(0.6, 0.6, 0.8),
-    //             _ => Color::rgb(0.6, 0.6, 0.8),
-    //         },
-    //         ..Default::default()
-    //     });
-
-    //     {
-    //         let mut physics_mesh_commands = commands.spawn((MaterialMeshBundle {
-    //             material: material.clone(),
-    //             mesh: meshes.add(solid),
-    //             visibility: Visibility::Visible,
-    //             ..Default::default()
-    //         },));
-    //         physics_mesh_commands.insert(*transform);
-    //         if let Some(collider) = collider {
-    //             physics_mesh_commands.insert((RigidBody::Fixed, collider));
-    //         }
-    //         physics_mesh_commands.set_parent(entity);
-    //     }
-    //     {
-    //         let mut mesh_commands = commands.spawn((MaterialMeshBundle {
-    //             material: material.clone(),
-    //             mesh: meshes.add(air),
-    //             visibility: Visibility::Visible,
-    //             ..Default::default()
-    //         },));
-    //         mesh_commands.insert(*transform);
-    //         mesh_commands.set_parent(entity);
-    //     }
-    // }
 }
 
 pub fn _layout_debug_arcs_system(

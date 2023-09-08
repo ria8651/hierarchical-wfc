@@ -5,8 +5,7 @@ use super::{
         plugin::{CollapsedData, FragmentGenerateEvent},
         table::FragmentTable,
     },
-    FragmentInstantiatedEvent, WfcConfig, FRAGMENT_EDGE_PADDING, FRAGMENT_FACE_SIZE,
-    FRAGMENT_NODE_PADDING,
+    FragmentInstantiatedEvent, WfcConfig,
 };
 use crate::{
     debug::debug_mesh,
@@ -32,17 +31,20 @@ pub(crate) fn generate_node(
 ) {
     let wfc_config = wfc_config.blocking_read();
 
-    let (data, mut graph) = regular_grid_3d::create_graph(
-        &regular_grid_3d::GraphSettings {
-            size: uvec3(
-                2 * (FRAGMENT_NODE_PADDING + FRAGMENT_EDGE_PADDING),
-                wfc_config.layout_settings.settings.size.y,
-                2 * (FRAGMENT_NODE_PADDING + FRAGMENT_EDGE_PADDING),
-            ),
-            spacing: wfc_config.layout_settings.settings.spacing,
-        },
-        &|(_, _)| Superposition::filled(wfc_config.layout_settings.tileset.tile_count()),
-    );
+    let layout_settings = regular_grid_3d::GraphSettings {
+        size: uvec3(
+            2 * (wfc_config.fragment_settings.node_padding
+                + wfc_config.fragment_settings.edge_padding),
+            wfc_config.fragment_settings.height,
+            2 * (wfc_config.fragment_settings.node_padding
+                + wfc_config.fragment_settings.edge_padding),
+        ),
+        spacing: wfc_config.fragment_settings.spacing,
+    };
+
+    let (data, mut graph) = regular_grid_3d::create_graph(&layout_settings, &|(_, _)| {
+        Superposition::filled(wfc_config.tileset.tile_count())
+    });
     let seed = node_pos.to_array();
     let mut seed: Vec<u8> = seed.map(|i| i.to_be_bytes()).concat();
     seed.extend([0u8; 20]);
@@ -60,19 +62,19 @@ pub(crate) fn generate_node(
             .send(FragmentInstantiatedEvent {
                 fragment_type: super::FragmentType::Node,
                 transform: Transform::from_translation(
-                    node_pos.as_vec3()
-                        * FRAGMENT_FACE_SIZE as f32
-                        * wfc_config.layout_settings.settings.spacing
+                    (node_pos.as_vec3() * wfc_config.fragment_settings.face_size as f32
                         - vec3(1.0, 0.0, 1.0)
-                            * (FRAGMENT_NODE_PADDING + FRAGMENT_EDGE_PADDING) as f32
-                            * wfc_config.layout_settings.settings.spacing,
+                            * (wfc_config.fragment_settings.node_padding
+                                + wfc_config.fragment_settings.edge_padding)
+                                as f32)
+                        * wfc_config.fragment_settings.spacing,
                 ),
-                settings: wfc_config.layout_settings.settings.clone(),
+                settings: layout_settings.clone(),
                 data: data.clone(),
                 collapsed: CollapsedData {
                     graph: graph.clone(),
                 },
-                meshes: debug_mesh(graph.as_ref(), &data, &wfc_config.layout_settings.settings),
+                meshes: debug_mesh(graph.as_ref(), &data, &layout_settings),
             })
             .unwrap();
 
@@ -81,11 +83,7 @@ pub(crate) fn generate_node(
             let mut fragment_table = fragment_table.blocking_write();
             fragment_table.loaded_nodes.insert(
                 node_pos,
-                NodeFragmentEntry::Generated(
-                    wfc_config.layout_settings.settings.clone(),
-                    data,
-                    CollapsedData { graph },
-                ),
+                NodeFragmentEntry::Generated(layout_settings, data, CollapsedData { graph }),
             );
 
             for edge in fragment_table

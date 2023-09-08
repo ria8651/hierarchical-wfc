@@ -4,14 +4,18 @@ use crate::fragments::{
 };
 
 use bevy::{prelude::*, utils::HashSet};
+use hierarchical_wfc::castle::LayoutTileset;
 use std::sync::Arc;
 use tokio::runtime;
 
 use itertools::Itertools;
 
 use super::{
-    generate::{generate_fragments, node::generate_node, FragmentInstantiatedEvent, WfcConfig},
-    plugin::{ChunkLoadEvent, ChunkTable, FragmentGenerateEvent},
+    generate::{
+        generate_fragments, node::generate_node, FragmentInstantiatedEvent, FragmentSettings,
+        WfcConfig,
+    },
+    plugin::{ChunkLoadEvent, ChunkTable, FragmentGenerateEvent, LayoutSettings},
     table::FragmentTable,
 };
 use tokio::sync::{broadcast, mpsc, RwLock};
@@ -96,14 +100,29 @@ impl Default for AsyncWorld {
 pub fn async_world_system(
     async_world: ResMut<AsyncWorld>,
     mut ev_chunk_load: EventReader<ChunkLoadEvent>,
+    fragment_settings: Res<FragmentSettings>,
+    mut wfc_config_needs_updating: Local<(bool,)>,
 ) {
     // Insert new chunk load events
-    for ev in ev_chunk_load.iter() {
-        async_world.tx_chunk_load.blocking_send(*ev).unwrap();
-        dbg!("Forwarded chunk load event!");
+    let events = ev_chunk_load.iter().copied().collect_vec();
+    {
+        let tx_chunk_load = async_world.tx_chunk_load.clone();
+        async_world.rt.spawn(async move {
+            for event in events.into_iter() {
+                tx_chunk_load.send(event).await.unwrap();
+            }
+        });
     }
 
-    // Read back new entities
+    // Update wfc config
+    if fragment_settings.is_changed() {
+        wfc_config_needs_updating.0 = true;
+    }
+    if wfc_config_needs_updating.0 {
+        if let Ok(mut wfc_config) = async_world.wfc_config.try_write() {
+            wfc_config.fragment_settings = fragment_settings.clone();
+        }
+    }
 }
 
 /// Transforms chunk load events into fragments which are registered for generation in the fragment table
@@ -114,14 +133,22 @@ pub async fn tokio_transform_chunk_loads(
     channels: Arc<AsyncTaskChannels>,
 ) {
     loop {
-        dbg!("Waiting for event");
         let load_chunk = rx_chunk_load_events.recv().await.unwrap();
         let tx_generate_fragment = channels.tx_generate_fragment.clone();
 
         match load_chunk {
+            ChunkLoadEvent::Reset => {
+                {
+                    let mut chunk_table = chunk_table.write().await;
+                    *chunk_table = ChunkTable::default();
+                }
+                {
+                    let mut fragment_table = fragment_table.write().await;
+                    *fragment_table = FragmentTable::default();
+                }
+            }
+            ChunkLoadEvent::Unload(..) => {}
             ChunkLoadEvent::Load(chunk_pos) => {
-                dbg!("Got event {}", chunk_pos);
-
                 // Checkout new chunk
                 {
                     let mut chunk_table = chunk_table.write().await;

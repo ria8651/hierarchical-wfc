@@ -2,7 +2,7 @@ use bevy::{asset::ChangeWatcher, math::Vec4Swizzles, window::PresentMode};
 use bevy_egui::EguiContexts;
 use bevy_render::texture::ImageSampler;
 use constants::{EGUI_X_COLOR, EGUI_Y_COLOR, EGUI_Z_COLOR};
-use debug::layout_debug_system;
+use debug::{layout_debug_reset_system, layout_debug_system, layout_debug_visibility_system};
 use egui_gizmo::Gizmo;
 use fragments::plugin::GenerationPlugin;
 
@@ -78,8 +78,9 @@ fn main() {
         (
             set_ground_sampler,
             layout_debug_system,
-            gizmos_test_system,
-            // layout_debug_arcs_system,
+            layout_debug_visibility_system,
+            layout_debug_reset_system,
+            orientation_gizmo,
         ),
     )
     .add_systems(Startup, (setup, init_inspector));
@@ -97,12 +98,9 @@ struct GroundPlane;
 
 fn init_inspector(world: &mut World) {
     let mut tabs = vec![
-        // EcsUiLayout::tab_from_world(world),
         EcsUiCameras::tab_from_world(world),
-        EcsUiSendChunkLoads::tab_from_world(world),
+        EcsUiPlayerPlaceholder::tab_from_world(world),
         EcsUiDebugSettings::tab_from_world(world),
-        // EcsUiReplay::tab_from_world(world),
-        // EcsUiRegenerate::tab_from_world(world),
     ];
     let total_tabs = tabs.len() as f32;
 
@@ -166,26 +164,12 @@ impl Default for TransformLocal {
     }
 }
 
-fn gizmos_test_system(
+fn orientation_gizmo(
     mut contexts: EguiContexts,
-    q_camera: Query<(&Camera, &Camera3d, &GlobalTransform)>,
-    mut model_local: Local<TransformLocal>,
+    q_camera: Query<(&Camera, &GlobalTransform)>,
     mut ev_align_view: EventWriter<AlignViewEvent>,
 ) {
-    let (camera, camera_3d, camera_transform) = q_camera.get_single().unwrap();
-    let view_martix = camera_transform.compute_matrix().inverse();
-    let projection = camera.projection_matrix();
-
-    let gizmo = Gizmo::new("My gizmo")
-        .view_matrix(view_martix.to_cols_array_2d())
-        .projection_matrix(projection.to_cols_array_2d())
-        .model_matrix(
-            model_local
-                .model_transform
-                .compute_matrix()
-                .to_cols_array_2d(),
-        )
-        .mode(egui_gizmo::GizmoMode::Rotate);
+    let (camera, camera_transform) = q_camera.get_single().unwrap();
 
     let viewport = if let Some(viewport) = &camera.viewport {
         Some(egui::Rect {
@@ -204,9 +188,6 @@ fn gizmos_test_system(
     } else {
         return;
     };
-
-    // .mode(GizmoMode::Rotate);
-    let context = contexts.ctx_mut();
 
     egui::Area::new("Viewport")
         .fixed_pos((0.0, 0.0))
@@ -343,12 +324,6 @@ fn gizmos_test_system(
                         }
                     }
                 }
-
-                // if let Some(response) = gizmo.interact(ui) {
-                //     dbg!(response);
-                //     let new_transform = Transform::from_matrix(response.transform());
-                //     model_local.model_transform = new_transform;
-                // }
             });
         });
 }

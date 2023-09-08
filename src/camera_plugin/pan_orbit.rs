@@ -271,26 +271,10 @@ fn pan_orbit_camera(
 }
 
 fn align_view_pan_orbit_camera(
-    // mut q_primary_window: Query<&mut Window, With<PrimaryWindow>>,
-    // mut ev_scroll: EventReader<MouseWheel>,
-    // input_mouse: Res<Input<MouseButton>>,
-    // mut double_click_time: Local<DoubleClickTime>,
-    mut q_camera: Query<
-        (
-            &mut PanOrbitCamera,
-            &mut Transform,
-            &Projection,
-            &Camera,
-            &GlobalTransform,
-        ),
-        With<MainCamera>,
-    >,
-    mut ev_align_view: EventReader<AlignViewEvent>, // rapier_context: Res<RapierContext>,
-                                                    // mut previous_cursor: Local<PreviousCursor>,
+    mut q_camera: Query<(&PanOrbitCamera, &mut Transform), With<MainCamera>>,
+    mut ev_align_view: EventReader<AlignViewEvent>,
 ) {
-    let Ok((mut pan_orbit, mut transform, projection, camera, global_transform)) =
-        q_camera.get_single_mut()
-    else {
+    let Ok((pan_orbit, mut transform)) = q_camera.get_single_mut() else {
         return;
     };
 

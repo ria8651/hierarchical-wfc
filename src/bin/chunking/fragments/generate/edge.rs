@@ -1,15 +1,14 @@
 use super::{
     super::{
-        plugin::{CollapsedData, FragmentGenerateEvent, GenerationDebugSettings, LayoutSettings},
+        plugin::{CollapsedData, FragmentGenerateEvent},
         table::FragmentTable,
     },
-    FragmentInstantiatedEvent, WfcConfig, FRAGMENT_EDGE_PADDING, FRAGMENT_FACE_SIZE, NODE_RADIUS,
+    FragmentInstantiatedEvent, WfcConfig,
 };
 use crate::{
     debug::debug_mesh,
     fragments::{
         graph_utils::graph_merge,
-        plugin::{FragmentMarker, GenerateDebugMarker},
         table::{EdgeFragmentEntry, FaceFragmentEntry, NodeFragmentEntry},
     },
 };
@@ -19,10 +18,10 @@ use hierarchical_wfc::{
         regular_grid_3d,
         regular_grid_3d::{GraphData, GraphSettings},
     },
-    wfc::{self, Superposition, TileSet, WaveFunctionCollapse},
+    wfc::{Superposition, TileSet, WaveFunctionCollapse},
 };
 use rand::{rngs::StdRng, SeedableRng};
-use std::{ops::Div, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
 
 pub(crate) fn generate_edge(
@@ -33,8 +32,8 @@ pub(crate) fn generate_edge(
     tx_fragment_instantiate_event: broadcast::Sender<FragmentInstantiatedEvent>,
 ) {
     let wfc_config = wfc_config.blocking_read();
-    let fill_with = Superposition::filled(wfc_config.layout_settings.tileset.tile_count());
-    let layout_settings = &wfc_config.layout_settings;
+    let fragment_settings = &wfc_config.fragment_settings;
+    let fill_with = Superposition::filled(wfc_config.tileset.tile_count());
 
     let node_start_pos = ivec3(
         edge_pos.x.div_euclid(2),
@@ -50,12 +49,17 @@ pub(crate) fn generate_edge(
 
     let edge_cotangent = IVec3::Y;
     let edge_tangent = edge_cotangent.cross(edge_normal);
-    let edge_volume = (
-        FRAGMENT_EDGE_PADDING as i32 * edge_normal - FRAGMENT_EDGE_PADDING as i32 * edge_tangent,
-        (FRAGMENT_FACE_SIZE as i32 - FRAGMENT_EDGE_PADDING as i32) * edge_normal
-            + FRAGMENT_EDGE_PADDING as i32 * edge_tangent
-            + layout_settings.settings.size.y as i32 * edge_cotangent,
-    );
+    let edge_volume = {
+        let edge_padding = fragment_settings.edge_padding as i32;
+        let face_size = fragment_settings.face_size as i32;
+        let height = fragment_settings.height as i32;
+        (
+            edge_padding * edge_normal - edge_padding * edge_tangent,
+            (face_size - edge_padding) * edge_normal
+                + edge_padding * edge_tangent
+                + height * edge_cotangent,
+        )
+    };
     let edge_volume = (
         edge_volume.0.min(edge_volume.1),
         edge_volume.0.max(edge_volume.1),
@@ -76,14 +80,21 @@ pub(crate) fn generate_edge(
         .node_positions
         .iter()
         .copied()
-        .map(|pos| pos - ivec3(1, 0, 1) * NODE_RADIUS)
+        .map(|pos| {
+            pos - ivec3(1, 0, 1)
+                * (fragment_settings.edge_padding + fragment_settings.node_padding) as i32
+        })
         .collect::<Box<[IVec3]>>();
     let node_end_positions = node_end
         .1
         .node_positions
         .iter()
         .copied()
-        .map(|pos| pos + edge_normal * FRAGMENT_FACE_SIZE as i32 - ivec3(1, 0, 1) * NODE_RADIUS)
+        .map(|pos| {
+            pos + edge_normal * fragment_settings.face_size as i32
+                - ivec3(1, 0, 1)
+                    * (fragment_settings.edge_padding + fragment_settings.node_padding) as i32
+        })
         .collect::<Box<[IVec3]>>();
     let (merged_graph, merged_positions) = graph_merge(
         (&node_start.2.graph, &node_start_positions),
@@ -124,21 +135,25 @@ pub(crate) fn generate_edge(
             node_positions: merged_positions,
         };
 
+        let layout_settings = GraphSettings {
+            size: (edge_volume.1 - edge_volume.0).as_uvec3(),
+            spacing: wfc_config.fragment_settings.spacing,
+        };
+
         tx_fragment_instantiate_event
             .send(FragmentInstantiatedEvent {
                 fragment_type: super::FragmentType::Edge,
                 transform: Transform::from_translation(
-                    (edge_pos.div(2)).as_vec3()
-                        * FRAGMENT_FACE_SIZE as f32
-                        * layout_settings.settings.spacing
-                        + layout_settings.settings.spacing * Vec3::Y,
+                    (edge_pos / 2).as_vec3()
+                        * fragment_settings.face_size as f32
+                        * fragment_settings.spacing,
                 ),
-                settings: wfc_config.layout_settings.settings.clone(),
+                settings: layout_settings.clone(),
                 data: data.clone(),
                 collapsed: CollapsedData {
                     graph: graph.clone(),
                 },
-                meshes: debug_mesh(graph.as_ref(), &data, &wfc_config.layout_settings.settings),
+                meshes: debug_mesh(graph.as_ref(), &data, &layout_settings),
             })
             .unwrap();
 
@@ -147,11 +162,7 @@ pub(crate) fn generate_edge(
             let mut fragment_table = fragment_table.blocking_write();
             fragment_table.loaded_edges.insert(
                 edge_pos,
-                EdgeFragmentEntry::Generated(
-                    wfc_config.layout_settings.settings.clone(),
-                    data,
-                    CollapsedData { graph },
-                ),
+                EdgeFragmentEntry::Generated(layout_settings, data, CollapsedData { graph }),
             );
             // Update fragments that were waiting on this fragment
             for face in fragment_table

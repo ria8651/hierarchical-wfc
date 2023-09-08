@@ -1,13 +1,15 @@
 use bevy::{ecs::system::SystemState, prelude::*};
 
+use bevy_inspector_egui::reflect_inspector;
+use egui::Checkbox;
 use hierarchical_wfc::ui_plugin::{EcsTab, EcsUiTab};
 
-use crate::fragments::plugin::{GenerationDebugSettings, LayoutSettings};
+use crate::fragments::{generate::FragmentSettings, plugin::GenerationDebugSettings};
 
 pub struct EcsUiDebugSettings {
     system_state: SystemState<(
         ResMut<'static, GenerationDebugSettings>,
-        ResMut<'static, LayoutSettings>,
+        ResMut<'static, FragmentSettings>,
     )>,
 }
 
@@ -30,40 +32,57 @@ impl EcsTab for EcsUiDebugSettings {
         &mut self,
         world: &mut World,
         ui: &mut egui::Ui,
-        _type_registry: &bevy_reflect::TypeRegistry,
+        type_registry: &bevy_reflect::TypeRegistry,
     ) {
-        let (mut settings, mut layout_settings) = self.system_state.get_mut(world);
+        let (mut debug_settings, fragment_settings) = self.system_state.get_mut(world);
 
-        ui.label("Debug Chunks");
-        ui.checkbox(&mut settings.debug_chunks, "Chunks");
+        ui.label("Chunks");
+        ui.checkbox(&mut debug_settings.debug_chunks, "Chunks");
 
-        ui.spacing();
-        ui.label("Debug Fragments");
-        ui.checkbox(&mut settings.debug_fragment_nodes, "Nodes");
-        ui.checkbox(&mut settings.debug_fragment_edges, "Edges");
-        ui.checkbox(&mut settings.debug_fragment_faces, "Faces");
+        ui.add_space(ui.style().spacing.interact_size.y);
 
-        ui.label("Layout Settings");
-        ui.horizontal(|ui| {
-            ui.label(
-                egui::RichText::new("x:")
-                    .monospace()
-                    .color(egui::Rgba::from_rgb(0.8, 0.2, 0.2)),
-            );
-            ui.add(egui::DragValue::new(&mut layout_settings.settings.size.x));
-            ui.label(
-                egui::RichText::new("y:")
-                    .monospace()
-                    .color(egui::Rgba::from_rgb(0.2, 0.8, 0.2)),
-            );
-            ui.add(egui::DragValue::new(&mut layout_settings.settings.size.y));
-            ui.label(
-                egui::RichText::new("z:")
-                    .monospace()
-                    .color(egui::Rgba::from_rgb(0.2, 0.2, 0.8)),
-            );
-            ui.add(egui::DragValue::new(&mut layout_settings.settings.size.z));
-        });
+        ui.label("Fragments");
+        egui::Grid::new("debug_fragment_settings_matrix")
+            .striped(true)
+            .show(ui, |ui| {
+                ui.label("");
+                ui.label("Create");
+                ui.label("Show");
+                ui.end_row();
+
+                ui.label("Nodes");
+                ui.add(Checkbox::without_text(
+                    &mut debug_settings.create_fragment_nodes,
+                ));
+                ui.add(Checkbox::without_text(
+                    &mut debug_settings.show_fragment_nodes,
+                ));
+                ui.end_row();
+
+                ui.label("Edges");
+                ui.add(Checkbox::without_text(
+                    &mut debug_settings.create_fragment_edges,
+                ));
+                ui.add(Checkbox::without_text(
+                    &mut debug_settings.show_fragment_edges,
+                ));
+                ui.end_row();
+
+                ui.label("Faces");
+                ui.add(Checkbox::without_text(
+                    &mut debug_settings.create_fragment_faces,
+                ));
+                ui.add(Checkbox::without_text(
+                    &mut debug_settings.show_fragment_faces,
+                ));
+                ui.end_row();
+            });
+
+        ui.add_space(ui.style().spacing.interact_size.y);
+
+        ui.label("Fragment Settings");
+        reflect_inspector::ui_for_value(fragment_settings.into_inner(), ui, type_registry);
+
         self.system_state.apply(world);
     }
 }

@@ -37,6 +37,20 @@ impl EcsTab for EcsUiSendChunkLoads {
         let (mut ev_chunk_load, mut chunk_location, mut chunk_area) =
             self.system_state.get_mut(world);
 
+        ui.label("Reset All Event");
+        if ui
+            .button(
+                egui::RichText::new("Reset all chunk data!")
+                    .color(egui::Color32::LIGHT_RED)
+                    .strong(),
+            )
+            .clicked()
+        {
+            ev_chunk_load.send(ChunkLoadEvent::Reset)
+        }
+
+        ui.add_space(ui.style().spacing.interact_size.y);
+
         ui.label("Single Load Event");
         ui.horizontal(|ui| {
             ui.label(
@@ -62,6 +76,8 @@ impl EcsTab for EcsUiSendChunkLoads {
         if ui.button("Send Event").clicked() {
             ev_chunk_load.send(ChunkLoadEvent::Load(*chunk_location))
         }
+
+        ui.add_space(ui.style().spacing.interact_size.y);
 
         ui.label("Multiple Load Events");
         ui.horizontal(|ui| {
