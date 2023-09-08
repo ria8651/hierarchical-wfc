@@ -208,7 +208,6 @@ pub fn layout_debug_system(
     for (entity, graph_data, graph_settings, collapsed_data, debug_settings) in
         q_layout_pass.iter_mut()
     {
-        dbg!("Creating Debug Mesh");
         commands
             .entity(entity)
             .insert(SpatialBundle::default())

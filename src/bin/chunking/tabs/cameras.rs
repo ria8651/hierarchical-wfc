@@ -48,7 +48,7 @@ impl EcsTab for EcsUiCameras {
         let mut q_cameras = self.system_state.get_mut(world);
 
         for (mut camera_controller, projection, fps_settings) in q_cameras.iter_mut() {
-            egui::ComboBox::from_label("Camera Controller")
+            egui::ComboBox::new("camera_controller_combo_box", "")
                 .selected_text(match camera_controller.selected {
                     CameraController::PanOrbit => "Pan Orbit",
                     CameraController::Fps => "First Person",

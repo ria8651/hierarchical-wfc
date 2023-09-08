@@ -67,6 +67,7 @@ impl EcsTab for EcsUiLayout {
         world: &mut World,
         ui: &mut egui::Ui,
         _type_registry: &bevy_reflect::TypeRegistry,
+        _active: bool,
     ) {
         let (
             mut commands,

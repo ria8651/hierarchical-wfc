@@ -2,7 +2,7 @@
     "cSpell.enabled": true,
     "wgsl-analyzer.customImports": {
         "bevy_pbr::clustered_forward": "https://raw.githubusercontent.com/bevyengine/bevy/v0.11.2/crates/bevy_pbr/src/render/clustered_forward.wgsl",
-        "bevy_pbr::mesh_bindings": "https://raw.githubusercontent.com/bevyengine/bevy/v0.11.2/crates/bevy_pbr/src/render/mesh_bindings.wgsl",
+        "bevy_pbr::mesh_bindings": "file:///home/kiwi/Dev/bevy/crates/bevy_pbr/src/render/mesh_bindings.wgsl",
         "bevy_pbr::mesh_functions": "https://raw.githubusercontent.com/bevyengine/bevy/v0.11.2/crates/bevy_pbr/src/render/mesh_functions.wgsl",
         "bevy_pbr::mesh_types": "https://raw.githubusercontent.com/bevyengine/bevy/v0.11.2/crates/bevy_pbr/src/render/mesh_types.wgsl",
         "bevy_pbr::mesh_vertex_output": "https://raw.githubusercontent.com/bevyengine/bevy/v0.11.2/crates/bevy_pbr/src/render/mesh_vertex_output.wgsl",
@@ -20,10 +20,11 @@
         "bevy_sprite::mesh2d_types": "https://raw.githubusercontent.com/bevyengine/bevy/v0.11.2/crates/bevy_sprite/src/mesh2d/mesh2d_types.wgsl",
         "bevy_sprite::mesh2d_vertex_output": "https://raw.githubusercontent.com/bevyengine/bevy/v0.11.2/crates/bevy_sprite/src/mesh2d/mesh2d_vertex_output.wgsl",
         "bevy_sprite::mesh2d_view_bindings": "https://raw.githubusercontent.com/bevyengine/bevy/v0.11.2/crates/bevy_sprite/src/mesh2d/mesh2d_view_bindings.wgsl",
-        "bevy_sprite::mesh2d_view_types": "https://raw.githubusercontent.com/bevyengine/bevy/v0.11.2/crates/bevy_sprite/src/mesh2d/mesh2d_view_types.wgsl",
+        "bevy_sprite::mesh2d_view_types": "https://raw.githubusercontent.com/bevyengine/bevy/v0.11.2/crates/bevy_sprite/src/mesh2d/mesh2d_view_types.wgsl"
     },
     "[wgsl]": {
         "editor.formatOnSave": false
-    }
+    },
+    "wgsl-analyzer.server.path": "/usr/bin/wgsl_analyzer"
     
 }
