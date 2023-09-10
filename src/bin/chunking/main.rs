@@ -279,9 +279,9 @@ fn orientation_gizmo_system(
                     }
 
                     let mut hovered = false;
-                    if let (Some(pos), clicked) = ui
-                        .input(|input| (input.pointer.hover_pos(), input.pointer.primary_clicked()))
-                    {
+                    if let (Some(pos), clicked) = ui.input(|input| {
+                        (input.pointer.hover_pos(), input.pointer.primary_released())
+                    }) {
                         if (screen_space_axis - pos).length_sq() < 6.0 * 6.0 {
                             if clicked {
                                 ev_align_view.send(AlignViewEvent(-axis));

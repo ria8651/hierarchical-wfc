@@ -61,28 +61,6 @@ impl Default for DoubleClickTime {
     }
 }
 
-fn over_gizmo(camera: &Camera, pos: Option<Vec2>) -> bool {
-    let (viewport, pos) = if let (Some(viewport), Some(pos)) = (camera.logical_viewport_rect(), pos)
-    {
-        (viewport, pos)
-    } else {
-        return false;
-    };
-
-    let padding = egui::vec2(16.0, 16.0 + egui_dock::style::TabBarStyle::default().height);
-    let radius = 24.0f32;
-    let center = egui::pos2(
-        viewport.max.x - radius - padding.x,
-        viewport.min.y + radius + padding.y,
-    );
-
-    if (center - egui::Pos2::from(pos.to_array())).length_sq() < (radius + 12.0) * (radius + 12.0) {
-        true
-    } else {
-        false
-    }
-}
-
 fn viewport_rect(window: &Window, camera: &Camera) -> Rect {
     if let Some(viewport) = &camera.viewport {
         let x_0 = viewport.physical_position.x as f32;
@@ -106,6 +84,7 @@ fn pan_orbit_camera(
     mut q_primary_window: Query<&mut Window, With<PrimaryWindow>>,
     mut ev_scroll: EventReader<MouseWheel>,
     input_mouse: Res<Input<MouseButton>>,
+    input_keyboard: Res<Input<KeyCode>>,
     mut double_click_time: Local<DoubleClickTime>,
     mut q_camera: Query<
         (
@@ -120,9 +99,17 @@ fn pan_orbit_camera(
     rapier_context: Res<RapierContext>,
     mut previous_cursor: Local<PreviousCursor>,
 ) {
-    let orbit_button = MouseButton::Right;
-    let gizmo_button = MouseButton::Left;
-    let pan_button = MouseButton::Middle;
+    // let orbit_button = MouseButton::Right;
+    // let gizmo_button = MouseButton::Left;
+    // let pan_button = MouseButton::Middle;
+
+    let shift_pressed = input_keyboard.pressed(KeyCode::ShiftLeft);
+    let alt_pressed = input_keyboard.pressed(KeyCode::AltLeft);
+
+    let mouse_pressed = input_mouse.pressed(MouseButton::Middle)
+        || alt_pressed && input_mouse.pressed(MouseButton::Left);
+    let orbit_pressed = mouse_pressed && !shift_pressed;
+    let pan_pressed = mouse_pressed && shift_pressed;
 
     let mut primary_window = q_primary_window.get_single_mut().unwrap();
     let Ok((mut pan_orbit, mut transform, projection, camera, global_transform)) =
@@ -142,14 +129,10 @@ fn pan_orbit_camera(
         let mut dragging = false;
         if let Some(last_pos) = previous_cursor.position.take() {
             if previous_cursor.dragging || viewport_rect.contains(cursor_pos) {
-                if input_mouse.pressed(orbit_button)
-                    || (over_gizmo(&camera, primary_window.cursor_position())
-                        || previous_cursor.dragging)
-                        && input_mouse.pressed(gizmo_button)
-                {
+                if orbit_pressed {
                     rotation_move += cursor_pos - last_pos;
                     dragging = true;
-                } else if input_mouse.pressed(pan_button) {
+                } else if pan_pressed {
                     // Pan only if we're not rotating at the moment
                     pan += cursor_pos - last_pos;
                     dragging = true;
@@ -179,7 +162,13 @@ fn pan_orbit_camera(
         }
     }
 
-    if input_mouse.just_released(orbit_button) || input_mouse.just_pressed(orbit_button) {
+    if input_mouse.just_released(MouseButton::Left)
+        || input_mouse.just_pressed(MouseButton::Middle)
+        || input_keyboard.just_pressed(KeyCode::ShiftLeft)
+        || input_keyboard.just_released(KeyCode::ShiftLeft)
+        || input_keyboard.just_pressed(KeyCode::AltLeft)
+        || input_keyboard.just_released(KeyCode::AltLeft)
+    {
         orbit_button_changed = true;
     }
 
