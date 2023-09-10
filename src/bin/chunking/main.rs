@@ -196,9 +196,6 @@ fn orientation_gizmo_system(
                 let padding =
                     egui::vec2(16.0, 16.0 + egui_dock::style::TabBarStyle::default().height);
                 let radius = 24.0f32;
-                // let center =
-                //     (0.5 * viewport.min.to_vec2() + 0.5 * viewport.max.to_vec2()).to_pos2();
-
                 let center = egui::pos2(
                     viewport.max.x - radius - padding.x,
                     viewport.min.y + radius + padding.y,

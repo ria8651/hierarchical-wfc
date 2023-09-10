@@ -61,6 +61,28 @@ impl Default for DoubleClickTime {
     }
 }
 
+fn over_gizmo(camera: &Camera, pos: Option<Vec2>) -> bool {
+    let (viewport, pos) = if let (Some(viewport), Some(pos)) = (camera.logical_viewport_rect(), pos)
+    {
+        (viewport, pos)
+    } else {
+        return false;
+    };
+
+    let padding = egui::vec2(16.0, 16.0 + egui_dock::style::TabBarStyle::default().height);
+    let radius = 24.0f32;
+    let center = egui::pos2(
+        viewport.max.x - radius - padding.x,
+        viewport.min.y + radius + padding.y,
+    );
+
+    if (center - egui::Pos2::from(pos.to_array())).length_sq() < (radius + 12.0) * (radius + 12.0) {
+        true
+    } else {
+        false
+    }
+}
+
 fn viewport_rect(window: &Window, camera: &Camera) -> Rect {
     if let Some(viewport) = &camera.viewport {
         let x_0 = viewport.physical_position.x as f32;
@@ -99,6 +121,7 @@ fn pan_orbit_camera(
     mut previous_cursor: Local<PreviousCursor>,
 ) {
     let orbit_button = MouseButton::Right;
+    let gizmo_button = MouseButton::Left;
     let pan_button = MouseButton::Middle;
 
     let mut primary_window = q_primary_window.get_single_mut().unwrap();
@@ -119,7 +142,11 @@ fn pan_orbit_camera(
         let mut dragging = false;
         if let Some(last_pos) = previous_cursor.position.take() {
             if previous_cursor.dragging || viewport_rect.contains(cursor_pos) {
-                if input_mouse.pressed(orbit_button) {
+                if input_mouse.pressed(orbit_button)
+                    || (over_gizmo(&camera, primary_window.cursor_position())
+                        || previous_cursor.dragging)
+                        && input_mouse.pressed(gizmo_button)
+                {
                     rotation_move += cursor_pos - last_pos;
                     dragging = true;
                 } else if input_mouse.pressed(pan_button) {
