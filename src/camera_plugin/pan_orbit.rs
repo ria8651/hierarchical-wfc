@@ -62,12 +62,8 @@ impl Default for DoubleClickTime {
 }
 
 fn viewport_rect(window: &Window, camera: &Camera) -> Rect {
-    if let Some(viewport) = &camera.viewport {
-        let x_0 = viewport.physical_position.x as f32;
-        let y_0 = viewport.physical_position.y as f32;
-        let x_1 = x_0 + viewport.physical_size.x as f32;
-        let y_1 = y_0 + viewport.physical_size.y as f32;
-        Rect::new(x_0, y_0, x_1, y_1)
+    if let Some(viewport) = &camera.logical_viewport_rect() {
+        *viewport
     } else {
         Rect::new(0.0, 0.0, window.width(), window.height())
     }
@@ -122,7 +118,7 @@ fn pan_orbit_camera(
 
     let mut pan = Vec2::ZERO;
     let mut rotation_move = Vec2::ZERO;
-    let mut scroll = 0.0;
+    let mut scroll: f32 = 0.0;
     let mut orbit_button_changed = false;
 
     if let Some(cursor_pos) = primary_window.cursor_position() {
