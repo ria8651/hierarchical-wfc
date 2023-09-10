@@ -173,14 +173,10 @@ fn orientation_gizmo_system(
 ) {
     let (camera, camera_transform) = q_camera.get_single().unwrap();
 
-    let viewport = if let Some(viewport) = &camera.viewport {
+    let viewport = if let Some(viewport) = &camera.logical_viewport_rect() {
         Some(egui::Rect {
-            min: egui::Pos2::from(viewport.physical_position.as_vec2().to_array()),
-            max: egui::Pos2::from(
-                (viewport.physical_position + viewport.physical_size)
-                    .as_vec2()
-                    .to_array(),
-            ),
+            min: egui::Pos2::from(viewport.min.to_array()),
+            max: egui::Pos2::from(viewport.max.to_array()),
         })
     } else {
         None
