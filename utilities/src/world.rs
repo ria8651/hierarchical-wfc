@@ -1,6 +1,6 @@
 use crate::graph_grid::{self, Direction, GridGraphSettings};
 use bevy::{prelude::*, utils::HashMap};
-use hierarchical_wfc::{Executor, Graph, Peasant, UserData, WaveFunction};
+use hierarchical_wfc::{Executor, Graph, Peasant, TileSet, UserData, WaveFunction};
 use std::sync::Arc;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -15,21 +15,7 @@ pub struct World {
     pub generated_chunks: HashMap<IVec2, ChunkState>,
     pub chunk_size: usize,
     pub seed: u64,
-    pub current_constraints: Arc<Vec<Vec<WaveFunction>>>,
-    pub current_weights: Arc<Vec<f32>>,
-}
-
-impl Default for World {
-    fn default() -> Self {
-        Self {
-            world: Vec::new(),
-            generated_chunks: HashMap::new(),
-            chunk_size: 0,
-            seed: 0,
-            current_constraints: Arc::new(Vec::new()),
-            current_weights: Arc::new(Vec::new()),
-        }
-    }
+    pub tileset: Arc<dyn TileSet>,
 }
 
 impl World {
@@ -83,8 +69,7 @@ impl World {
         let graph = self.extract_chunk(start_chunk);
         let peasant = Peasant {
             graph,
-            constraints: self.current_constraints.clone(),
-            weights: self.current_weights.clone(),
+            tileset: self.tileset.clone(),
             seed: self.seed,
             user_data,
         };
@@ -130,8 +115,7 @@ impl World {
 
                 let peasant = Peasant {
                     graph,
-                    constraints: self.current_constraints.clone(),
-                    weights: self.current_weights.clone(),
+                    tileset: self.tileset.clone(),
                     seed,
                     user_data: user_data(neighbor),
                 };

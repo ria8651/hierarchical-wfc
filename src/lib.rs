@@ -20,8 +20,7 @@ pub type UserData = Option<Box<dyn Any + Send + Sync>>;
 
 pub struct Peasant {
     pub graph: Graph<WaveFunction>,
-    pub constraints: Arc<Vec<Vec<WaveFunction>>>,
-    pub weights: Arc<Vec<f32>>,
+    pub tileset: Arc<dyn TileSet>,
     pub seed: u64,
     pub user_data: UserData,
 }
@@ -59,9 +58,10 @@ impl Peasant {
     pub fn propagate(&mut self, index: usize, neighbor: Neighbor) -> bool {
         let mut updated = false;
 
+        let constraints = self.tileset.get_constraints();
         let mut allowed = WaveFunction::empty();
         for tile in self.graph.tiles[index].tile_iter() {
-            allowed = WaveFunction::join(&allowed, &self.constraints[tile][neighbor.direction]);
+            allowed = WaveFunction::join(&allowed, &constraints[tile][neighbor.direction]);
         }
 
         let neighbor_tiles = self.graph.tiles[neighbor.index].clone();

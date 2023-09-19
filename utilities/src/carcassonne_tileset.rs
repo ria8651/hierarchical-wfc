@@ -1,22 +1,19 @@
-use crate::graph_grid::{self, Direction, GridGraphSettings};
+use crate::graph_grid::Direction;
 use bevy::prelude::*;
-use hierarchical_wfc::{Graph, TileSet, WaveFunction};
+use hierarchical_wfc::{TileSet, WaveFunction};
+use std::sync::Arc;
 
-#[derive(Debug, Default, Clone)]
-pub struct CarcassonneTileset;
+const TILE_COUNT: usize = 120;
+const DIRECTIONS: usize = 4;
 
-impl TileSet for CarcassonneTileset {
-    type GraphSettings = GridGraphSettings;
+#[derive(Debug, Clone)]
+pub struct CarcassonneTileset {
+    constraints: Arc<Vec<Vec<WaveFunction>>>,
+    weights: Arc<Vec<f32>>,
+}
 
-    fn tile_count(&self) -> usize {
-        120
-    }
-
-    fn directions(&self) -> usize {
-        4
-    }
-
-    fn get_constraints(&self) -> Vec<Vec<WaveFunction>> {
+impl Default for CarcassonneTileset {
+    fn default() -> Self {
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum TileEdgeType {
             Grass,
@@ -60,10 +57,10 @@ impl TileSet for CarcassonneTileset {
         ];
 
         // rotate all tiles to get all possible edge types
-        let mut rotated_tile_edge_types = Vec::with_capacity(self.tile_count());
+        let mut rotated_tile_edge_types = Vec::with_capacity(TILE_COUNT);
         for rotation in 0..4 {
             for edges in tile_edge_types.iter() {
-                let mut rotated_edges = vec![T::Grass; self.directions()];
+                let mut rotated_edges = vec![T::Grass; DIRECTIONS];
                 for (edge_index, edge) in edges.iter().enumerate() {
                     let direction = Direction::from(edge_index);
                     rotated_edges[direction.rotate(rotation) as usize] = *edge;
@@ -73,9 +70,9 @@ impl TileSet for CarcassonneTileset {
         }
 
         // convert to allowed neighbors
-        let mut allowed_neighbors = Vec::with_capacity(self.tile_count());
+        let mut allowed_neighbors = Vec::with_capacity(TILE_COUNT);
         for edges in rotated_tile_edge_types.iter() {
-            let mut allowed_neighbors_for_tile = Vec::with_capacity(self.directions());
+            let mut allowed_neighbors_for_tile = Vec::with_capacity(DIRECTIONS);
             for (edge_index, edge) in edges.into_iter().enumerate() {
                 let direction = Direction::from(edge_index);
                 let mut cell = WaveFunction::empty();
@@ -92,15 +89,37 @@ impl TileSet for CarcassonneTileset {
             allowed_neighbors.push(allowed_neighbors_for_tile);
         }
 
-        allowed_neighbors
-    }
-
-    fn get_weights(&self) -> Vec<f32> {
-        let mut weights = Vec::with_capacity(self.tile_count());
-        for _ in 0..self.tile_count() {
+        let mut weights = Vec::with_capacity(TILE_COUNT);
+        for _ in 0..TILE_COUNT {
             weights.push(1.0);
         }
-        weights
+
+        Self {
+            constraints: Arc::new(allowed_neighbors),
+            weights: Arc::new(weights),
+        }
+    }
+}
+
+impl TileSet for CarcassonneTileset {
+    fn tile_count(&self) -> usize {
+        TILE_COUNT
+    }
+
+    fn directions(&self) -> usize {
+        4
+    }
+
+    fn get_constraints(&self) -> Arc<Vec<Vec<WaveFunction>>> {
+        self.constraints.clone()
+    }
+
+    fn get_weights(&self) -> Arc<Vec<f32>> {
+        self.weights.clone()
+    }
+
+    fn set_weights(&mut self, weights: Vec<f32>) {
+        self.weights = Arc::new(weights);
     }
 
     fn get_tile_paths(&self) -> Vec<(String, Transform)> {
@@ -115,10 +134,5 @@ impl TileSet for CarcassonneTileset {
             ));
         }
         paths
-    }
-
-    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<WaveFunction> {
-        let cell = WaveFunction::filled(self.tile_count());
-        graph_grid::create(settings, cell)
     }
 }

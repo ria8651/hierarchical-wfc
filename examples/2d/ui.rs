@@ -12,11 +12,10 @@ use hierarchical_wfc::TileSet;
 use std::sync::Arc;
 use utilities::{
     basic_tileset::BasicTileset, carcassonne_tileset::CarcassonneTileset,
-    circuit_tileset::CircuitTileset, graph_grid::GridGraphSettings, mxgmn_tileset::MxgmnTileset,
-    world::World,
+    graph_grid::GridGraphSettings, mxgmn_tileset::MxgmnTileset,
 };
 
-use crate::world::GenerateEvent;
+use crate::world::{GenerateEvent, MaybeWorld};
 
 pub struct UiPlugin;
 
@@ -42,7 +41,7 @@ struct UiState {
     #[reflect(ignore)]
     picked_tileset: usize,
     #[reflect(ignore)]
-    tile_sets: Vec<(Arc<dyn TileSet<GraphSettings = GridGraphSettings>>, String)>,
+    tile_sets: Vec<(Arc<dyn TileSet>, String)>,
     #[reflect(ignore)]
     weights: Vec<f32>,
     #[reflect(ignore)]
@@ -53,7 +52,7 @@ struct UiState {
 
 impl Default for UiState {
     fn default() -> Self {
-        let mut tile_sets: Vec<(Arc<dyn TileSet<GraphSettings = GridGraphSettings>>, String)> = vec![
+        let mut tile_sets: Vec<(Arc<dyn TileSet>, String)> = vec![
             (
                 Arc::new(CarcassonneTileset::default()),
                 "CarcassonneTileset".to_string(),
@@ -61,10 +60,6 @@ impl Default for UiState {
             (
                 Arc::new(BasicTileset::default()),
                 "BasicTileset".to_string(),
-            ),
-            (
-                Arc::new(CircuitTileset::default()),
-                "CircuitTileset".to_string(),
             ),
         ];
 
@@ -106,10 +101,10 @@ fn ui(
     asset_server: Res<AssetServer>,
     mut generate_events: EventWriter<GenerateEvent>,
 ) {
-    let tileset = ui_state.tile_sets[ui_state.picked_tileset].0.clone();
+    let mut tileset = ui_state.tile_sets[ui_state.picked_tileset].0.clone();
 
     if ui_state.weights.len() != tileset.tile_count() {
-        ui_state.weights = tileset.get_weights();
+        ui_state.weights = tileset.get_weights().as_ref().clone();
 
         for handle in ui_state.image_handles.drain(..) {
             contexts.remove_image(&handle.1);
@@ -155,28 +150,24 @@ fn ui(
                             rand::random()
                         };
 
+                        dyn_clone::arc_make_mut(&mut tileset).set_weights(ui_state.weights.clone());
                         if ui.button("Generate Single").clicked() {
                             generate_events.send(GenerateEvent::Single {
-                                tileset: tileset.clone(),
+                                tileset,
                                 settings: ui_state.grid_graph_settings.clone(),
-                                weights: Arc::new(ui_state.weights.clone()),
                                 seed,
                             });
-                        }
-                        if ui.button("Generate Chunked").clicked() {
+                        } else if ui.button("Generate Chunked").clicked() {
                             generate_events.send(GenerateEvent::Chunked {
-                                tileset: tileset.clone(),
+                                tileset,
                                 settings: ui_state.grid_graph_settings.clone(),
-                                weights: Arc::new(ui_state.weights.clone()),
                                 seed,
                                 chunk_size: ui_state.chunk_size,
                             });
-                        }
-                        if ui.button("Generate Multi Threaded").clicked() {
+                        } else if ui.button("Generate Multi Threaded").clicked() {
                             generate_events.send(GenerateEvent::MultiThreaded {
-                                tileset: tileset.clone(),
+                                tileset,
                                 settings: ui_state.grid_graph_settings.clone(),
-                                weights: Arc::new(ui_state.weights.clone()),
                                 seed,
                                 chunk_size: ui_state.chunk_size,
                             });
@@ -212,7 +203,7 @@ fn render_world(
     mut ui_state: ResMut<UiState>,
     asset_server: Res<AssetServer>,
     mut tile_entity_query: Query<(&mut Transform, &mut Handle<Image>), With<TileSprite>>,
-    world: Res<World>,
+    world: Res<MaybeWorld>,
     mut render_world_event: EventReader<RenderUpdateEvent>,
     mut current_size: Local<IVec2>,
 ) {
@@ -226,7 +217,8 @@ fn render_world(
             tile_handles.push((asset_server.load(tile.0), tile.1));
         }
 
-        let world_size = IVec2::new(world.world.len() as i32, world.world[0].len() as i32);
+        let world = &world.as_ref().as_ref().unwrap().world;
+        let world_size = IVec2::new(world.len() as i32, world[0].len() as i32);
         if world_size != *current_size {
             *current_size = world_size;
 
@@ -241,12 +233,12 @@ fn render_world(
                         ((pos + 0.5) / world_size.y as f32 - 0.5).extend(-0.5),
                     );
 
-                    if let Some(tile_index) = world.world[x][y].collapse() {
+                    if let Some(tile_index) = world[x][y].collapse() {
                         texture = tile_handles[tile_index].0.clone();
                         transform.rotation = tile_handles[tile_index].1.rotation;
                         transform.scale = tile_handles[tile_index].1.scale;
                     }
-                    if world.world[x][y].count_bits() == 0 {
+                    if world[x][y].count_bits() == 0 {
                         texture = bad_tile.clone();
                     }
 
@@ -281,13 +273,13 @@ fn render_world(
                         .get_mut(ui_state.tile_entities[x][y])
                         .unwrap();
 
-                    if let Some(tile_index) = world.world[x][y].collapse() {
+                    if let Some(tile_index) = world[x][y].collapse() {
                         let new_transform = &tile_handles[tile_index].1;
                         transform.rotation = new_transform.rotation;
                         transform.scale = new_transform.scale;
                         *sprite = tile_handles[tile_index].0.clone();
                     } else {
-                        if world.world[x][y].count_bits() == 0 {
+                        if world[x][y].count_bits() == 0 {
                             *sprite = bad_tile.clone();
                         } else {
                             *sprite = Default::default();

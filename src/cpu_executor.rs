@@ -30,6 +30,7 @@ impl CpuExecutor {
 
     pub fn execute(peasant: &mut Peasant) {
         let mut rng = SmallRng::seed_from_u64(peasant.seed);
+        let weights = peasant.tileset.get_weights();
 
         let mut stack: Vec<usize> = (0..peasant.graph.tiles.len()).collect();
         loop {
@@ -50,7 +51,7 @@ impl CpuExecutor {
 
             if let Some(cell) = peasant.lowest_entropy(&mut rng) {
                 // collapse cell
-                peasant.graph.tiles[cell].select_random(&mut rng, &peasant.weights).unwrap();
+                peasant.graph.tiles[cell].select_random(&mut rng, &weights).unwrap();
                 stack.push(cell);
             } else {
                 // all cells collapsed

@@ -7,7 +7,7 @@ use hierarchical_wfc::{
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::sync::Arc;
 use utilities::{
-    graph_grid::GridGraphSettings,
+    graph_grid::{self, GridGraphSettings},
     world::{ChunkState, World},
 };
 
@@ -17,30 +17,27 @@ impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<GenerateEvent>()
             .init_resource::<Guild>()
-            .init_resource::<World>()
-            .add_systems(Update, (handle_events, handle_output));
+            .init_resource::<MaybeWorld>()
+            .add_systems(Update, (handle_events, handle_output).chain());
     }
 }
 
 #[derive(Event, Clone)]
 pub enum GenerateEvent {
     Single {
-        tileset: Arc<dyn TileSet<GraphSettings = GridGraphSettings>>,
+        tileset: Arc<dyn TileSet>,
         settings: GridGraphSettings,
-        weights: Arc<Vec<f32>>,
         seed: u64,
     },
     Chunked {
-        tileset: Arc<dyn TileSet<GraphSettings = GridGraphSettings>>,
+        tileset: Arc<dyn TileSet>,
         settings: GridGraphSettings,
-        weights: Arc<Vec<f32>>,
         seed: u64,
         chunk_size: usize,
     },
     MultiThreaded {
-        tileset: Arc<dyn TileSet<GraphSettings = GridGraphSettings>>,
+        tileset: Arc<dyn TileSet>,
         settings: GridGraphSettings,
-        weights: Arc<Vec<f32>>,
         seed: u64,
         chunk_size: usize,
     },
@@ -73,10 +70,13 @@ enum PeasantData {
     MultiThreaded { chunk: IVec2 },
 }
 
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct MaybeWorld(Option<World>);
+
 fn handle_events(
     mut generate_event: EventReader<GenerateEvent>,
     mut guild: ResMut<Guild>,
-    mut world: ResMut<World>,
+    mut world: ResMut<MaybeWorld>,
 ) {
     for generate_event in generate_event.iter() {
         let generate_event = generate_event.clone();
@@ -92,18 +92,15 @@ fn handle_events(
             GenerateEvent::Chunked {
                 tileset,
                 settings,
-                weights,
                 seed,
                 chunk_size,
             }
             | GenerateEvent::MultiThreaded {
                 tileset,
                 settings,
-                weights,
                 seed,
                 chunk_size,
             } => {
-                let constraints = Arc::new(tileset.get_constraints());
                 let mut rng = SmallRng::seed_from_u64(seed);
                 let chunks = IVec2::new(
                     settings.width as i32 / chunk_size as i32,
@@ -121,8 +118,7 @@ fn handle_events(
                     )]),
                     chunk_size,
                     seed,
-                    current_constraints: constraints.clone(),
-                    current_weights: weights.clone(),
+                    tileset: tileset.clone(),
                 };
 
                 let user_data = if multithreaded {
@@ -133,26 +129,33 @@ fn handle_events(
 
                 new_world.start_generation(start_chunk, executor, Some(Box::new(user_data)));
 
-                *world = new_world;
+                *world = MaybeWorld(Some(new_world));
             }
             GenerateEvent::Single {
                 tileset,
                 settings,
-                weights,
                 seed,
             } => {
-                let graph = tileset.create_graph(&settings);
-                let constraints = Arc::new(tileset.get_constraints());
+                let graph =
+                    graph_grid::create(&settings, WaveFunction::filled(tileset.tile_count()));
                 let size = IVec2::new(settings.width as i32, settings.height as i32);
                 let peasant = Peasant {
                     graph,
-                    constraints,
-                    weights,
+                    tileset: tileset.clone(),
                     seed,
                     user_data: Some(Box::new(PeasantData::Single { size })),
                 };
 
                 executor.queue_peasant(peasant).unwrap();
+
+                let new_world = World {
+                    world: vec![vec![WaveFunction::empty(); size.y as usize]; size.x as usize],
+                    generated_chunks: HashMap::from_iter(vec![(IVec2::ZERO, ChunkState::Done)]),
+                    chunk_size: 0,
+                    seed,
+                    tileset: tileset.clone(),
+                };
+                *world = MaybeWorld(Some(new_world));
             }
         }
     }
@@ -160,7 +163,7 @@ fn handle_events(
 
 fn handle_output(
     mut guild: ResMut<Guild>,
-    mut world: ResMut<World>,
+    mut world: ResMut<MaybeWorld>,
     mut render_world_event: EventWriter<RenderUpdateEvent>,
 ) {
     while let Some(peasant) = guild.output.pop() {
@@ -186,7 +189,11 @@ fn handle_output(
                     _ => unreachable!(),
                 };
 
-                world.process_chunk(*chunk, peasant, executor, user_data);
+                world
+                    .as_mut()
+                    .as_mut()
+                    .unwrap()
+                    .process_chunk(*chunk, peasant, executor, user_data);
                 render_world_event.send(RenderUpdateEvent);
             }
             PeasantData::Single { size } => {
@@ -203,7 +210,7 @@ fn handle_output(
                     }
                 }
 
-                world.world = new_world;
+                world.as_mut().as_mut().unwrap().world = new_world;
                 render_world_event.send(RenderUpdateEvent);
             }
         }

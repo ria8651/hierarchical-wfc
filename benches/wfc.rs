@@ -8,14 +8,12 @@ use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::sync::Arc;
 use utilities::{
     carcassonne_tileset::CarcassonneTileset,
-    graph_grid::GridGraphSettings,
+    graph_grid::{self, GridGraphSettings},
     world::{ChunkState, World},
 };
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let tileset = Box::new(CarcassonneTileset::default());
-    let constraints = Arc::new(tileset.get_constraints());
-    let weights = Arc::new(tileset.get_weights());
+    let tileset = Arc::new(CarcassonneTileset::default());
 
     let seed = 0;
     let threads = 8;
@@ -39,8 +37,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             generated_chunks: HashMap::from_iter(vec![(start_chunk, ChunkState::Scheduled)]),
             chunk_size,
             seed,
-            current_constraints: constraints.clone(),
-            current_weights: weights.clone(),
+            tileset: tileset.clone(),
         };
         world.start_generation(start_chunk, executor, Some(Box::new(start_chunk)));
 
@@ -117,11 +114,11 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
             group.bench_with_input(BenchmarkId::new("Single", size), &size, |b, _| {
                 b.iter(|| {
-                    let graph = tileset.create_graph(&settings);
+                    let graph =
+                        graph_grid::create(&settings, WaveFunction::filled(tileset.tile_count()));
                     let peasant = Peasant {
                         graph,
-                        constraints: constraints.clone(),
-                        weights: weights.clone(),
+                        tileset: tileset.clone(),
                         seed,
                         user_data: None,
                     };

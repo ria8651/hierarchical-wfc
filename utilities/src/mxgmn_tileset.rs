@@ -1,15 +1,18 @@
-use crate::graph_grid::{self, Direction, GridGraphSettings};
+use crate::graph_grid::Direction;
 use anyhow::Result;
 use bevy::{prelude::*, utils::HashMap};
-use hierarchical_wfc::{Graph, TileSet, WaveFunction};
+use hierarchical_wfc::{TileSet, WaveFunction};
 use serde::Deserialize;
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct MxgmnTileset {
     tile_count: usize,
-    constraints: Vec<Vec<WaveFunction>>,
-    weights: Vec<f32>,
+    constraints: Arc<Vec<Vec<WaveFunction>>>,
+    weights: Arc<Vec<f32>>,
     tile_paths: Vec<(String, Transform)>,
 }
 
@@ -199,16 +202,14 @@ impl MxgmnTileset {
 
         Ok(Self {
             tile_count,
-            constraints,
-            weights,
+            constraints: Arc::new(constraints),
+            weights: Arc::new(weights),
             tile_paths,
         })
     }
 }
 
 impl TileSet for MxgmnTileset {
-    type GraphSettings = GridGraphSettings;
-
     fn tile_count(&self) -> usize {
         self.tile_count
     }
@@ -217,21 +218,20 @@ impl TileSet for MxgmnTileset {
         4
     }
 
-    fn get_constraints(&self) -> Vec<Vec<WaveFunction>> {
+    fn get_constraints(&self) -> Arc<Vec<Vec<WaveFunction>>> {
         self.constraints.clone()
     }
 
-    fn get_weights(&self) -> Vec<f32> {
+    fn get_weights(&self) -> Arc<Vec<f32>> {
         self.weights.clone()
+    }
+
+    fn set_weights(&mut self, weights: Vec<f32>) {
+        self.weights = Arc::new(weights);
     }
 
     fn get_tile_paths(&self) -> Vec<(String, Transform)> {
         self.tile_paths.clone()
-    }
-
-    fn create_graph(&self, settings: &Self::GraphSettings) -> Graph<WaveFunction> {
-        let cell = WaveFunction::filled(self.tile_count());
-        graph_grid::create(settings, cell)
     }
 }
 
