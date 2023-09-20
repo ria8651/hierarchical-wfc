@@ -1,15 +1,15 @@
 use crate::ui::RenderUpdateEvent;
 use bevy::{prelude::*, utils::HashMap};
 use crossbeam::queue::SegQueue;
+use grid_wfc::{
+    graph_grid::{self, GridGraphSettings},
+    world::{ChunkState, World},
+};
 use hierarchical_wfc::{
     CpuExecutor, Executor, MultiThreadedExecutor, Peasant, TileSet, UserData, WaveFunction,
 };
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::sync::Arc;
-use utilities::{
-    graph_grid::{self, GridGraphSettings},
-    world::{ChunkState, World},
-};
 
 pub struct WorldPlugin;
 
@@ -34,12 +34,14 @@ pub enum GenerateEvent {
         settings: GridGraphSettings,
         seed: u64,
         chunk_size: usize,
+        overlap: usize,
     },
     MultiThreaded {
         tileset: Arc<dyn TileSet>,
         settings: GridGraphSettings,
         seed: u64,
         chunk_size: usize,
+        overlap: usize,
     },
 }
 
@@ -83,7 +85,7 @@ fn handle_events(
 
         let multithreaded = matches!(generate_event, GenerateEvent::MultiThreaded { .. });
         let executor: &mut dyn Executor = match generate_event {
-            GenerateEvent::Chunked { .. } => &mut guild.multithreaded_executor,
+            GenerateEvent::Chunked { .. } => &mut guild.cpu_executor,
             GenerateEvent::MultiThreaded { .. } => &mut guild.multithreaded_executor,
             GenerateEvent::Single { .. } => &mut guild.cpu_executor,
         };
@@ -94,12 +96,14 @@ fn handle_events(
                 settings,
                 seed,
                 chunk_size,
+                overlap,
             }
             | GenerateEvent::MultiThreaded {
                 tileset,
                 settings,
                 seed,
                 chunk_size,
+                overlap,
             } => {
                 let mut rng = SmallRng::seed_from_u64(seed);
                 let chunks = IVec2::new(
@@ -117,6 +121,7 @@ fn handle_events(
                         ChunkState::Scheduled,
                     )]),
                     chunk_size,
+                    overlap,
                     seed,
                     tileset: tileset.clone(),
                 };
@@ -152,6 +157,7 @@ fn handle_events(
                     world: vec![vec![WaveFunction::empty(); size.y as usize]; size.x as usize],
                     generated_chunks: HashMap::from_iter(vec![(IVec2::ZERO, ChunkState::Done)]),
                     chunk_size: 0,
+                    overlap: 0,
                     seed,
                     tileset: tileset.clone(),
                 };

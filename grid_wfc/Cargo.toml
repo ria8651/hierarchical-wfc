@@ -1,5 +1,5 @@
 [package]
-name = "utilities"
+name = "grid_wfc"
 version = "0.1.0"
 edition = "2021"
 

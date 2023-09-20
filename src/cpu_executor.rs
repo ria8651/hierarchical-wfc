@@ -57,23 +57,6 @@ impl CpuExecutor {
                 // all cells collapsed
                 return;
             }
-
-            // // propagate changes
-            // while let Some(index) = stack.pop() {
-            //     for i in 0..peasant.graph.neighbors[index].len() {
-            //         // propagate changes
-            //         let neighbor = peasant.graph.neighbors[index][i];
-            //         if peasant.propagate(index, neighbor) {
-            //             stack.push(neighbor.index);
-            //         }
-            //         if peasant.graph.tiles[neighbor.index].count_bits() == 0 {
-            //             // contradiction found
-            //             return;
-            //         }
-            //     }
-            // }
-
-            // break;
         }
     }
 }

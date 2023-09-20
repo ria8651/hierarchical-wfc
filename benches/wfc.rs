@@ -6,7 +6,7 @@ use hierarchical_wfc::{
 };
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::sync::Arc;
-use utilities::{
+use grid_wfc::{
     carcassonne_tileset::CarcassonneTileset,
     graph_grid::{self, GridGraphSettings},
     world::{ChunkState, World},
@@ -36,6 +36,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             world: vec![vec![filled; settings.height]; settings.width],
             generated_chunks: HashMap::from_iter(vec![(start_chunk, ChunkState::Scheduled)]),
             chunk_size,
+            overlap: 1,
             seed,
             tileset: tileset.clone(),
         };

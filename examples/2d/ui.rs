@@ -10,7 +10,7 @@ use bevy_inspector_egui::{
 };
 use hierarchical_wfc::TileSet;
 use std::sync::Arc;
-use utilities::{
+use grid_wfc::{
     basic_tileset::BasicTileset, carcassonne_tileset::CarcassonneTileset,
     graph_grid::GridGraphSettings, mxgmn_tileset::MxgmnTileset,
 };
@@ -38,6 +38,7 @@ struct UiState {
     grid_graph_settings: GridGraphSettings,
     timeout: Option<f64>,
     chunk_size: usize,
+    overlap: usize,
     #[reflect(ignore)]
     picked_tileset: usize,
     #[reflect(ignore)]
@@ -81,7 +82,8 @@ impl Default for UiState {
             random_seed: true,
             grid_graph_settings: GridGraphSettings::default(),
             timeout: Some(0.05),
-            chunk_size: 16,
+            chunk_size: 4,
+            overlap: 2,
             picked_tileset: 0,
             tile_sets,
             weights: Vec::new(),
@@ -163,6 +165,7 @@ fn ui(
                                 settings: ui_state.grid_graph_settings.clone(),
                                 seed,
                                 chunk_size: ui_state.chunk_size,
+                                overlap: ui_state.overlap,
                             });
                         } else if ui.button("Generate Multi Threaded").clicked() {
                             generate_events.send(GenerateEvent::MultiThreaded {
@@ -170,6 +173,7 @@ fn ui(
                                 settings: ui_state.grid_graph_settings.clone(),
                                 seed,
                                 chunk_size: ui_state.chunk_size,
+                                overlap: ui_state.overlap,
                             });
                         }
                     });
