@@ -13,10 +13,10 @@ pub struct CpuExecutor {
 
 struct History {
     stack: Vec<usize>,
-    collapsed_cells: Vec<CollapsedCell>,
+    decision_cells: Vec<HistoryCell>,
 }
 
-struct CollapsedCell {
+struct HistoryCell {
     index: usize,
     options: WaveFunction,
 }
@@ -41,10 +41,22 @@ impl CpuExecutor {
     pub fn execute(mut peasant: &mut Peasant) {
         let mut rng = SmallRng::seed_from_u64(peasant.seed);
 
+        let mut initial_state: Vec<HistoryCell> = Vec::new();
+
+        // store initial state of all cells already constrained
+        for i in 0..peasant.graph.tiles.len() {
+            if peasant.graph.tiles[i].count_bits() != peasant.tile_count {
+                initial_state.push(HistoryCell {
+                    index: i,
+                    options: peasant.graph.tiles[i].clone(),
+                });
+            }
+        }
+
         let mut stack: Vec<usize> = (0..peasant.graph.tiles.len()).collect();
         let mut history = History {
             stack: Vec::new(),
-            collapsed_cells: Vec::new(),
+            decision_cells: Vec::new(),
         };
         loop {
             let mut backtrack_flag = false;
@@ -75,9 +87,12 @@ impl CpuExecutor {
                         // there's an unsolvable configuration.
                         // Perform a random restart.
                         peasant.clear();
+                        for cell in initial_state.iter() {
+                            peasant.graph.tiles[cell.index] = cell.options.clone();
+                        }
                         history = History {
                             stack: Vec::new(),
-                            collapsed_cells: Vec::new(),
+                            decision_cells: Vec::new(),
                         };
                         stack = (0..peasant.graph.tiles.len()).collect();
                     }
@@ -95,7 +110,7 @@ impl CpuExecutor {
                 stack.push(cell);
                 options = WaveFunction::difference(&options, &peasant.graph.tiles[cell]);
                 history.stack.push(cell);
-                history.collapsed_cells.push(CollapsedCell {
+                history.decision_cells.push(HistoryCell {
                     index: history.stack.len() - 1,
                     options,
                 });
@@ -112,18 +127,18 @@ impl CpuExecutor {
         mut rng: &mut SmallRng,
     ) -> Result<usize, String> {
         // Backtrack to most recent collapsed cell
-        if history.collapsed_cells.is_empty() {
+        if history.decision_cells.is_empty() {
             Err("No collapsed cells in history")?;
         }
 
-        let mut collapsed = history.collapsed_cells.pop().unwrap();
+        let mut collapsed = history.decision_cells.pop().unwrap();
         // Backtrack further, we skip cells with less than 3 options as this optimization provides great speedup, TODO: make this configurable
         if collapsed.options.count_bits() == 0 {
             while collapsed.options.count_bits() < 3 {
-                if history.collapsed_cells.is_empty() {
+                if history.decision_cells.is_empty() {
                     Err("No collapsed cells in history")?;
                 }
-                collapsed = history.collapsed_cells.pop().unwrap();
+                collapsed = history.decision_cells.pop().unwrap();
             }
         }
 
@@ -169,7 +184,7 @@ impl CpuExecutor {
             .unwrap();
         options = WaveFunction::difference(&options, &peasant.graph.tiles[collapsed_index]);
         history.stack.push(collapsed_index);
-        history.collapsed_cells.push(CollapsedCell {
+        history.decision_cells.push(HistoryCell {
             index: history.stack.len() - 1,
             options,
         });
