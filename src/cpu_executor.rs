@@ -70,13 +70,19 @@ impl CpuExecutor {
                     if let Ok(continue_from) = result {
                         stack.clear();
                         stack.push(continue_from);
-                        backtrack_flag = false;
-                        continue;
                     } else {
                         // If there's no collapsed cell in the history,
                         // there's an unsolvable configuration.
-                        return;
+                        // Perform a random restart.
+                        peasant.clear();
+                        history = History {
+                            stack: Vec::new(),
+                            collapsed_cells: Vec::new(),
+                        };
+                        stack = (0..peasant.graph.tiles.len()).collect();
                     }
+                    backtrack_flag = false;
+                    continue;
                 }
             }
 
@@ -111,12 +117,14 @@ impl CpuExecutor {
         }
 
         let mut collapsed = history.collapsed_cells.pop().unwrap();
-        // Backtrack further, we skip cells with less than 4 options as this optimization provides great speedup, TODO: make this configurable
-        while collapsed.options.count_bits() < 4 {
-            if history.collapsed_cells.is_empty() {
-                Err("No collapsed cells in history")?;
+        // Backtrack further, we skip cells with less than 3 options as this optimization provides great speedup, TODO: make this configurable
+        if collapsed.options.count_bits() == 0 {
+            while collapsed.options.count_bits() < 3 {
+                if history.collapsed_cells.is_empty() {
+                    Err("No collapsed cells in history")?;
+                }
+                collapsed = history.collapsed_cells.pop().unwrap();
             }
-            collapsed = history.collapsed_cells.pop().unwrap();
         }
 
         // Restore state until the most recent collapsed cell

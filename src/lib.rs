@@ -75,4 +75,10 @@ impl Peasant {
 
         updated
     }
+
+    pub fn clear(&mut self) {
+        for tile in self.graph.tiles.iter_mut() {
+            *tile = WaveFunction::filled(self.tile_count);
+        }
+    }
 }
