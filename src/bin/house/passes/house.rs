@@ -122,9 +122,12 @@ pub fn layout_init_system(
     for (entity, settings) in query.iter() {
         let tileset = HouseTileset::from_asset("semantics/house_tileset.json");
 
-        let (graph_data, wfc_graph) = regular_grid_3d::create_graph(settings, &|(_, _)| {
-            Superposition::filled(tileset.tile_count())
-        });
+        let mut building = vec![IVec2(2, 2), IVec2(2, 2), IVec2(2, 2), IVec2(2, 2)];
+
+        let (graph_data, wfc_graph) =
+            regular_grid_3d::create_graph(settings, &|(_, _, directions)| {
+                tileset.superposition_from_directions(directions)
+            });
 
         let constraints = tileset.get_constraints();
 
@@ -301,7 +304,7 @@ pub fn house_mesh_system(
                     Vec4::NEG_Z,
                 ];
 
-                let position = house_pass_data.get_node_pos(node_index);
+                let position = house_pass_data.get_node_pos(node_index) + Vec3::Y;
                 let transform = Transform::from_matrix(
                     Mat4::from_cols(
                         DIRECTIONS[symmetry[0]],
@@ -383,7 +386,7 @@ pub fn house_debug_system(
             });
 
             for (index, pos) in facade_pass_data.node_positions_f32().enumerate() {
-                let transform = Transform::from_translation(pos);
+                let transform = Transform::from_translation(pos + Vec3::Y);
                 match collapsed_data.graph.nodes[index] {
                     404 => {
                         error_mesh_builder.add_mesh(&error_cube, transform, ordering[index] as u32)
@@ -440,7 +443,7 @@ pub fn house_debug_system(
         } else {
             if enable_text {
                 for (index, pos) in facade_pass_data.node_positions_f32().enumerate() {
-                    let transform = Transform::from_translation(pos);
+                    let transform = Transform::from_translation(pos + Vec3::Y);
                     match collapsed_data.graph.nodes[index] {
                         404 => {}
                         id => {

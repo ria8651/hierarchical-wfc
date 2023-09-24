@@ -30,7 +30,7 @@ impl GraphData {
 
 pub fn create_graph<F: Clone>(
     settings: &GraphSettings,
-    create_node: &dyn Fn((usize, IVec3)) -> F,
+    create_node: &dyn Fn((usize, IVec3, usize)) -> F,
 ) -> (GraphData, WfcGraph<F>) {
     let GraphSettings { size, spacing: _ } = settings;
     let mut neighbors: Vec<Box<[Neighbour]>> = Vec::new();
@@ -61,7 +61,15 @@ pub fn create_graph<F: Clone>(
     }
     let tiles = iproduct!(0..size.z as i32, 0..size.y as i32, 0..size.x as i32)
         .enumerate()
-        .map(|(i, (z, y, x))| create_node((i, ivec3(x, y, z))))
+        .map(|(i, (z, y, x))| {
+            create_node((
+                i,
+                ivec3(x, y, z),
+                neighbors[i]
+                    .iter()
+                    .fold(0, |acc, neighbour| acc + (1 << neighbour.arc_type)),
+            ))
+        })
         .collect_vec();
 
     (

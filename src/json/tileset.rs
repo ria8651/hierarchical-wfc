@@ -10,22 +10,29 @@ pub enum ConstraintNodeModel {
     NodeSocket { node: String, socket: String },
 }
 
+fn default_weight() -> u32 {
+    100
+}
+
 #[derive(Deserialize, Debug)]
 
 pub struct SemanticNodeModel {
     pub label: String,
-    pub sockets: HashMap<String, String>,
+    pub sockets: Option<HashMap<String, String>>,
     #[serde(default)]
     pub optional: Vec<String>,
     pub symmetries: Vec<String>,
+    #[serde(default = "default_weight")]
+    pub weight: u32,
 }
 impl Default for SemanticNodeModel {
     fn default() -> Self {
         Self {
             label: "".to_string(),
-            sockets: HashMap::new(),
+            sockets: None,
             optional: Vec::new(),
             symmetries: Vec::new(),
+            weight: 100,
         }
     }
 }

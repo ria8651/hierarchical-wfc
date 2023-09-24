@@ -121,7 +121,7 @@ pub fn layout_init_system(
     for (entity, settings) in query.iter() {
         let tileset = LayoutTileset;
 
-        let (graph_data, wfc_graph) = regular_grid_3d::create_graph(settings, &|(_, _)| {
+        let (graph_data, wfc_graph) = regular_grid_3d::create_graph(settings, &|(_, _, _)| {
             Superposition::filled(tileset.tile_count())
         });
 

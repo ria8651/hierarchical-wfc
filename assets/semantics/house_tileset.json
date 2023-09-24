@@ -19,6 +19,7 @@
         "-Z": "internal",
         "+Z": "air"
       },
+      "optional": ["+Y", "-Y", "+Z"],
       "symmetries": ["rotateY"]
     },
     {
@@ -31,7 +32,22 @@
         "+Z": "air",
         "-Z": "in_b"
       },
+      "optional": ["+X", "+Y", "-Y", "+Z"],
       "symmetries": ["rotateY"]
+    },
+    {
+      "label": "foundation_inner_corner",
+      "sockets": {
+        "-Z": "internal",
+        "+Z": "inner_in_b",
+        "+Y": "a",
+        "-Y": "a",
+        "+X": "internal",
+        "-X": "inner_out_b"
+      },
+      "optional": ["+Y", "-Y"],
+      "symmetries": ["rotateY"],
+      "weight": 1
     },
     {
       "label": "air",
@@ -43,47 +59,68 @@
         "+Z": "air",
         "-Z": "air"
       },
+      "optional": ["+X", "-X", "+Y", "-Y", "+Z", "-Z"],
+      "symmetries": ["rotateY"]
+    },
+    {
+      "label": "internal",
+      "sockets": {
+        "+X": "internal",
+        "-X": "internal",
+        "+Y": "internal",
+        "-Y": "internal",
+        "+Z": "internal",
+        "-Z": "internal"
+      },
+      "optional": [],
       "symmetries": ["rotateY"]
     }
   ],
   "semantic_dag": {
-    "foundation_flat": null,
-    "foundation_outer_corner": null,
-    "air": null
+    "foundation": {
+      "foundation_flat": null,
+      "foundation_outer_corner": null,
+      "foundation_inner_corner": null,
+      "internal": null,
+      "air": null
+    },
+    "first_story": {
+      "first_story_wall_flat": null
+    }
   },
   "constraints": [
     [
-      { "node": "foundation_flat", "socket": "out_b" },
-      { "node": "foundation_flat", "socket": "in_b" }
+      { "node": "foundation", "socket": "in_b" },
+      { "node": "foundation", "socket": "out_b" }
+    ],
+    [
+      { "node": "foundation", "socket": "inner_in_b" },
+      { "node": "foundation", "socket": "out_b" }
+    ],
+    [
+      { "node": "foundation", "socket": "in_b" },
+      { "node": "foundation", "socket": "inner_out_b" }
+    ],
+    [
+      { "node": "foundation", "socket": "air" },
+      { "node": "air", "socket": "air" }
     ],
 
-    [
-      { "node": "foundation_flat", "socket": "air" },
-      { "node": "air", "socket": "air" }
-    ],
-    [
-      { "node": "foundation_outer_corner", "socket": "air" },
-      { "node": "air", "socket": "air" }
-    ],
-    [
-      { "node": "foundation_outer_corner", "socket": "in_b" },
-      { "node": "foundation_outer_corner", "socket": "out_b" }
-    ],
     [
       { "node": "air", "socket": "air" },
       { "node": "air", "socket": "air" }
     ],
     [
-      { "node": "foundation_flat", "socket": "in_b" },
-      { "node": "foundation_outer_corner", "socket": "out_b" }
+      { "node": "foundation", "socket": "internal" },
+      { "node": "foundation", "socket": "internal" }
     ],
     [
-      { "node": "foundation_outer_corner", "socket": "in_b" },
-      { "node": "foundation_flat", "socket": "out_b" }
+      { "node": "internal", "socket": "internal" },
+      { "node": "internal", "socket": "internal" }
     ],
     [
-      { "node": "foundation_flat", "socket": "internal" },
-      { "node": "foundation_flat", "socket": "internal" }
+      { "node": "foundation", "socket": "internal" },
+      { "node": "internal", "socket": "internal" }
     ]
   ],
   "assets": {
@@ -91,7 +128,8 @@
       "path": "voxel/gltf/house",
       "nodes": {
         "foundation_flat": "foundation_flat.gltf#Scene0",
-        "foundation_outer_corner": "foundation_outer_corner.gltf#Scene0"
+        "foundation_outer_corner": "foundation_outer_corner.gltf#Scene0",
+        "foundation_inner_corner": "foundation_inner_corner.gltf#Scene0"
       }
     }
   }

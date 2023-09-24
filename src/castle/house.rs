@@ -18,6 +18,7 @@ pub struct HouseTileset {
     pub sematic_node_names: HashMap<String, usize>,
     pub associated_transformed_nodes: Box<[Box<[usize]>]>,
     pub leaf_families: Box<[(usize, Superposition)]>,
+    pub weights: Vec<u32>,
 }
 
 impl TileSet for HouseTileset {
@@ -34,7 +35,7 @@ impl TileSet for HouseTileset {
     }
 
     fn get_weights(&self) -> Vec<u32> {
-        vec![100; self.tile_count]
+        self.weights.clone()
     }
 
     fn get_tile_paths(&self) -> Vec<String> {
@@ -45,8 +46,9 @@ impl TileSet for HouseTileset {
 #[derive(Debug)]
 struct SemanticNode {
     symmetries: Box<[usize]>,
-    sockets: Box<[Option<String>]>,
+    sockets: Option<Box<[Option<String>]>>,
     optional: Box<[bool]>,
+    weight: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -55,7 +57,7 @@ pub struct TransformedDagNode {
     pub parents: Vec<usize>,
     pub children: Vec<usize>,
     pub symmetry: Box<[usize]>,
-    pub sockets: Box<[Option<String>]>,
+    pub sockets: Option<Box<[Option<String>]>>,
     pub required: usize,
 }
 
@@ -151,10 +153,16 @@ impl HouseTileset {
             .semantic_nodes
             .iter()
             .map(|node| SemanticNode {
-                sockets: directions
-                    .iter()
-                    .map(|dir| node.sockets.get(dir).cloned())
-                    .collect::<Box<[Option<String>]>>(),
+                sockets: if let Some(sockets) = node.sockets.as_ref() {
+                    Some(
+                        directions
+                            .iter()
+                            .map(|dir| sockets.get(dir).cloned())
+                            .collect::<Box<[Option<String>]>>(),
+                    )
+                } else {
+                    None
+                },
                 symmetries: node
                     .symmetries
                     .iter()
@@ -164,6 +172,7 @@ impl HouseTileset {
                     .iter()
                     .map(|dir| node.optional.contains(dir))
                     .collect::<Box<[bool]>>(),
+                weight: node.weight,
             })
             .collect::<Box<[SemanticNode]>>();
 
@@ -226,32 +235,60 @@ impl HouseTileset {
         }
 
         // Build constraints for all DAG nodes
-        let mut constraints: Box<[((usize, Option<String>), (usize, Option<String>))]> =
-            vec![((0, None), (0, None)); 2 * model.constraints.len()].into_boxed_slice();
+        let mut constraints: Vec<((usize, Option<String>), (usize, Option<String>))> = Vec::new();
 
         for (index, [u, v]) in model.constraints.into_iter().enumerate() {
             let constraint = (
                 match u {
                     ConstraintNodeModel::Node(node) => {
-                        (*sematic_node_names_map.get(&node).unwrap(), None)
+                        vec![(*sematic_node_names_map.get(&node).unwrap(), None)]
                     }
 
                     ConstraintNodeModel::NodeSocket { node, socket } => {
-                        (*sematic_node_names_map.get(&node).unwrap(), Some(socket))
+                        let initial_index = *sematic_node_names_map.get(&node).unwrap();
+                        let mut stack = vec![initial_index];
+                        let mut result = vec![];
+                        while let Some(index) = stack.pop() {
+                            if semantic_nodes[index].sockets.is_some() {
+                                result.push((index, Some(socket.clone())));
+                            } else {
+                                for child_index in &semantic_dag_adj[index] {
+                                    stack.push(*child_index);
+                                }
+                            }
+                        }
+                        result
                     }
                 },
                 match v {
                     ConstraintNodeModel::Node(node) => {
-                        (*sematic_node_names_map.get(&node).unwrap(), None)
+                        vec![(*sematic_node_names_map.get(&node).unwrap(), None)]
                     }
 
                     ConstraintNodeModel::NodeSocket { node, socket } => {
-                        (*sematic_node_names_map.get(&node).unwrap(), Some(socket))
+                        let initial_index = *sematic_node_names_map.get(&node).unwrap();
+                        let mut stack = vec![initial_index];
+                        let mut result = vec![];
+                        while let Some(index) = stack.pop() {
+                            if semantic_nodes[index].sockets.is_some() {
+                                result.push((index, Some(socket.clone())));
+                            } else {
+                                for child_index in &semantic_dag_adj[index] {
+                                    stack.push(*child_index);
+                                }
+                            }
+                        }
+                        result
                     }
                 },
             );
-            constraints[2 * index] = constraint.clone();
-            constraints[2 * index + 1] = (constraint.1, constraint.0);
+
+            for u in &constraint.0 {
+                for v in &constraint.1 {
+                    constraints.push((u.clone(), v.clone()));
+                    constraints.push((v.clone(), u.clone()));
+                }
+            }
         }
 
         // Compute allowed neighbours
@@ -269,27 +306,36 @@ impl HouseTileset {
                     for (source_direction, _) in directions.iter().enumerate() {
                         let target_direction = Self::get_matching_direction(source_direction);
 
-                        let source_socket: &Option<String> =
-                            &transformed_source.sockets[source_direction];
-                        let target_socket: &Option<String> =
-                            &transformed_target.sockets[target_direction];
+                        if let (Some(source_sockets), Some(target_sockets)) = (
+                            transformed_source
+                                .sockets
+                                .as_ref()
+                                .map(|sockets| sockets.as_ref()),
+                            transformed_target
+                                .sockets
+                                .as_ref()
+                                .map(|sockets| sockets.as_ref()),
+                        ) {
+                            let source_socket: &Option<String> = &source_sockets[source_direction];
+                            let target_socket: &Option<String> = &target_sockets[target_direction];
 
-                        println!("Constraint: {source:?} --- {target:?}");
-                        println!("Direction: {source_direction:?} --- {target_direction:?}");
-                        println!(
+                            println!("Constraint: {source:?} --- {target:?}");
+                            println!("Direction: {source_direction:?} --- {target_direction:?}");
+                            println!(
                             "Transformed Nodes: {transformed_source:?} --- {transformed_target:?}"
                         );
 
-                        if source_socket.is_some()
-                            && target_socket.is_some()
-                            && (source_socket == &source.1 || source.1.is_none())
-                            && (target_socket == &target.1 || target.1.is_none())
-                        {
-                            println!("TRUE\n");
-                            allowed_neighbours[*transformed_source_index][source_direction]
-                                .add_tile(*transformed_target_index);
-                        } else {
-                            println!("FALSE\n");
+                            if source_socket.is_some()
+                                && target_socket.is_some()
+                                && (source_socket == &source.1 || source.1.is_none())
+                                && (target_socket == &target.1 || target.1.is_none())
+                            {
+                                println!("TRUE\n");
+                                allowed_neighbours[*transformed_source_index][source_direction]
+                                    .add_tile(*transformed_target_index);
+                            } else {
+                                println!("FALSE\n");
+                            }
                         }
                     }
                 }
@@ -300,7 +346,7 @@ impl HouseTileset {
         //    (a) <- allows -> (b)
         //   /  \
         // (c)  (d)
-        // Will add only (c) -- allows -> (b), (d) -- allows (b)
+        // Will add only (c) --- allows --> (b), (d) --- allows --> (b)
         // We must restore symmetry later!
 
         println!("\nGenerated allowed neighbours:");
@@ -406,7 +452,10 @@ impl HouseTileset {
                 println!("\t\t{}: {}", dir, allowed);
             }
         }
-
+        let weights = transformed_leaves
+            .iter()
+            .map(|leaf| semantic_nodes[transformed_nodes[*leaf].source_node].weight)
+            .collect_vec();
         Self {
             assets,
             arc_types: directions.len(),
@@ -420,6 +469,7 @@ impl HouseTileset {
                 .map(|associated| associated.into_boxed_slice())
                 .collect::<Box<[_]>>(),
             leaf_families,
+            weights,
         }
     }
 
@@ -485,13 +535,18 @@ impl HouseTileset {
             .map(|i| (*i, transformed_nodes[*i].sockets.clone()))
             .collect_vec();
 
-        let mut socket_configurations: HashSet<Box<[Option<String>]>> = HashSet::new();
+        let mut socket_configurations: HashSet<Option<Box<[Option<String>]>>> = HashSet::new();
         socket_configurations.extend(existing_socket_configurations.iter().map(|v| v.1.clone()));
         for sym in node_symmetries.iter() {
-            let sockets = sym
-                .iter()
-                .map(|i| semantic_node.sockets[*i].clone())
-                .collect::<Box<[Option<String>]>>();
+            let sockets = if let Some(sockets) = semantic_node.sockets.as_ref() {
+                Some(
+                    sym.iter()
+                        .map(|i| sockets[*i].clone())
+                        .collect::<Box<[Option<String>]>>(),
+                )
+            } else {
+                None
+            };
             let required = sym
                 .iter()
                 .map(|i| ((!semantic_node.optional[*i]) as usize) << *i)
@@ -581,13 +636,17 @@ impl HouseTileset {
         let mut sp = Superposition::empty_sized(self.leaf_sources.len());
         for (leaf_id, node_id) in self.leaf_sources.iter().enumerate() {
             let node = &self.transformed_nodes[*node_id];
-            let leaf_directions = node
-                .sockets
-                .iter()
-                .enumerate()
-                .map(|(index, socket)| (socket.is_some() as usize) << index)
-                .reduce(|last, next| last | next)
-                .unwrap();
+            let leaf_directions = if let Some(sockets) = node.sockets.as_ref() {
+                sockets
+                    .iter()
+                    .enumerate()
+                    .map(|(index, socket)| (socket.is_some() as usize) << index)
+                    .reduce(|last, next| last | next)
+                    .unwrap()
+            } else {
+                0b111111
+            };
+
             if leaf_directions & node.required == directions & node.required {
                 sp.add_tile(leaf_id);
             }

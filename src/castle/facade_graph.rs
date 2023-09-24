@@ -151,10 +151,14 @@ impl FacadeTileset {
             .semantic_nodes
             .iter()
             .map(|node| SemanticNode {
-                sockets: directions
-                    .iter()
-                    .map(|dir| node.sockets.get(dir).cloned())
-                    .collect::<Box<[Option<String>]>>(),
+                sockets: if let Some(sockets) = node.sockets.as_ref() {
+                    directions
+                        .iter()
+                        .map(|dir| sockets.get(dir).cloned())
+                        .collect::<Box<[Option<String>]>>()
+                } else {
+                    vec![None; 6].into_boxed_slice()
+                },
                 symmetries: node
                     .symmetries
                     .iter()
