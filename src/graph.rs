@@ -100,6 +100,15 @@ impl WaveFunction {
         Self(result)
     }
 
+    /// Returns a new WaveFunction that is the difference of a and b, i.e., bits in a but not in b
+    pub fn difference(a: &Self, b: &Self) -> Self {
+        let mut result = [0; TILE_U32S];
+        for i in 0..TILE_U32S {
+            result[i] = a[i] & (!b[i]);
+        }
+        Self(result)
+    }
+
     /// Counts the number of bits set to 1
     pub fn count_bits(&self) -> usize {
         let mut result = 0;

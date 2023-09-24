@@ -58,6 +58,7 @@ impl Peasant {
     pub fn propagate(&mut self, index: usize, neighbor: Neighbor) -> bool {
         let mut updated = false;
 
+        // combine all constraints of all the tiles that the neighbor can be according to what the current tile can be
         let constraints = self.tileset.get_constraints();
         let mut allowed = WaveFunction::empty();
         for tile in self.graph.tiles[index].tile_iter() {
@@ -72,5 +73,11 @@ impl Peasant {
         }
 
         updated
+    }
+
+    pub fn clear(&mut self) {
+        for tile in self.graph.tiles.iter_mut() {
+            *tile = WaveFunction::filled(self.tileset.tile_count());
+        }
     }
 }
