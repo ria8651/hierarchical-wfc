@@ -1,0 +1,98 @@
+{
+  "directions": ["+X", "-X", "+Y", "-Y", "+Z", "-Z"],
+  "symmetries": {
+    "rotateY": {
+      "+X": "+Z",
+      "-X": "-Z",
+      "+Z": "-X",
+      "-Z": "+X"
+    }
+  },
+  "semantic_nodes": [
+    {
+      "label": "foundation_flat",
+      "sockets": {
+        "+X": "in_b",
+        "-X": "out_b",
+        "+Y": "a",
+        "-Y": "a",
+        "-Z": "internal",
+        "+Z": "air"
+      },
+      "symmetries": ["rotateY"]
+    },
+    {
+      "label": "foundation_outer_corner",
+      "sockets": {
+        "+X": "air",
+        "-X": "out_b",
+        "+Y": "a",
+        "-Y": "a",
+        "+Z": "air",
+        "-Z": "in_b"
+      },
+      "symmetries": ["rotateY"]
+    },
+    {
+      "label": "air",
+      "sockets": {
+        "+X": "air",
+        "-X": "air",
+        "+Y": "air",
+        "-Y": "air",
+        "+Z": "air",
+        "-Z": "air"
+      },
+      "symmetries": ["rotateY"]
+    }
+  ],
+  "semantic_dag": {
+    "foundation_flat": null,
+    "foundation_outer_corner": null,
+    "air": null
+  },
+  "constraints": [
+    [
+      { "node": "foundation_flat", "socket": "out_b" },
+      { "node": "foundation_flat", "socket": "in_b" }
+    ],
+
+    [
+      { "node": "foundation_flat", "socket": "air" },
+      { "node": "air", "socket": "air" }
+    ],
+    [
+      { "node": "foundation_outer_corner", "socket": "air" },
+      { "node": "air", "socket": "air" }
+    ],
+    [
+      { "node": "foundation_outer_corner", "socket": "in_b" },
+      { "node": "foundation_outer_corner", "socket": "out_b" }
+    ],
+    [
+      { "node": "air", "socket": "air" },
+      { "node": "air", "socket": "air" }
+    ],
+    [
+      { "node": "foundation_flat", "socket": "in_b" },
+      { "node": "foundation_outer_corner", "socket": "out_b" }
+    ],
+    [
+      { "node": "foundation_outer_corner", "socket": "in_b" },
+      { "node": "foundation_flat", "socket": "out_b" }
+    ],
+    [
+      { "node": "foundation_flat", "socket": "internal" },
+      { "node": "foundation_flat", "socket": "internal" }
+    ]
+  ],
+  "assets": {
+    "models": {
+      "path": "voxel/gltf/house",
+      "nodes": {
+        "foundation_flat": "foundation_flat.gltf#Scene0",
+        "foundation_outer_corner": "foundation_outer_corner.gltf#Scene0"
+      }
+    }
+  }
+}

@@ -1,5 +1,8 @@
 use crate::wfc::{Neighbour, WfcGraph};
-use bevy::{math::ivec3, prelude::*};
+use bevy::{
+    math::{ivec3, vec3},
+    prelude::*,
+};
 use itertools::{iproduct, Itertools};
 
 #[derive(Debug, Component, Clone)]
@@ -11,6 +14,18 @@ pub struct GraphSettings {
 #[derive(Debug, Component, Clone)]
 pub struct GraphData {
     pub node_positions: Box<[IVec3]>,
+}
+
+impl GraphData {
+    pub fn get_node_pos(&self, node: usize) -> Vec3 {
+        vec3(2.0, 2.0, 2.0) * self.node_positions[node].as_vec3()
+    }
+    pub fn node_positions_f32(&self) -> impl Iterator<Item = Vec3> + '_ {
+        return self
+            .node_positions
+            .iter()
+            .map(|pos| pos.as_vec3() * vec3(2.0, 2.0, 2.0));
+    }
 }
 
 pub fn create_graph<F: Clone>(

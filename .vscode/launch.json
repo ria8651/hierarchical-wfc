@@ -73,9 +73,18 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Bin 'chunking'",
-            "sourceLanguages": ["rust"],
-            "program": "${workspaceFolder}/target/debug/chunking",
+            "name": "Debug executable 'house'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=house",
+                    "--package=hierarchical-wfc"
+                ],
+                "filter": {
+                    "name": "house",
+                    "kind": "bin"
+                }
+            },
             "args": [],
             "cwd": "${workspaceFolder}",
             "env": {
@@ -83,5 +92,6 @@
                 "CARGO_MANIFEST_DIR":"${workspaceFolder}"
             }
         },
+        
     ]
 }
