@@ -8,12 +8,12 @@ use bevy_inspector_egui::{
     reflect_inspector::ui_for_value,
     DefaultInspectorConfigPlugin,
 };
-use hierarchical_wfc::TileSet;
-use std::sync::Arc;
 use grid_wfc::{
     basic_tileset::BasicTileset, carcassonne_tileset::CarcassonneTileset,
     graph_grid::GridGraphSettings, mxgmn_tileset::MxgmnTileset,
 };
+use hierarchical_wfc::TileSet;
+use std::sync::Arc;
 
 use crate::world::{GenerateEvent, MaybeWorld};
 

@@ -1,16 +1,16 @@
 use bevy::{prelude::*, utils::HashMap};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, PlotConfiguration};
 use crossbeam::queue::SegQueue;
-use hierarchical_wfc::{
-    CpuExecutor, Executor, MultiThreadedExecutor, Peasant, TileSet, WaveFunction,
-};
-use rand::{rngs::SmallRng, Rng, SeedableRng};
-use std::sync::Arc;
 use grid_wfc::{
     carcassonne_tileset::CarcassonneTileset,
     graph_grid::{self, GridGraphSettings},
     world::{ChunkState, World},
 };
+use hierarchical_wfc::{
+    CpuExecutor, Executor, MultiThreadedExecutor, Peasant, TileSet, WaveFunction,
+};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
+use std::sync::Arc;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     let tileset = Arc::new(CarcassonneTileset::default());
