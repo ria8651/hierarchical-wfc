@@ -12,6 +12,7 @@ console_error_panic_hook = "0.1"
 web-time = "0.2"
 crossbeam = "0.8"
 dyn-clone = "1.0"
+plotters = "0.3.5"
 
 [profile.release]
 debug = true
@@ -22,4 +23,8 @@ criterion = "0.5"
 
 [[bench]]
 name = "wfc"
+harness = false
+
+[[bench]]
+name = "stats"
 harness = false

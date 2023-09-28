@@ -15,14 +15,17 @@ use std::sync::Arc;
 pub fn criterion_benchmark(c: &mut Criterion) {
     let tileset = Arc::new(CarcassonneTileset::default());
 
-    let seed = 0;
+    let mut seed = 0;
     let threads = 8;
 
     let output = Arc::new(SegQueue::new());
     let mut cpu_executor = CpuExecutor::new(output.clone());
     let mut multithreaded_executor = MultiThreadedExecutor::new(output.clone(), threads);
 
-    let chunked = |chunk_size: usize, settings: &GridGraphSettings, executor: &mut dyn Executor| {
+    let chunked = |seed: u64,
+                   chunk_size: usize,
+                   settings: &GridGraphSettings,
+                   executor: &mut dyn Executor| {
         let mut rng = SmallRng::seed_from_u64(seed);
         let chunks = IVec2::new(
             settings.width as i32 / chunk_size as i32,
@@ -83,7 +86,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 chunk_size,
                 |b, &chunk_size| {
                     b.iter(|| {
-                        chunked(chunk_size, &settings, &mut cpu_executor);
+                        chunked(seed, chunk_size, &settings, &mut cpu_executor);
+                        seed += 1;
                     })
                 },
             );
@@ -92,7 +96,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 chunk_size,
                 |b, &chunk_size| {
                     b.iter(|| {
-                        chunked(chunk_size, &settings, &mut multithreaded_executor);
+                        chunked(seed, chunk_size, &settings, &mut multithreaded_executor);
                     })
                 },
             );
@@ -115,6 +119,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
             group.bench_with_input(BenchmarkId::new("Single", size), &size, |b, _| {
                 b.iter(|| {
+                    seed += 1;
                     let graph =
                         graph_grid::create(&settings, WaveFunction::filled(tileset.tile_count()));
                     let peasant = Peasant {
@@ -132,12 +137,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             });
             group.bench_with_input(BenchmarkId::new("Chunked", size), &size, |b, _| {
                 b.iter(|| {
-                    chunked(chunk_size, &settings, &mut cpu_executor);
+                    chunked(seed, chunk_size, &settings, &mut cpu_executor);
                 })
             });
             group.bench_with_input(BenchmarkId::new("Multi", size), &size, |b, _| {
                 b.iter(|| {
-                    chunked(chunk_size, &settings, &mut multithreaded_executor);
+                    chunked(seed, chunk_size, &settings, &mut multithreaded_executor);
                 })
             });
         }

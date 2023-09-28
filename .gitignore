@@ -3,3 +3,5 @@
 /web/hierarchical-wfc*
 trace-*
 flamegraph.svg
+.vscode*
+.idea*
