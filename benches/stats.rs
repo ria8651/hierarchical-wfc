@@ -4,6 +4,7 @@ use bevy::{
 };
 use crossbeam::queue::SegQueue;
 use grid_wfc::{
+    carcassonne_tileset::CarcassonneTileset,
     graph_grid::{self, GridGraphSettings},
     mxgmn_tileset::MxgmnTileset,
     world::{ChunkState, World},
@@ -81,21 +82,23 @@ impl RollingStdErr<f64> {
 }
 const THREADS: usize = 8;
 const SAMPLES: u64 = 512;
+const SIZE: usize = 64;
+const CHUNK_SIZE: usize = 16;
+const OVERLAP: usize = 4;
 type Key = [usize; 5];
 pub fn main() {
-    let tileset = Arc::new(
-        MxgmnTileset::new(Path::new("assets/mxgmn/Circuit.xml"), None)
-            .ok()
-            .unwrap(),
-    );
+    // let tileset = Arc::new(
+    //     MxgmnTileset::new(Path::new("assets/mxgmn/Circuit.xml"), None)
+    //         .ok()
+    //         .unwrap(),
+    // );
 
-    // let tileset = Arc::new(CarcassonneTileset::default());
+    let tileset = Arc::new(CarcassonneTileset::default());
 
     let output = Arc::new(SegQueue::new());
-    let mut single_threade_backend = wfc_backend::SingleThreaded::new(output.clone());
     let mut multi_threaded_backend = wfc_backend::MultiThreaded::new(output.clone(), THREADS);
 
-    let size = 64;
+    let size = SIZE;
     let settings = GridGraphSettings {
         height: size,
         width: size,
@@ -104,9 +107,7 @@ pub fn main() {
     let a_sparse_vec: HashMap<Key, StdErr<f64>> = {
         let mut valid_samples: usize = 0;
         let mut rolling_std_err: HashMap<[usize; 5], RollingStdErr<f64>> = HashMap::new();
-        'skip: for seed in 0..SAMPLES {
-            dbg!(seed);
-            let mut frequnecy: HashMap<[usize; 5], usize> = HashMap::new();
+        for seed in 0..SAMPLES {
             let graph = graph_grid::create(&settings, WaveFunction::filled(tileset.tile_count()));
             let task = WfcTask {
                 graph,
@@ -116,7 +117,13 @@ pub fn main() {
                 backtracking: wfc_task::BacktrackingSettings::default(),
             };
 
-            single_threade_backend.queue_task(task).unwrap();
+            multi_threaded_backend.queue_task(task).unwrap();
+        }
+
+        'skip: for seed in 0..SAMPLES {
+            dbg!(seed);
+            let mut frequnecy: HashMap<[usize; 5], usize> = HashMap::new();
+
             'outer: loop {
                 match output.pop() {
                     Some(Ok(result)) => {
@@ -164,7 +171,8 @@ pub fn main() {
         for seed in 0..SAMPLES {
             dbg!(seed);
             let mut frequnecy: HashMap<[usize; 5], usize> = HashMap::new();
-            let result = chunked_generator(seed, 16, &settings, &mut multi_threaded_backend);
+            let result =
+                chunked_generator(seed, CHUNK_SIZE, &settings, &mut multi_threaded_backend);
             let result = match result {
                 Ok(r) => r,
                 Err(e) => {
@@ -208,10 +216,9 @@ pub fn main() {
 
     let a_keys: HashSet<_> = a_sparse_vec.keys().collect();
     let b_keys: HashSet<_> = b_sparse_vec.keys().collect();
-    let overlap = a_keys.intersection(&b_keys);
 
-    let mut results = overlap
-        .clone()
+    let mut results = a_keys
+        .intersection(&b_keys)
         .map(|k| {
             (
                 **k,
@@ -223,22 +230,24 @@ pub fn main() {
 
     results.sort_by(|a, b| (a.1.n.max(a.2.n)).total_cmp(&(b.1.n.max(b.2.n))));
 
+    println!("t-test results:");
     let mut t_tests: Vec<f64> = vec![];
-    for key in overlap.into_iter() {
+    for key in a_keys.intersection(&b_keys).into_iter() {
         let a = a_sparse_vec.get(*key).unwrap();
         let b = b_sparse_vec.get(*key).unwrap();
-        if a.n < 5.0 || b.n < 5.0 {
+        if a.n <= 0.0 || b.n <= 0.0 {
             continue;
         }
 
         let t = a.t_test(b);
-        println!("{a} t {b} = {t}");
+        println!("\t{t} for \t{a}, {b}");
         t_tests.push(t);
     }
+    println!();
 
     let n = t_tests.len() as f64;
     let avg = t_tests.iter().fold(0.0, |acc, next| acc + next.abs() / n);
-    print!("Average t test value: {avg}");
+    println!("Average t-test value: {avg:0.3}");
 
     for res in results.iter().rev().take(10) {
         let (key, a, b) = res;
@@ -340,7 +349,7 @@ fn get_chunked_generator(
             world: vec![vec![filled; settings.height]; settings.width],
             generated_chunks: HashMap::from_iter(vec![(start_chunk, ChunkState::Scheduled)]),
             chunk_size,
-            overlap: 1,
+            overlap: OVERLAP,
             seed,
             tileset: tileset.clone(),
             outstanding: 0,
