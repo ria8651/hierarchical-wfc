@@ -133,7 +133,7 @@ pub fn main() {
                             }
                             let tiles: [usize; 5] = tiles.map(|n| n.unwrap());
                             {
-                                let value = frequnecy.get(&tiles).unwrap_or(&0).clone();
+                                let value = *frequnecy.get(&tiles).unwrap_or(&0);
                                 frequnecy.insert(tiles, value + 1); //.entry(tiles).insert(value + 1);
                             }
                         }
@@ -247,13 +247,13 @@ pub fn main() {
 
     let sum_a = a_sparse_vec
         .values()
-        .map(|v| v.n.clone())
+        .map(|v| v.n)
         .reduce(|a, b| a + b)
         .unwrap();
 
     let sum_b = b_sparse_vec
         .values()
-        .map(|v| v.n.clone())
+        .map(|v| v.n)
         .reduce(|a, b| a + b)
         .unwrap();
 
