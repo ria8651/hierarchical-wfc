@@ -11,11 +11,11 @@ use grid_wfc::{
     world::{ChunkState, World},
 };
 use hierarchical_wfc::{
-    CpuExecutor, Executor, MultiThreadedExecutor, Peasant, TileSet, WaveFunction,
+    wfc_backend::{self, Backend},
+    wfc_task, TileSet, WaveFunction, WfcTask,
 };
-use plotters::prelude::*;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
-use std::{ops::AddAssign, ops::Mul, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 
 // https://en.wikipedia.org/wiki/Standard_deviation#Rapid_calculation_methods
 #[derive(Default)]
@@ -30,9 +30,18 @@ struct StdErr<T> {
     s: T,
 }
 
-impl<T: std::fmt::Display> std::fmt::Display for StdErr<T> {
+impl std::fmt::Display for StdErr<f64> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} pm {}", self.n, self.s)
+        let sf_index = self.s.log10().floor() as i32;
+
+        let n = (self.n.abs() * (10f64).powi(1 - sf_index)).round() as i64;
+        let s = (self.s.abs() * (10f64).powi(1 - sf_index)).round() as i64;
+
+        let sign = if self.n.is_sign_negative() { "-" } else { "" };
+        let n = format!("{}{}.{}", sign, n.div_euclid(10), n.rem_euclid(10));
+        let s = format!("{}.{}", s.div_euclid(10), s.rem_euclid(10));
+
+        write!(f, "({}pm{})e{}", n, s, sf_index)
     }
 }
 
@@ -52,7 +61,14 @@ impl RollingStdErr<f64> {
         self.s_2 += value * value;
         self.n += 1;
     }
+    fn avg_manual_sample_count(&self, n: usize) -> StdErr<f64> {
+        assert!(n > 0);
 
+        let avg = self.s_1 / n as f64;
+        let sigma = (n as f64 * self.s_2 - self.s_1 * self.s_1).sqrt() / n as f64;
+        let std_err = sigma / (n as f64).sqrt();
+        StdErr::<f64> { n: avg, s: std_err }
+    }
     fn avg(&self) -> StdErr<f64> {
         if self.n == 0 {
             return StdErr::<f64> { n: 0.0, s: 0.0 };
@@ -65,20 +81,20 @@ impl RollingStdErr<f64> {
     }
 }
 const THREADS: usize = 8;
-
+const SAMPLES: u64 = 512;
 type Key = [usize; 5];
 pub fn main() {
-    // let tileset = Arc::new(
-    //     MxgmnTileset::new(Path::new("assets/mxgmn/Circuit.xml"), None)
-    //         .ok()
-    //         .unwrap(),
-    // );
+    let tileset = Arc::new(
+        MxgmnTileset::new(Path::new("assets/mxgmn/Circuit.xml"), None)
+            .ok()
+            .unwrap(),
+    );
 
-    let tileset = Arc::new(CarcassonneTileset::default());
+    // let tileset = Arc::new(CarcassonneTileset::default());
 
     let output = Arc::new(SegQueue::new());
-    let mut cpu_executor = CpuExecutor::new(output.clone());
-    let mut threaded_executor = MultiThreadedExecutor::new(output.clone(), THREADS);
+    let mut single_threade_backend = wfc_backend::SingleThreaded::new(output.clone());
+    let mut multi_threaded_backend = wfc_backend::MultiThreaded::new(output.clone(), THREADS);
 
     let size = 64;
     let settings = GridGraphSettings {
@@ -87,58 +103,76 @@ pub fn main() {
         periodic: false,
     };
     let a_sparse_vec: HashMap<Key, StdErr<f64>> = {
+        let mut valid_samples: usize = 0;
         let mut rolling_std_err: HashMap<[usize; 5], RollingStdErr<f64>> = HashMap::new();
-        for seed in 0..256 {
+        'skip: for seed in 0..SAMPLES {
             dbg!(seed);
             let mut frequnecy: HashMap<[usize; 5], usize> = HashMap::new();
             let graph = graph_grid::create(&settings, WaveFunction::filled(tileset.tile_count()));
-            let peasant = Peasant {
+            let task = WfcTask {
                 graph,
                 tileset: tileset.clone(),
                 seed,
-                user_data: None,
+                metadata: None,
+                backtracking: wfc_task::BacktrackingSettings::default(),
             };
 
-            cpu_executor.queue_peasant(peasant).unwrap();
+            single_threade_backend.queue_task(task).unwrap();
             'outer: loop {
-                if let Some(result) = output.pop() {
-                    let result = result.graph.validate().unwrap();
-                    for (tile, neigbours) in result.tiles.iter().zip(result.neighbors.iter()) {
-                        let mut tiles = [None; 5];
-                        tiles[0] = Some(*tile);
-                        for neighbour in neigbours {
-                            tiles[neighbour.direction + 1] = Some(result.tiles[neighbour.index]);
+                match output.pop() {
+                    Some(Ok(result)) => {
+                        let result = result.graph.validate().unwrap();
+                        for (tile, neigbours) in result.tiles.iter().zip(result.neighbors.iter()) {
+                            let mut tiles = [None; 5];
+                            tiles[0] = Some(*tile);
+                            for neighbour in neigbours {
+                                tiles[neighbour.direction + 1] =
+                                    Some(result.tiles[neighbour.index]);
+                            }
+                            if tiles.map(|t| t.is_some()).contains(&false) {
+                                continue;
+                            }
+                            let tiles: [usize; 5] = tiles.map(|n| n.unwrap());
+                            {
+                                let value = frequnecy.get(&tiles).unwrap_or(&0).clone();
+                                frequnecy.insert(tiles, value + 1); //.entry(tiles).insert(value + 1);
+                            }
                         }
-                        if tiles.map(|t| t.is_some()).contains(&false) {
-                            continue;
-                        }
-                        let tiles: [usize; 5] = tiles.map(|n| n.unwrap());
-                        {
-                            let value = frequnecy.get(&tiles).unwrap_or(&0).clone();
-                            frequnecy.insert(tiles, value + 1); //.entry(tiles).insert(value + 1);
-                        }
+                        break 'outer;
                     }
-                    break 'outer;
+                    Some(Err(_)) => {
+                        continue 'skip;
+                    }
+                    _ => (),
                 }
             }
 
             for (k, v) in frequnecy {
                 rolling_std_err.entry(k).or_default().insert(v as f64);
             }
+            valid_samples += 1;
         }
         rolling_std_err
             .into_iter()
-            .map(|(k, v)| (k, v.avg()))
+            .map(|(k, v)| (k, v.avg_manual_sample_count(valid_samples)))
             .collect()
     };
     let b_sparse_vec: HashMap<Key, StdErr<f64>> = {
         let chunked_generator = get_chunked_generator(tileset.clone(), output.clone());
 
         let mut rolling_std_err: HashMap<[usize; 5], RollingStdErr<f64>> = HashMap::new();
-        for seed in 0..256 {
+        let mut valid_samples: usize = 0;
+        for seed in 0..SAMPLES {
             dbg!(seed);
             let mut frequnecy: HashMap<[usize; 5], usize> = HashMap::new();
-            let result = chunked_generator(seed, 16, &settings, &mut threaded_executor);
+            let result = chunked_generator(seed, 16, &settings, &mut multi_threaded_backend);
+            let result = match result {
+                Ok(r) => r,
+                Err(e) => {
+                    dbg!(e);
+                    continue;
+                }
+            };
 
             for j in 1..result.len() - 1 {
                 for i in 1..result.first().unwrap().len() - 1 {
@@ -165,16 +199,30 @@ pub fn main() {
             for (k, v) in frequnecy {
                 rolling_std_err.entry(k).or_default().insert(v as f64);
             }
+            valid_samples += 1;
         }
         rolling_std_err
             .into_iter()
-            .map(|(k, v)| (k, v.avg()))
+            .map(|(k, v)| (k, v.avg_manual_sample_count(valid_samples)))
             .collect()
     };
 
     let a_keys: HashSet<_> = a_sparse_vec.keys().collect();
     let b_keys: HashSet<_> = b_sparse_vec.keys().collect();
     let overlap = a_keys.intersection(&b_keys);
+
+    let mut results = overlap
+        .clone()
+        .map(|k| {
+            (
+                **k,
+                a_sparse_vec.get(*k).unwrap(),
+                b_sparse_vec.get(*k).unwrap(),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    results.sort_by(|a, b| (a.1.n.max(a.2.n)).total_cmp(&(b.1.n.max(b.2.n))));
 
     let mut t_tests: Vec<f64> = vec![];
     for key in overlap.into_iter() {
@@ -189,12 +237,33 @@ pub fn main() {
         t_tests.push(t);
     }
 
-    let max_a = a_sparse_vec.iter().max_by(|a, b| a.1.n.total_cmp(&b.1.n));
-    let max_b = b_sparse_vec.iter().max_by(|a, b| a.1.n.total_cmp(&b.1.n));
-    dbg!(a_sparse_vec.len());
-    dbg!(max_a.and_then(|max| Some((max.0, max.1.n))).unwrap());
-    dbg!(a_sparse_vec.len());
-    dbg!(max_b.and_then(|max| Some((max.0, max.1.n))).unwrap());
+    let n = t_tests.len() as f64;
+    let avg = t_tests.iter().fold(0.0, |acc, next| acc + next.abs() / n);
+    print!("Average t test value: {avg}");
+
+    for res in results.iter().rev().take(10) {
+        let (key, a, b) = res;
+        println!("{a} {b} for {key:?}");
+    }
+
+    let sum_a = a_sparse_vec
+        .values()
+        .map(|v| v.n.clone())
+        .reduce(|a, b| a + b)
+        .unwrap();
+
+    let sum_b = b_sparse_vec
+        .values()
+        .map(|v| v.n.clone())
+        .reduce(|a, b| a + b)
+        .unwrap();
+
+    dbg!((sum_a, sum_b));
+
+    // dbg!(a_sparse_vec.len());
+    // dbg!(max_a.and_then(|max| Some((max.0, max.1.n))).unwrap());
+    // dbg!(a_sparse_vec.len());
+    // dbg!(max_b.and_then(|max| Some((max.0, max.1.n))).unwrap());
 
     // let mut values = rolling_std_err
     //     .values()
@@ -248,12 +317,17 @@ pub fn main() {
 
 fn get_chunked_generator(
     tileset: Arc<dyn TileSet>,
-    output: Arc<SegQueue<Peasant>>,
-) -> impl Fn(u64, usize, &GridGraphSettings, &mut dyn Executor) -> Vec<Vec<WaveFunction>> {
+    output: Arc<SegQueue<anyhow::Result<WfcTask>>>,
+) -> impl Fn(
+    u64,
+    usize,
+    &GridGraphSettings,
+    &mut dyn wfc_backend::Backend,
+) -> anyhow::Result<Vec<Vec<WaveFunction>>> {
     move |seed: u64,
           chunk_size: usize,
           settings: &GridGraphSettings,
-          executor: &mut dyn Executor| {
+          backend: &mut dyn wfc_backend::Backend| {
         let mut rng = SmallRng::seed_from_u64(seed);
         let chunks = IVec2::new(
             settings.width as i32 / chunk_size as i32,
@@ -270,21 +344,29 @@ fn get_chunked_generator(
             overlap: 1,
             seed,
             tileset: tileset.clone(),
+            outstanding: 0,
         };
-        world.start_generation(start_chunk, executor, Some(Box::new(start_chunk)));
+        world.start_generation(start_chunk, backend, Some(Box::new(start_chunk)));
 
         // process output
         let chunk_count = (chunks.x * chunks.y) as usize;
         'outer: loop {
-            if let Some(peasant) = output.pop() {
-                let chunk = peasant.user_data.as_ref().unwrap().downcast_ref().unwrap();
+            match output.pop() {
+                Some(Ok(task)) => {
+                    let chunk = task.metadata.as_ref().unwrap().downcast_ref().unwrap();
 
-                world.process_chunk(
-                    *chunk,
-                    peasant,
-                    executor,
-                    Box::new(|chunk| Some(Box::new(chunk))),
-                );
+                    world.process_chunk(
+                        *chunk,
+                        task,
+                        backend,
+                        Box::new(|chunk| Some(Box::new(chunk))),
+                    );
+                }
+                Some(Err(e)) => {
+                    drain_output(output.clone(), world.outstanding);
+                    return Err(e);
+                }
+                _ => (),
             }
 
             if world.generated_chunks.len() >= chunk_count {
@@ -297,6 +379,12 @@ fn get_chunked_generator(
                 break;
             }
         }
-        world.world
+        Ok(world.world)
+    }
+}
+
+fn drain_output(output: Arc<SegQueue<anyhow::Result<WfcTask>>>, remaining: usize) {
+    for i in 0..remaining {
+        while output.pop().is_none() {}
     }
 }

@@ -1,4 +1,4 @@
-use crate::graph::WaveFunction;
+use crate::wfc_graph::WaveFunction;
 use bevy::prelude::*;
 use dyn_clone::DynClone;
 use std::sync::Arc;

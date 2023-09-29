@@ -1,4 +1,5 @@
-use crate::{CpuExecutor, Executor, Peasant};
+use super::{Backend, SingleThreaded};
+use crate::wfc_task::WfcTask;
 use anyhow::Result;
 use crossbeam::{
     channel::{self, Sender},
@@ -6,13 +7,13 @@ use crossbeam::{
 };
 use std::{sync::Arc, thread};
 
-pub struct MultiThreadedExecutor {
-    queue: Arc<SegQueue<Peasant>>,
+pub struct MultiThreaded {
+    queue: Arc<SegQueue<WfcTask>>,
     update_channel: Sender<()>,
 }
 
-impl MultiThreadedExecutor {
-    pub fn new(output: Arc<SegQueue<Peasant>>, num_threads: usize) -> Self {
+impl MultiThreaded {
+    pub fn new(output: Arc<SegQueue<Result<WfcTask>>>, num_threads: usize) -> Self {
         let queue = Arc::new(SegQueue::new());
         let (tx, rx) = channel::unbounded();
 
@@ -23,9 +24,11 @@ impl MultiThreadedExecutor {
 
             thread::spawn(move || loop {
                 while let Ok(()) = rx.recv() {
-                    if let Some(mut peasant) = queue.pop() {
-                        CpuExecutor::execute(&mut peasant);
-                        output.push(peasant);
+                    if let Some(mut task) = queue.pop() {
+                        if let Err(e) = SingleThreaded::execute(&mut task) {
+                            output.push(Err(e));
+                        }
+                        output.push(Ok(task));
                     }
                 }
             });
@@ -38,9 +41,9 @@ impl MultiThreadedExecutor {
     }
 }
 
-impl Executor for MultiThreadedExecutor {
-    fn queue_peasant(&mut self, peasant: Peasant) -> Result<()> {
-        self.queue.push(peasant);
+impl Backend for MultiThreaded {
+    fn queue_task(&mut self, task: WfcTask) -> Result<()> {
+        self.queue.push(task);
         self.update_channel.send(())?;
 
         Ok(())

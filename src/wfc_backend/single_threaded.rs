@@ -1,5 +1,6 @@
-use crate::{Executor, Peasant, WaveFunction};
-use anyhow::Result;
+use super::Backend;
+use crate::{WaveFunction, WfcTask};
+use anyhow::{anyhow, Result};
 use crossbeam::{
     channel::{self, Sender},
     queue::SegQueue,
@@ -7,8 +8,8 @@ use crossbeam::{
 use rand::{rngs::SmallRng, SeedableRng};
 use std::{sync::Arc, thread};
 
-pub struct CpuExecutor {
-    queue: Sender<Peasant>,
+pub struct SingleThreaded {
+    queue: Sender<WfcTask>,
 }
 
 struct History {
@@ -21,16 +22,24 @@ struct HistoryCell {
     options: WaveFunction,
 }
 
-impl CpuExecutor {
-    pub fn new(output: Arc<SegQueue<Peasant>>) -> Self {
+impl SingleThreaded {
+    pub fn new(output: Arc<SegQueue<Result<WfcTask>>>) -> Self {
         let (tx, rx) = channel::unbounded();
 
         thread::Builder::new()
-            .name("CPU WFC Executor".to_string())
+            .name("WFC CPU backend".to_string())
             .spawn(move || {
-                while let Ok(mut peasant) = rx.recv() {
-                    Self::execute(&mut peasant);
-                    output.push(peasant);
+                while let Ok(mut task) = rx.recv() {
+                    let task_result = Self::execute(&mut task);
+                    match task_result {
+                        Err(e) => {
+                            dbg!(&e);
+                            output.push(Err(e))
+                        }
+                        Ok(_) => {
+                            output.push(Ok(task));
+                        }
+                    }
                 }
             })
             .unwrap();
@@ -38,24 +47,25 @@ impl CpuExecutor {
         Self { queue: tx }
     }
 
-    pub fn execute(mut peasant: &mut Peasant) {
-        let mut rng = SmallRng::seed_from_u64(peasant.seed);
-        let weights = peasant.tileset.get_weights();
-        let tileset = peasant.tileset.clone();
+    pub fn execute(mut task: &mut WfcTask) -> Result<()> {
+        let mut rng = SmallRng::seed_from_u64(task.seed);
+        let weights = task.tileset.get_weights();
+        let tileset = task.tileset.clone();
+        let mut attemps_left = task.backtracking.max_restarts;
 
         let mut initial_state: Vec<HistoryCell> = Vec::new();
 
         // store initial state of all cells already constrained
-        for i in 0..peasant.graph.tiles.len() {
-            if peasant.graph.tiles[i].count_bits() != tileset.tile_count() {
+        for i in 0..task.graph.tiles.len() {
+            if task.graph.tiles[i].count_bits() != tileset.tile_count() {
                 initial_state.push(HistoryCell {
                     index: i,
-                    options: peasant.graph.tiles[i].clone(),
+                    options: task.graph.tiles[i].clone(),
                 });
             }
         }
 
-        let mut stack: Vec<usize> = (0..peasant.graph.tiles.len()).collect();
+        let mut stack: Vec<usize> = (0..task.graph.tiles.len()).collect();
         let mut history = History {
             stack: Vec::new(),
             decision_cells: Vec::new(),
@@ -64,15 +74,15 @@ impl CpuExecutor {
             let mut backtrack_flag = false;
             // propagate changes
             while let Some(index) = stack.pop() {
-                for i in 0..peasant.graph.neighbors[index].len() {
+                for i in 0..task.graph.neighbors[index].len() {
                     // propagate changes
-                    let neighbor = peasant.graph.neighbors[index][i];
-                    if peasant.propagate(index, neighbor) {
+                    let neighbor = task.graph.neighbors[index][i];
+                    if task.propagate(index, neighbor) {
                         stack.push(neighbor.index);
-                        if peasant.graph.tiles[neighbor.index].count_bits() == 1 {
+                        if task.graph.tiles[neighbor.index].count_bits() == 1 {
                             history.stack.push(neighbor.index);
                         }
-                        if peasant.graph.tiles[neighbor.index].count_bits() == 0 {
+                        if task.graph.tiles[neighbor.index].count_bits() == 0 {
                             // contradiction found
                             backtrack_flag = true;
                             break;
@@ -80,7 +90,7 @@ impl CpuExecutor {
                     }
                 }
                 if backtrack_flag {
-                    let result = Self::backtrack(&mut history, &mut peasant, &mut rng);
+                    let result = Self::backtrack(&mut history, &mut task, &mut rng);
                     if let Ok(continue_from) = result {
                         stack.clear();
                         stack.push(continue_from);
@@ -88,29 +98,38 @@ impl CpuExecutor {
                         // If there's no collapsed cell in the history,
                         // there's an unsolvable configuration.
                         // Perform a random restart.
-                        peasant.clear();
+                        attemps_left -= 1;
+                        if attemps_left == 0 {
+                            task.graph.tiles.fill(WaveFunction::empty());
+                            let seed = task.seed;
+                            let restarts = task.backtracking.max_restarts;
+                            return Err(anyhow!(
+                                "Backtracking exceeded {restarts} on seed {seed:x}"
+                            ));
+                        }
+                        task.clear();
                         for cell in initial_state.iter() {
-                            peasant.graph.tiles[cell.index] = cell.options.clone();
+                            task.graph.tiles[cell.index] = cell.options.clone();
                         }
                         history = History {
                             stack: Vec::new(),
                             decision_cells: Vec::new(),
                         };
-                        stack = (0..peasant.graph.tiles.len()).collect();
+                        stack = (0..task.graph.tiles.len()).collect();
                     }
                     backtrack_flag = false;
                     continue;
                 }
             }
 
-            if let Some(cell) = peasant.lowest_entropy(&mut rng) {
-                let mut options = peasant.graph.tiles[cell].clone();
+            if let Some(cell) = task.lowest_entropy(&mut rng) {
+                let mut options = task.graph.tiles[cell].clone();
                 // collapse cell
-                peasant.graph.tiles[cell]
+                task.graph.tiles[cell]
                     .select_random(&mut rng, &weights)
                     .unwrap();
                 stack.push(cell);
-                options = WaveFunction::difference(&options, &peasant.graph.tiles[cell]);
+                options = WaveFunction::difference(&options, &task.graph.tiles[cell]);
                 history.stack.push(cell);
                 history.decision_cells.push(HistoryCell {
                     index: history.stack.len() - 1,
@@ -118,14 +137,14 @@ impl CpuExecutor {
                 });
             } else {
                 // all cells collapsed
-                return;
+                return Ok(());
             }
         }
     }
 
     fn backtrack(
         history: &mut History,
-        peasant: &mut Peasant,
+        task: &mut WfcTask,
         mut rng: &mut SmallRng,
     ) -> Result<usize, String> {
         // Backtrack to most recent collapsed cell
@@ -145,31 +164,31 @@ impl CpuExecutor {
         }
 
         // Restore state until the most recent collapsed cell
-        let tileset = peasant.tileset.clone();
+        let tileset = task.tileset.clone();
         let filled = WaveFunction::filled(tileset.tile_count());
         while history.stack.len() > collapsed.index + 1 {
             let index = history.stack.pop().unwrap();
-            peasant.graph.tiles[index] = filled;
+            task.graph.tiles[index] = filled;
         }
         let collapsed_index = history.stack.pop().unwrap();
-        peasant.graph.tiles[collapsed_index] = filled;
+        task.graph.tiles[collapsed_index] = filled;
 
         // Unconstrain all tiles which are not fully collapsed
-        for i in 0..peasant.graph.tiles.len() {
-            if peasant.graph.tiles[i].count_bits() != 1 {
-                peasant.graph.tiles[i] = filled;
+        for i in 0..task.graph.tiles.len() {
+            if task.graph.tiles[i].count_bits() != 1 {
+                task.graph.tiles[i] = filled;
             }
         }
 
         // Reconstrain tiles
-        let mut stack: Vec<usize> = (0..peasant.graph.tiles.len()).collect();
+        let mut stack: Vec<usize> = (0..task.graph.tiles.len()).collect();
         while let Some(index) = stack.pop() {
-            for i in 0..peasant.graph.neighbors[index].len() {
+            for i in 0..task.graph.neighbors[index].len() {
                 // propagate changes
-                let neighbor = peasant.graph.neighbors[index][i];
-                if peasant.propagate(index, neighbor) {
+                let neighbor = task.graph.neighbors[index][i];
+                if task.propagate(index, neighbor) {
                     stack.push(neighbor.index);
-                    if peasant.graph.tiles[neighbor.index].count_bits() == 0 {
+                    if task.graph.tiles[neighbor.index].count_bits() == 0 {
                         panic!(
                             "Contradiction found while backtracking, this should never happen{}",
                             collapsed_index
@@ -180,13 +199,13 @@ impl CpuExecutor {
         }
 
         // Restore state of the most recent collapsed cell
-        peasant.graph.tiles[collapsed_index] = collapsed.options;
+        task.graph.tiles[collapsed_index] = collapsed.options;
         let mut options = collapsed.options.clone();
         // collapse cell
-        peasant.graph.tiles[collapsed_index]
+        task.graph.tiles[collapsed_index]
             .select_random(&mut rng, &tileset.get_weights())
             .unwrap();
-        options = WaveFunction::difference(&options, &peasant.graph.tiles[collapsed_index]);
+        options = WaveFunction::difference(&options, &task.graph.tiles[collapsed_index]);
         history.stack.push(collapsed_index);
         history.decision_cells.push(HistoryCell {
             index: history.stack.len() - 1,
@@ -196,9 +215,9 @@ impl CpuExecutor {
     }
 }
 
-impl Executor for CpuExecutor {
-    fn queue_peasant(&mut self, peasant: Peasant) -> Result<()> {
-        self.queue.send(peasant)?;
+impl Backend for SingleThreaded {
+    fn queue_task(&mut self, task: WfcTask) -> Result<()> {
+        self.queue.send(task)?;
 
         Ok(())
     }

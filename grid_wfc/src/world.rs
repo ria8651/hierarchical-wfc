@@ -1,6 +1,6 @@
 use crate::graph_grid::{self, Direction, GridGraphSettings};
 use bevy::{prelude::*, utils::HashMap};
-use hierarchical_wfc::{Executor, Graph, Peasant, TileSet, UserData, WaveFunction};
+use hierarchical_wfc::{wfc_backend, wfc_task, Graph, TileSet, WaveFunction, WfcTask};
 use std::sync::Arc;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -17,6 +17,7 @@ pub struct World {
     pub overlap: usize,
     pub seed: u64,
     pub tileset: Arc<dyn TileSet>,
+    pub outstanding: usize,
 }
 
 impl World {
@@ -94,28 +95,31 @@ impl World {
     pub fn start_generation(
         &mut self,
         start_chunk: IVec2,
-        executor: &mut dyn Executor,
-        user_data: UserData,
+        backend: &mut dyn wfc_backend::Backend,
+        user_data: wfc_task::Metadata,
     ) {
         let graph = self.extract_chunk(start_chunk);
-        let peasant = Peasant {
+        let task = WfcTask {
             graph,
             tileset: self.tileset.clone(),
             seed: self.seed,
-            user_data,
+            metadata: user_data,
+            backtracking: wfc_task::BacktrackingSettings::default(),
         };
 
-        executor.queue_peasant(peasant).unwrap();
+        self.outstanding += 1;
+        backend.queue_task(task).unwrap();
     }
 
     pub fn process_chunk(
         &mut self,
         chunk: IVec2,
-        peasant: Peasant,
-        executor: &mut dyn Executor,
-        user_data: Box<dyn Fn(IVec2) -> UserData>,
+        task: WfcTask,
+        backend: &mut dyn wfc_backend::Backend,
+        user_data: Box<dyn Fn(IVec2) -> wfc_task::Metadata>,
     ) {
-        self.merge_chunk(chunk, peasant.graph);
+        self.outstanding -= 1;
+        self.merge_chunk(chunk, task.graph);
         self.generated_chunks.insert(chunk, ChunkState::Done);
 
         // queue neighbors
@@ -144,14 +148,15 @@ impl World {
                 let graph = self.extract_chunk(neighbor);
                 let seed = self.seed + neighbor.x as u64 * chunks.y as u64 + neighbor.y as u64;
 
-                let peasant = Peasant {
+                let task = WfcTask {
                     graph,
                     tileset: self.tileset.clone(),
                     seed,
-                    user_data: user_data(neighbor),
+                    metadata: user_data(neighbor),
+                    backtracking: wfc_task::BacktrackingSettings::default(),
                 };
-
-                executor.queue_peasant(peasant).unwrap();
+                self.outstanding += 1;
+                backend.queue_task(task).unwrap();
             }
         }
     }
