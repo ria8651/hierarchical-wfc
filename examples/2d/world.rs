@@ -213,7 +213,7 @@ fn handle_output(
                 for x in 0..size.x {
                     for y in 0..size.y {
                         new_world[x as usize][y as usize] =
-                            graph.tiles[x as usize * size.y as usize + y as usize];
+                            graph.tiles[x as usize * size.y as usize + y as usize].clone();
                     }
                 }
 

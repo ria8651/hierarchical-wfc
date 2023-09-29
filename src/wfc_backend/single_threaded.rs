@@ -24,7 +24,7 @@ struct HistoryCell {
 
 impl SingleThreaded {
     pub fn new(output: Arc<SegQueue<Result<WfcTask>>>) -> Self {
-        let (tx, rx) = channel::unbounded();
+        let (tx, rx) = channel::unbounded::<WfcTask>();
 
         thread::Builder::new()
             .name("WFC CPU backend".to_string())
@@ -47,7 +47,7 @@ impl SingleThreaded {
         Self { queue: tx }
     }
 
-    pub fn execute(mut task: &mut WfcTask) -> Result<()> {
+    pub fn execute(task: &mut WfcTask) -> Result<()> {
         let mut rng = SmallRng::seed_from_u64(task.seed);
         let weights = task.tileset.get_weights();
         let tileset = task.tileset.clone();
@@ -90,7 +90,7 @@ impl SingleThreaded {
                     }
                 }
                 if backtrack_flag {
-                    let result = Self::backtrack(&mut history, &mut task, &mut rng);
+                    let result = Self::backtrack(&mut history, task, &mut rng);
                     if let Ok(continue_from) = result {
                         stack.clear();
                         stack.push(continue_from);
@@ -168,15 +168,15 @@ impl SingleThreaded {
         let filled = WaveFunction::filled(tileset.tile_count());
         while history.stack.len() > collapsed.index + 1 {
             let index = history.stack.pop().unwrap();
-            task.graph.tiles[index] = filled;
+            task.graph.tiles[index] = filled.clone();
         }
         let collapsed_index = history.stack.pop().unwrap();
-        task.graph.tiles[collapsed_index] = filled;
+        task.graph.tiles[collapsed_index] = filled.clone();
 
         // Unconstrain all tiles which are not fully collapsed
         for i in 0..task.graph.tiles.len() {
             if task.graph.tiles[i].count_bits() != 1 {
-                task.graph.tiles[i] = filled;
+                task.graph.tiles[i] = filled.clone();
             }
         }
 
@@ -199,7 +199,7 @@ impl SingleThreaded {
         }
 
         // Restore state of the most recent collapsed cell
-        task.graph.tiles[collapsed_index] = collapsed.options;
+        task.graph.tiles[collapsed_index] = collapsed.options.clone();
         let mut options = collapsed.options.clone();
         // collapse cell
         task.graph.tiles[collapsed_index]

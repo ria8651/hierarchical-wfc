@@ -4,9 +4,8 @@ use bevy::{
 };
 use crossbeam::queue::SegQueue;
 use grid_wfc::{
-    carcassonne_tileset::CarcassonneTileset,
-    // carcassonne_tileset::CarcassonneTileset,
     graph_grid::{self, GridGraphSettings},
+    mxgmn_tileset::MxgmnTileset,
     world::{ChunkState, World},
 };
 use hierarchical_wfc::{
@@ -68,6 +67,7 @@ impl RollingStdErr<f64> {
         let std_err = sigma / (n as f64).sqrt();
         StdErr::<f64> { n: avg, s: std_err }
     }
+    #[allow(dead_code)]
     fn avg(&self) -> StdErr<f64> {
         if self.n == 0 {
             return StdErr::<f64> { n: 0.0, s: 0.0 };
@@ -383,7 +383,7 @@ fn get_chunked_generator(
 }
 
 fn drain_output(output: Arc<SegQueue<anyhow::Result<WfcTask>>>, remaining: usize) {
-    for i in 0..remaining {
+    for _ in 0..remaining {
         while output.pop().is_none() {}
     }
 }
