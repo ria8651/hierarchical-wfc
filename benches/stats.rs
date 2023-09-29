@@ -7,7 +7,6 @@ use grid_wfc::{
     carcassonne_tileset::CarcassonneTileset,
     // carcassonne_tileset::CarcassonneTileset,
     graph_grid::{self, GridGraphSettings},
-    mxgmn_tileset::MxgmnTileset,
     world::{ChunkState, World},
 };
 use hierarchical_wfc::{
@@ -191,7 +190,7 @@ pub fn main() {
                     });
 
                     {
-                        let value = frequnecy.get(&tiles).unwrap_or(&0).clone();
+                        let value = *frequnecy.get(&tiles).unwrap_or(&0);
                         frequnecy.insert(tiles, value + 1);
                     }
                 }

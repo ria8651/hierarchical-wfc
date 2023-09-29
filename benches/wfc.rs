@@ -142,7 +142,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     single_threaded_backend.queue_task(task).unwrap();
 
                     // wait for data in output
-                    while let None = output.pop() {}
+                    while output.pop().is_none() {}
                 })
             });
             group.bench_with_input(BenchmarkId::new("Chunked", size), &size, |b, _| {

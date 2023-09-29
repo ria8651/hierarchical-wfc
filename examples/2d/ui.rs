@@ -133,7 +133,7 @@ fn ui(
                     .show(ui, |ui| {
                         let selected = ui_state.tile_sets[ui_state.picked_tileset].1.clone();
                         egui::ComboBox::from_label("Tileset")
-                            .selected_text(format!("{selected}"))
+                            .selected_text(selected.to_string())
                             .show_ui(ui, |ui| {
                                 for (i, tileset) in ui_state.tile_sets.clone().iter().enumerate() {
                                     ui.selectable_value(
@@ -282,12 +282,10 @@ fn render_world(
                         transform.rotation = new_transform.rotation;
                         transform.scale = new_transform.scale;
                         *sprite = tile_handles[tile_index].0.clone();
+                    } else if world[x][y].count_bits() == 0 {
+                        *sprite = bad_tile.clone();
                     } else {
-                        if world[x][y].count_bits() == 0 {
-                            *sprite = bad_tile.clone();
-                        } else {
-                            *sprite = Default::default();
-                        }
+                        *sprite = Default::default();
                     }
                 }
             }
