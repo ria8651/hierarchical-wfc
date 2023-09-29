@@ -65,7 +65,7 @@ impl Peasant {
             allowed = WaveFunction::join(&allowed, &constraints[tile][neighbor.direction]);
         }
 
-        let neighbor_tiles = self.graph.tiles[neighbor.index].clone();
+        let neighbor_tiles = self.graph.tiles[neighbor.index];
         let new_tiles = WaveFunction::intersect(&neighbor_tiles, &allowed);
         if new_tiles != neighbor_tiles {
             updated = true;

@@ -38,7 +38,7 @@ impl CpuExecutor {
         Self { queue: tx }
     }
 
-    pub fn execute(mut peasant: &mut Peasant) {
+    pub fn execute(peasant: &mut Peasant) {
         let mut rng = SmallRng::seed_from_u64(peasant.seed);
         let weights = peasant.tileset.get_weights();
         let tileset = peasant.tileset.clone();
@@ -50,7 +50,7 @@ impl CpuExecutor {
             if peasant.graph.tiles[i].count_bits() != tileset.tile_count() {
                 initial_state.push(HistoryCell {
                     index: i,
-                    options: peasant.graph.tiles[i].clone(),
+                    options: peasant.graph.tiles[i],
                 });
             }
         }
@@ -80,7 +80,7 @@ impl CpuExecutor {
                     }
                 }
                 if backtrack_flag {
-                    let result = Self::backtrack(&mut history, &mut peasant, &mut rng);
+                    let result = Self::backtrack(&mut history, peasant, &mut rng);
                     if let Ok(continue_from) = result {
                         stack.clear();
                         stack.push(continue_from);
@@ -90,7 +90,7 @@ impl CpuExecutor {
                         // Perform a random restart.
                         peasant.clear();
                         for cell in initial_state.iter() {
-                            peasant.graph.tiles[cell.index] = cell.options.clone();
+                            peasant.graph.tiles[cell.index] = cell.options;
                         }
                         history = History {
                             stack: Vec::new(),
@@ -104,7 +104,7 @@ impl CpuExecutor {
             }
 
             if let Some(cell) = peasant.lowest_entropy(&mut rng) {
-                let mut options = peasant.graph.tiles[cell].clone();
+                let mut options = peasant.graph.tiles[cell];
                 // collapse cell
                 peasant.graph.tiles[cell]
                     .select_random(&mut rng, &weights)
@@ -181,7 +181,7 @@ impl CpuExecutor {
 
         // Restore state of the most recent collapsed cell
         peasant.graph.tiles[collapsed_index] = collapsed.options;
-        let mut options = collapsed.options.clone();
+        let mut options = collapsed.options;
         // collapse cell
         peasant.graph.tiles[collapsed_index]
             .select_random(&mut rng, &tileset.get_weights())

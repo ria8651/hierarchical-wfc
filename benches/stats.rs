@@ -7,15 +7,13 @@ use grid_wfc::{
     carcassonne_tileset::CarcassonneTileset,
     // carcassonne_tileset::CarcassonneTileset,
     graph_grid::{self, GridGraphSettings},
-    mxgmn_tileset::MxgmnTileset,
     world::{ChunkState, World},
 };
 use hierarchical_wfc::{
     CpuExecutor, Executor, MultiThreadedExecutor, Peasant, TileSet, WaveFunction,
 };
-use plotters::prelude::*;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
-use std::{ops::AddAssign, ops::Mul, path::Path, sync::Arc};
+use std::{sync::Arc};
 
 // https://en.wikipedia.org/wiki/Standard_deviation#Rapid_calculation_methods
 #[derive(Default)]
@@ -114,7 +112,7 @@ pub fn main() {
                         }
                         let tiles: [usize; 5] = tiles.map(|n| n.unwrap());
                         {
-                            let value = frequnecy.get(&tiles).unwrap_or(&0).clone();
+                            let value = *frequnecy.get(&tiles).unwrap_or(&0);
                             frequnecy.insert(tiles, value + 1); //.entry(tiles).insert(value + 1);
                         }
                     }
@@ -157,7 +155,7 @@ pub fn main() {
                     });
 
                     {
-                        let value = frequnecy.get(&tiles).unwrap_or(&0).clone();
+                        let value = *frequnecy.get(&tiles).unwrap_or(&0);
                         frequnecy.insert(tiles, value + 1);
                     }
                 }
@@ -192,9 +190,9 @@ pub fn main() {
     let max_a = a_sparse_vec.iter().max_by(|a, b| a.1.n.total_cmp(&b.1.n));
     let max_b = b_sparse_vec.iter().max_by(|a, b| a.1.n.total_cmp(&b.1.n));
     dbg!(a_sparse_vec.len());
-    dbg!(max_a.and_then(|max| Some((max.0, max.1.n))).unwrap());
+    dbg!(max_a.map(|max| (max.0, max.1.n)).unwrap());
     dbg!(a_sparse_vec.len());
-    dbg!(max_b.and_then(|max| Some((max.0, max.1.n))).unwrap());
+    dbg!(max_b.map(|max| (max.0, max.1.n)).unwrap());
 
     // let mut values = rolling_std_err
     //     .values()
