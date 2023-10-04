@@ -1,4 +1,5 @@
 use crate::ui::RenderUpdateEvent;
+use anyhow::Result;
 use bevy::{prelude::*, utils::HashMap};
 use crossbeam::queue::SegQueue;
 use grid_wfc::{
@@ -6,7 +7,9 @@ use grid_wfc::{
     world::{ChunkState, ChunkType, GenerationMode, World},
 };
 use hierarchical_wfc::{
-    CpuExecutor, Executor, MultiThreadedExecutor, Peasant, TileSet, UserData, WaveFunction,
+    wfc_backend::{Backend, MultiThreaded, SingleThreaded},
+    wfc_task::{BacktrackingSettings, Metadata},
+    TileSet, WaveFunction, WfcTask,
 };
 use rand::{rngs::SmallRng, SeedableRng};
 use std::sync::Arc;
@@ -16,7 +19,7 @@ pub struct WorldPlugin;
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<GenerateEvent>()
-            .init_resource::<Guild>()
+            .init_resource::<Backends>()
             .init_resource::<MaybeWorld>()
             .add_systems(Update, (handle_events, handle_output).chain());
     }
@@ -46,29 +49,29 @@ pub enum GenerateEvent {
 }
 
 #[derive(Resource)]
-struct Guild {
+struct Backends {
     multithreaded: bool,
-    cpu_executor: CpuExecutor,
-    multithreaded_executor: MultiThreadedExecutor,
-    output: Arc<SegQueue<Peasant>>,
+    single_threaded: SingleThreaded,
+    multi_threaded: MultiThreaded,
+    output: Arc<SegQueue<Result<WfcTask>>>,
 }
 
-impl Default for Guild {
+impl Default for Backends {
     fn default() -> Self {
         let output = Arc::new(SegQueue::new());
-        let cpu_executor = CpuExecutor::new(output.clone());
-        let multithreaded_executor = MultiThreadedExecutor::new(output.clone(), 8);
+        let single_threaded = SingleThreaded::new(output.clone());
+        let multi_threaded = MultiThreaded::new(output.clone(), 8);
 
         Self {
             multithreaded: false,
-            cpu_executor,
-            multithreaded_executor,
+            single_threaded,
+            multi_threaded,
             output,
         }
     }
 }
 
-enum PeasantData {
+enum TaskData {
     Single { size: IVec2 },
     Chunked { chunk: IVec2, chunk_type: ChunkType },
 }
@@ -78,17 +81,17 @@ pub struct MaybeWorld(Option<World>);
 
 fn handle_events(
     mut generate_event: EventReader<GenerateEvent>,
-    mut guild: ResMut<Guild>,
+    mut backends: ResMut<Backends>,
     mut world: ResMut<MaybeWorld>,
 ) {
     for generate_event in generate_event.iter() {
         let generate_event = generate_event.clone();
 
-        guild.multithreaded = matches!(generate_event, GenerateEvent::MultiThreaded { .. });
-        let executor: &mut dyn Executor = if guild.multithreaded {
-            &mut guild.multithreaded_executor
+        backends.multithreaded = matches!(generate_event, GenerateEvent::MultiThreaded { .. });
+        let backend: &mut dyn Backend = if backends.multithreaded {
+            &mut backends.multi_threaded
         } else {
-            &mut guild.cpu_executor
+            &mut backends.single_threaded
         };
 
         match generate_event {
@@ -113,8 +116,9 @@ fn handle_events(
                     generated_chunks: HashMap::new(),
                     chunk_size,
                     overlap,
-                    tileset,
+                    tileset: tileset.clone(),
                     rng,
+                    outstanding: 0,
                 };
 
                 let start_chunks = new_world.start_generation(GenerationMode::Deterministic);
@@ -124,17 +128,18 @@ fn handle_events(
                         .insert(chunk, ChunkState::Scheduled);
                     let graph = new_world.extract_chunk(chunk);
                     let seed = seed + chunk.x as u64 * 1000 as u64 + chunk.y as u64;
-                    let user_data: UserData =
-                        Some(Arc::new(PeasantData::Chunked { chunk, chunk_type }));
+                    let metadata: Metadata =
+                        Some(Arc::new(TaskData::Chunked { chunk, chunk_type }));
 
-                    let peasant = Peasant {
+                    let task = WfcTask {
                         graph,
                         tileset: new_world.tileset.clone(),
                         seed,
-                        user_data,
+                        metadata,
+                        backtracking: BacktrackingSettings::default(),
                     };
 
-                    executor.queue_peasant(peasant).unwrap();
+                    backend.queue_task(task).unwrap();
                 }
 
                 *world = MaybeWorld(Some(new_world));
@@ -147,14 +152,15 @@ fn handle_events(
                 let graph =
                     graph_grid::create(&settings, WaveFunction::filled(tileset.tile_count()));
                 let size = IVec2::new(settings.width as i32, settings.height as i32);
-                let peasant = Peasant {
+                let task = WfcTask {
                     graph,
                     tileset: tileset.clone(),
                     seed,
-                    user_data: Some(Arc::new(PeasantData::Single { size })),
+                    metadata: Some(Arc::new(TaskData::Single { size })),
+                    backtracking: BacktrackingSettings::default(),
                 };
 
-                executor.queue_peasant(peasant).unwrap();
+                backend.queue_task(task).unwrap();
 
                 let rng = SmallRng::seed_from_u64(seed);
                 let new_world = World {
@@ -164,6 +170,7 @@ fn handle_events(
                     overlap: 0,
                     tileset: tileset.clone(),
                     rng: rng.clone(),
+                    outstanding: 0,
                 };
                 *world = MaybeWorld(Some(new_world));
             }
@@ -172,24 +179,24 @@ fn handle_events(
 }
 
 fn handle_output(
-    mut guild: ResMut<Guild>,
+    mut backends: ResMut<Backends>,
     mut world: ResMut<MaybeWorld>,
     mut render_world_event: EventWriter<RenderUpdateEvent>,
 ) {
-    while let Some(peasant) = guild.output.pop() {
-        let peasant_data = peasant.user_data.as_ref().unwrap().downcast_ref().unwrap();
+    while let Some(Ok(task)) = backends.output.pop() {
+        let task_metadata = task.metadata.as_ref().unwrap().downcast_ref().unwrap();
 
-        let executor: &mut dyn Executor = if guild.multithreaded {
-            &mut guild.multithreaded_executor
+        let backend: &mut dyn Backend = if backends.multithreaded {
+            &mut backends.multi_threaded
         } else {
-            &mut guild.cpu_executor
+            &mut backends.single_threaded
         };
 
         let world = world.as_mut().as_mut().unwrap();
 
-        match peasant_data {
-            PeasantData::Chunked { chunk, chunk_type } => {
-                world.merge_chunk(*chunk, peasant.graph);
+        match task_metadata {
+            TaskData::Chunked { chunk, chunk_type } => {
+                world.merge_chunk(*chunk, task.graph);
                 world.generated_chunks.insert(*chunk, ChunkState::Done);
 
                 let ready = world.process_chunk(*chunk, *chunk_type);
@@ -198,32 +205,33 @@ fn handle_output(
                     world.generated_chunks.insert(chunk, ChunkState::Scheduled);
                     let graph = world.extract_chunk(chunk);
                     let seed = chunk.x as u64 * 1000 as u64 + chunk.y as u64;
-                    let user_data: UserData =
-                        Some(Arc::new(PeasantData::Chunked { chunk, chunk_type }));
+                    let metadata: Metadata =
+                        Some(Arc::new(TaskData::Chunked { chunk, chunk_type }));
 
-                    let peasant = Peasant {
+                    let task = WfcTask {
                         graph,
                         tileset: world.tileset.clone(),
                         seed,
-                        user_data,
+                        metadata,
+                        backtracking: BacktrackingSettings::default(),
                     };
 
-                    executor.queue_peasant(peasant).unwrap();
+                    backend.queue_task(task).unwrap();
                 }
 
                 render_world_event.send(RenderUpdateEvent);
             }
-            PeasantData::Single { size } => {
+            TaskData::Single { size } => {
                 // println!("Single done");
 
                 // Note: Assumes that the graph is a grid graph with a standard ordering
-                let graph = peasant.graph;
+                let graph = task.graph;
                 let mut new_world =
                     vec![vec![WaveFunction::empty(); size.y as usize]; size.x as usize];
                 for x in 0..size.x {
                     for y in 0..size.y {
                         new_world[x as usize][y as usize] =
-                            graph.tiles[x as usize * size.y as usize + y as usize];
+                            graph.tiles[x as usize * size.y as usize + y as usize].clone();
                     }
                 }
 

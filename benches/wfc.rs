@@ -7,7 +7,8 @@ use grid_wfc::{
     world::{ChunkState, World},
 };
 use hierarchical_wfc::{
-    CpuExecutor, Executor, MultiThreadedExecutor, Peasant, TileSet, WaveFunction,
+    wfc_backend::{self, Backend},
+    wfc_task, TileSet, WaveFunction, WfcTask,
 };
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::sync::Arc;
@@ -19,13 +20,13 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let threads = 8;
 
     let output = Arc::new(SegQueue::new());
-    let mut cpu_executor = CpuExecutor::new(output.clone());
-    let mut multithreaded_executor = MultiThreadedExecutor::new(output.clone(), threads);
+    let mut single_threaded_backend = wfc_backend::SingleThreaded::new(output.clone());
+    let mut multi_threaded_backend = wfc_backend::MultiThreaded::new(output.clone(), threads);
 
     let chunked = |seed: u64,
                    chunk_size: usize,
                    settings: &GridGraphSettings,
-                   executor: &mut dyn Executor| {
+                   backend: &mut dyn wfc_backend::Backend| {
         let mut rng = SmallRng::seed_from_u64(seed);
         let chunks = IVec2::new(
             settings.width as i32 / chunk_size as i32,
@@ -42,21 +43,28 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             overlap: 1,
             seed,
             tileset: tileset.clone(),
+            outstanding: 0,
         };
-        world.start_generation(start_chunk, executor, Some(Box::new(start_chunk)));
+        world.start_generation(start_chunk, backend, Some(Box::new(start_chunk)));
 
         // process output
         let chunk_count = (chunks.x * chunks.y) as usize;
         'outer: loop {
-            if let Some(peasant) = output.pop() {
-                let chunk = peasant.user_data.as_ref().unwrap().downcast_ref().unwrap();
+            match output.pop() {
+                Some(Ok(task)) => {
+                    let chunk = task.metadata.as_ref().unwrap().downcast_ref().unwrap();
 
-                world.process_chunk(
-                    *chunk,
-                    peasant,
-                    executor,
-                    Box::new(|chunk| Some(Box::new(chunk))),
-                );
+                    world.process_chunk(
+                        *chunk,
+                        task,
+                        backend,
+                        Box::new(|chunk| Some(Box::new(chunk))),
+                    );
+                }
+                Some(Err(_)) => {
+                    break 'outer;
+                }
+                None => (),
             }
 
             if world.generated_chunks.len() >= chunk_count {
@@ -86,7 +94,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 chunk_size,
                 |b, &chunk_size| {
                     b.iter(|| {
-                        chunked(seed, chunk_size, &settings, &mut cpu_executor);
+                        chunked(seed, chunk_size, &settings, &mut single_threaded_backend);
                         seed += 1;
                     })
                 },
@@ -96,7 +104,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 chunk_size,
                 |b, &chunk_size| {
                     b.iter(|| {
-                        chunked(seed, chunk_size, &settings, &mut multithreaded_executor);
+                        chunked(seed, chunk_size, &settings, &mut multi_threaded_backend);
+                        seed += 1;
                     })
                 },
             );
@@ -119,17 +128,18 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
             group.bench_with_input(BenchmarkId::new("Single", size), &size, |b, _| {
                 b.iter(|| {
-                    seed += 1;
                     let graph =
                         graph_grid::create(&settings, WaveFunction::filled(tileset.tile_count()));
-                    let peasant = Peasant {
+                    let task = WfcTask {
                         graph,
                         tileset: tileset.clone(),
                         seed,
-                        user_data: None,
+                        metadata: None,
+                        backtracking: wfc_task::BacktrackingSettings::default(),
                     };
+                    seed += 1;
 
-                    cpu_executor.queue_peasant(peasant).unwrap();
+                    single_threaded_backend.queue_task(task).unwrap();
 
                     // wait for data in output
                     while output.pop().is_none() {}
@@ -137,12 +147,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             });
             group.bench_with_input(BenchmarkId::new("Chunked", size), &size, |b, _| {
                 b.iter(|| {
-                    chunked(seed, chunk_size, &settings, &mut cpu_executor);
+                    chunked(seed, chunk_size, &settings, &mut single_threaded_backend);
                 })
             });
             group.bench_with_input(BenchmarkId::new("Multi", size), &size, |b, _| {
                 b.iter(|| {
-                    chunked(seed, chunk_size, &settings, &mut multithreaded_executor);
+                    chunked(seed, chunk_size, &settings, &mut multi_threaded_backend);
                 })
             });
         }

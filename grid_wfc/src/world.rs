@@ -24,6 +24,7 @@ pub struct World {
     pub overlap: usize,
     pub tileset: Arc<dyn TileSet>,
     pub rng: SmallRng,
+    pub outstanding: usize,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
