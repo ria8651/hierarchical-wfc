@@ -1,6 +1,7 @@
 use crate::graph_grid::{self, Direction, GridGraphSettings};
 use bevy::{prelude::*, utils::HashMap};
-use hierarchical_wfc::{Executor, Graph, Peasant, TileSet, UserData, WaveFunction};
+use hierarchical_wfc::{Graph, TileSet, WaveFunction};
+use rand::{rngs::SmallRng, Rng};
 use std::sync::Arc;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -9,14 +10,28 @@ pub enum ChunkState {
     Done,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GenerationMode {
+    NonDeterministic,
+    Deterministic,
+}
+
 #[derive(Resource)]
 pub struct World {
     pub world: Vec<Vec<WaveFunction>>,
     pub generated_chunks: HashMap<IVec2, ChunkState>,
     pub chunk_size: usize,
     pub overlap: usize,
-    pub seed: u64,
     pub tileset: Arc<dyn TileSet>,
+    pub rng: SmallRng,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ChunkType {
+    NonDeterministic,
+    Corner,
+    Edge,
+    Center,
 }
 
 impl World {
@@ -91,68 +106,78 @@ impl World {
         (bottom_left, top_right)
     }
 
-    pub fn start_generation(
-        &mut self,
-        start_chunk: IVec2,
-        executor: &mut dyn Executor,
-        user_data: UserData,
-    ) {
-        let graph = self.extract_chunk(start_chunk);
-        let peasant = Peasant {
-            graph,
-            tileset: self.tileset.clone(),
-            seed: self.seed,
-            user_data,
-        };
+    pub fn start_generation(&mut self, generation_mode: GenerationMode) -> Vec<(IVec2, ChunkType)> {
+        let mut start_chunks = Vec::new();
+        match generation_mode {
+            GenerationMode::NonDeterministic => {
+                let chunks = IVec2::new(
+                    self.world.len() as i32 / self.chunk_size as i32,
+                    self.world[0].len() as i32 / self.chunk_size as i32,
+                );
+                let start_chunk = IVec2::new(
+                    self.rng.gen_range(0..chunks.x),
+                    self.rng.gen_range(0..chunks.y),
+                );
 
-        executor.queue_peasant(peasant).unwrap();
+                start_chunks.push((start_chunk, ChunkType::NonDeterministic));
+            }
+            GenerationMode::Deterministic => {
+                let chunks = IVec2::new(
+                    self.world.len() as i32 / self.chunk_size as i32,
+                    self.world[0].len() as i32 / self.chunk_size as i32,
+                );
+                let half_chunks = chunks / 2;
+                for x in 0..half_chunks.x {
+                    for y in 0..half_chunks.y {
+                        let chunk = IVec2::new(x, y) * 2;
+
+                        start_chunks.push((chunk, ChunkType::Corner));
+                    }
+                }
+            }
+        }
+        start_chunks
     }
 
+    // returns chunks that are able to be processed
     pub fn process_chunk(
         &mut self,
         chunk: IVec2,
-        peasant: Peasant,
-        executor: &mut dyn Executor,
-        user_data: Box<dyn Fn(IVec2) -> UserData>,
-    ) {
-        self.merge_chunk(chunk, peasant.graph);
-        self.generated_chunks.insert(chunk, ChunkState::Done);
+        chunk_type: ChunkType,
+    ) -> Vec<(IVec2, ChunkType)> {
+        let mut ready_chunks = Vec::new();
 
-        // queue neighbors
-        'outer: for direction in 0..4 {
-            let neighbor = chunk + Direction::from(direction).to_ivec2();
-            let chunks = IVec2::new(
-                self.world.len() as i32 / self.chunk_size as i32,
-                self.world[0].len() as i32 / self.chunk_size as i32,
-            );
-            if !self.generated_chunks.contains_key(&neighbor)
-                && neighbor.cmpge(IVec2::ZERO).all()
-                && neighbor.cmplt(chunks).all()
-            {
-                // check if neighbor's neighbors are done
-                for direction in 0..4 {
-                    let neighbor = neighbor + Direction::from(direction).to_ivec2();
-                    if let Some(state) = self.generated_chunks.get(&neighbor) {
-                        if *state == ChunkState::Scheduled {
-                            continue 'outer;
+        match chunk_type {
+            ChunkType::NonDeterministic => {
+                'outer: for direction in 0..4 {
+                    let neighbor = chunk + Direction::from(direction).to_ivec2();
+                    let chunks = IVec2::new(
+                        self.world.len() as i32 / self.chunk_size as i32,
+                        self.world[0].len() as i32 / self.chunk_size as i32,
+                    );
+                    if !self.generated_chunks.contains_key(&neighbor)
+                        && neighbor.cmpge(IVec2::ZERO).all()
+                        && neighbor.cmplt(chunks).all()
+                    {
+                        // check if neighbor's neighbors are done
+                        for direction in 0..4 {
+                            let neighbor = neighbor + Direction::from(direction).to_ivec2();
+                            if let Some(state) = self.generated_chunks.get(&neighbor) {
+                                if *state == ChunkState::Scheduled {
+                                    continue 'outer;
+                                }
+                            }
                         }
+
+                        ready_chunks.push((neighbor, ChunkType::NonDeterministic));
                     }
                 }
-
-                self.generated_chunks
-                    .insert(neighbor, ChunkState::Scheduled);
-                let graph = self.extract_chunk(neighbor);
-                let seed = self.seed + neighbor.x as u64 * chunks.y as u64 + neighbor.y as u64;
-
-                let peasant = Peasant {
-                    graph,
-                    tileset: self.tileset.clone(),
-                    seed,
-                    user_data: user_data(neighbor),
-                };
-
-                executor.queue_peasant(peasant).unwrap();
+            }
+            _ => {
+                // TODO: Implement
             }
         }
+
+        ready_chunks
     }
 }

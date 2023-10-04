@@ -3,12 +3,12 @@ use bevy::{prelude::*, utils::HashMap};
 use crossbeam::queue::SegQueue;
 use grid_wfc::{
     graph_grid::{self, GridGraphSettings},
-    world::{ChunkState, World},
+    world::{ChunkState, ChunkType, GenerationMode, World},
 };
 use hierarchical_wfc::{
     CpuExecutor, Executor, MultiThreadedExecutor, Peasant, TileSet, UserData, WaveFunction,
 };
-use rand::{rngs::SmallRng, Rng, SeedableRng};
+use rand::{rngs::SmallRng, SeedableRng};
 use std::sync::Arc;
 
 pub struct WorldPlugin;
@@ -47,6 +47,7 @@ pub enum GenerateEvent {
 
 #[derive(Resource)]
 struct Guild {
+    multithreaded: bool,
     cpu_executor: CpuExecutor,
     multithreaded_executor: MultiThreadedExecutor,
     output: Arc<SegQueue<Peasant>>,
@@ -59,6 +60,7 @@ impl Default for Guild {
         let multithreaded_executor = MultiThreadedExecutor::new(output.clone(), 8);
 
         Self {
+            multithreaded: false,
             cpu_executor,
             multithreaded_executor,
             output,
@@ -68,8 +70,7 @@ impl Default for Guild {
 
 enum PeasantData {
     Single { size: IVec2 },
-    Chunked { chunk: IVec2 },
-    MultiThreaded { chunk: IVec2 },
+    Chunked { chunk: IVec2, chunk_type: ChunkType },
 }
 
 #[derive(Resource, Deref, DerefMut, Default)]
@@ -83,11 +84,11 @@ fn handle_events(
     for generate_event in generate_event.iter() {
         let generate_event = generate_event.clone();
 
-        let multithreaded = matches!(generate_event, GenerateEvent::MultiThreaded { .. });
-        let executor: &mut dyn Executor = match generate_event {
-            GenerateEvent::Chunked { .. } => &mut guild.cpu_executor,
-            GenerateEvent::MultiThreaded { .. } => &mut guild.multithreaded_executor,
-            GenerateEvent::Single { .. } => &mut guild.cpu_executor,
+        guild.multithreaded = matches!(generate_event, GenerateEvent::MultiThreaded { .. });
+        let executor: &mut dyn Executor = if guild.multithreaded {
+            &mut guild.multithreaded_executor
+        } else {
+            &mut guild.cpu_executor
         };
 
         match generate_event {
@@ -105,34 +106,36 @@ fn handle_events(
                 chunk_size,
                 overlap,
             } => {
-                let mut rng = SmallRng::seed_from_u64(seed);
-                let chunks = IVec2::new(
-                    settings.width as i32 / chunk_size as i32,
-                    settings.height as i32 / chunk_size as i32,
-                );
-                let start_chunk =
-                    IVec2::new(rng.gen_range(0..chunks.x), rng.gen_range(0..chunks.y));
-
                 let filled = WaveFunction::filled(tileset.tile_count());
+                let rng = SmallRng::seed_from_u64(seed);
                 let mut new_world = World {
                     world: vec![vec![filled; settings.height]; settings.width],
-                    generated_chunks: HashMap::from_iter(vec![(
-                        start_chunk,
-                        ChunkState::Scheduled,
-                    )]),
+                    generated_chunks: HashMap::new(),
                     chunk_size,
                     overlap,
-                    seed,
-                    tileset: tileset.clone(),
+                    tileset,
+                    rng,
                 };
 
-                let user_data = if multithreaded {
-                    PeasantData::MultiThreaded { chunk: start_chunk }
-                } else {
-                    PeasantData::Chunked { chunk: start_chunk }
-                };
+                let start_chunks = new_world.start_generation(GenerationMode::Deterministic);
+                for (chunk, chunk_type) in start_chunks {
+                    new_world
+                        .generated_chunks
+                        .insert(chunk, ChunkState::Scheduled);
+                    let graph = new_world.extract_chunk(chunk);
+                    let seed = seed + chunk.x as u64 * 1000 as u64 + chunk.y as u64;
+                    let user_data: UserData =
+                        Some(Arc::new(PeasantData::Chunked { chunk, chunk_type }));
 
-                new_world.start_generation(start_chunk, executor, Some(Box::new(user_data)));
+                    let peasant = Peasant {
+                        graph,
+                        tileset: new_world.tileset.clone(),
+                        seed,
+                        user_data,
+                    };
+
+                    executor.queue_peasant(peasant).unwrap();
+                }
 
                 *world = MaybeWorld(Some(new_world));
             }
@@ -148,18 +151,19 @@ fn handle_events(
                     graph,
                     tileset: tileset.clone(),
                     seed,
-                    user_data: Some(Box::new(PeasantData::Single { size })),
+                    user_data: Some(Arc::new(PeasantData::Single { size })),
                 };
 
                 executor.queue_peasant(peasant).unwrap();
 
+                let rng = SmallRng::seed_from_u64(seed);
                 let new_world = World {
                     world: vec![vec![WaveFunction::empty(); size.y as usize]; size.x as usize],
                     generated_chunks: HashMap::from_iter(vec![(IVec2::ZERO, ChunkState::Done)]),
                     chunk_size: 0,
                     overlap: 0,
-                    seed,
                     tileset: tileset.clone(),
+                    rng: rng.clone(),
                 };
                 *world = MaybeWorld(Some(new_world));
             }
@@ -175,31 +179,38 @@ fn handle_output(
     while let Some(peasant) = guild.output.pop() {
         let peasant_data = peasant.user_data.as_ref().unwrap().downcast_ref().unwrap();
 
-        let executor: &mut dyn Executor = match peasant_data {
-            PeasantData::Chunked { .. } => &mut guild.multithreaded_executor,
-            PeasantData::MultiThreaded { .. } => &mut guild.multithreaded_executor,
-            PeasantData::Single { .. } => &mut guild.cpu_executor,
+        let executor: &mut dyn Executor = if guild.multithreaded {
+            &mut guild.multithreaded_executor
+        } else {
+            &mut guild.cpu_executor
         };
 
+        let world = world.as_mut().as_mut().unwrap();
+
         match peasant_data {
-            PeasantData::Chunked { chunk } | PeasantData::MultiThreaded { chunk } => {
-                // println!("Chunk done: {:?}", chunk);
+            PeasantData::Chunked { chunk, chunk_type } => {
+                world.merge_chunk(*chunk, peasant.graph);
+                world.generated_chunks.insert(*chunk, ChunkState::Done);
 
-                let user_data: Box<dyn Fn(IVec2) -> UserData> = match peasant_data {
-                    PeasantData::Chunked { .. } => {
-                        Box::new(|chunk| Some(Box::new(PeasantData::Chunked { chunk })))
-                    }
-                    PeasantData::MultiThreaded { .. } => {
-                        Box::new(|chunk| Some(Box::new(PeasantData::MultiThreaded { chunk })))
-                    }
-                    _ => unreachable!(),
-                };
+                let ready = world.process_chunk(*chunk, *chunk_type);
 
-                world
-                    .as_mut()
-                    .as_mut()
-                    .unwrap()
-                    .process_chunk(*chunk, peasant, executor, user_data);
+                for (chunk, chunk_type) in ready {
+                    world.generated_chunks.insert(chunk, ChunkState::Scheduled);
+                    let graph = world.extract_chunk(chunk);
+                    let seed = chunk.x as u64 * 1000 as u64 + chunk.y as u64;
+                    let user_data: UserData =
+                        Some(Arc::new(PeasantData::Chunked { chunk, chunk_type }));
+
+                    let peasant = Peasant {
+                        graph,
+                        tileset: world.tileset.clone(),
+                        seed,
+                        user_data,
+                    };
+
+                    executor.queue_peasant(peasant).unwrap();
+                }
+
                 render_world_event.send(RenderUpdateEvent);
             }
             PeasantData::Single { size } => {
@@ -216,7 +227,7 @@ fn handle_output(
                     }
                 }
 
-                world.as_mut().as_mut().unwrap().world = new_world;
+                world.world = new_world;
                 render_world_event.send(RenderUpdateEvent);
             }
         }

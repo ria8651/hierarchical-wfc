@@ -83,7 +83,7 @@ impl Default for UiState {
             grid_graph_settings: GridGraphSettings::default(),
             timeout: Some(0.05),
             chunk_size: 4,
-            overlap: 2,
+            overlap: 1,
             picked_tileset: 0,
             tile_sets,
             weights: Vec::new(),
@@ -211,7 +211,13 @@ fn render_world(
     mut render_world_event: EventReader<RenderUpdateEvent>,
     mut current_size: Local<IVec2>,
 ) {
+    let mut do_thing = false;
     for _ in render_world_event.iter() {
+        do_thing = true;
+    }
+
+    // lol
+    if do_thing {
         let tileset = ui_state.tile_sets[ui_state.picked_tileset].0.clone();
 
         // tileset
