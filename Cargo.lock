@@ -765,6 +765,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_pancam"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67f3862bc02d850b63ce59b91d451b8b0e620ca036adf8f73529ebaed198e7c9"
+dependencies = [
+ "bevy",
+ "bevy_egui",
+]
+
+[[package]]
 name = "bevy_pbr"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2336,6 +2346,7 @@ dependencies = [
  "anyhow",
  "bevy",
  "bevy-inspector-egui",
+ "bevy_pancam",
  "console_error_panic_hook",
  "criterion",
  "crossbeam",

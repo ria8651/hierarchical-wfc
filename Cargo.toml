@@ -18,6 +18,7 @@ plotters = "0.3.5"
 debug = true
 
 [dev-dependencies]
+bevy_pancam = { version = "0.9", features = ["bevy_egui"] }
 grid_wfc = { path = "grid_wfc" }
 criterion = "0.5"
 

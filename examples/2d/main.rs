@@ -1,4 +1,5 @@
 use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::ScalingMode};
+use bevy_pancam::{PanCamPlugin, PanCam};
 use ui::UiPlugin;
 use world::WorldPlugin;
 
@@ -10,7 +11,7 @@ fn main() {
     console_error_panic_hook::set_once();
 
     App::new()
-        .add_plugins(
+        .add_plugins((
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
@@ -20,25 +21,30 @@ fn main() {
                     ..default()
                 })
                 .set(ImagePlugin::default_nearest()),
-        )
-        .add_plugins((UiPlugin, WorldPlugin))
+            PanCamPlugin::default(),
+            UiPlugin,
+            WorldPlugin,
+        ))
         .add_systems(Startup, setup)
         .run();
 }
 
 fn setup(mut commands: Commands) {
     // camera
-    commands.spawn(Camera2dBundle {
-        projection: OrthographicProjection {
-            scaling_mode: ScalingMode::AutoMin {
-                min_width: 1.0,
-                min_height: 1.0,
+    commands.spawn((
+        Camera2dBundle {
+            projection: OrthographicProjection {
+                scaling_mode: ScalingMode::AutoMin {
+                    min_width: 1.0,
+                    min_height: 1.0,
+                },
+                ..default()
+            },
+            camera_2d: Camera2d {
+                clear_color: ClearColorConfig::Custom(Color::rgb(0.15, 0.15, 0.15)),
             },
             ..default()
         },
-        camera_2d: Camera2d {
-            clear_color: ClearColorConfig::Custom(Color::rgb(0.15, 0.15, 0.15)),
-        },
-        ..default()
-    });
+        PanCam::default(),
+    ));
 }
