@@ -36,7 +36,8 @@ struct UiState {
     seed: u64,
     random_seed: bool,
     grid_graph_settings: GridGraphSettings,
-    timeout: Option<f64>,
+    deterministic: bool,
+    multithreaded: bool,
     chunk_size: usize,
     overlap: usize,
     #[reflect(ignore)]
@@ -81,7 +82,8 @@ impl Default for UiState {
             seed: 0,
             random_seed: true,
             grid_graph_settings: GridGraphSettings::default(),
-            timeout: Some(0.05),
+            deterministic: true,
+            multithreaded: true,
             chunk_size: 4,
             overlap: 1,
             picked_tileset: 0,
@@ -163,14 +165,8 @@ fn ui(
                             generate_events.send(GenerateEvent::Chunked {
                                 tileset,
                                 settings: ui_state.grid_graph_settings.clone(),
-                                seed,
-                                chunk_size: ui_state.chunk_size,
-                                overlap: ui_state.overlap,
-                            });
-                        } else if ui.button("Generate Multi Threaded").clicked() {
-                            generate_events.send(GenerateEvent::MultiThreaded {
-                                tileset,
-                                settings: ui_state.grid_graph_settings.clone(),
+                                multithreaded: ui_state.multithreaded,
+                                deterministic: ui_state.deterministic,
                                 seed,
                                 chunk_size: ui_state.chunk_size,
                                 overlap: ui_state.overlap,

@@ -35,13 +35,8 @@ pub enum GenerateEvent {
     Chunked {
         tileset: Arc<dyn TileSet>,
         settings: GridGraphSettings,
-        seed: u64,
-        chunk_size: usize,
-        overlap: usize,
-    },
-    MultiThreaded {
-        tileset: Arc<dyn TileSet>,
-        settings: GridGraphSettings,
+        multithreaded: bool,
+        deterministic: bool,
         seed: u64,
         chunk_size: usize,
         overlap: usize,
@@ -87,24 +82,12 @@ fn handle_events(
     for generate_event in generate_event.iter() {
         let generate_event = generate_event.clone();
 
-        backends.multithreaded = matches!(generate_event, GenerateEvent::MultiThreaded { .. });
-        let backend: &mut dyn Backend = if backends.multithreaded {
-            &mut backends.multi_threaded
-        } else {
-            &mut backends.single_threaded
-        };
-
         match generate_event {
             GenerateEvent::Chunked {
                 tileset,
                 settings,
-                seed,
-                chunk_size,
-                overlap,
-            }
-            | GenerateEvent::MultiThreaded {
-                tileset,
-                settings,
+                multithreaded,
+                deterministic,
                 seed,
                 chunk_size,
                 overlap,
@@ -121,7 +104,11 @@ fn handle_events(
                     outstanding: 0,
                 };
 
-                let start_chunks = new_world.start_generation(GenerationMode::Deterministic);
+                let generation_mode = match deterministic {
+                    true => GenerationMode::Deterministic,
+                    false => GenerationMode::NonDeterministic,
+                };
+                let start_chunks = new_world.start_generation(generation_mode);
                 for (chunk, chunk_type) in start_chunks {
                     new_world
                         .generated_chunks
@@ -139,6 +126,12 @@ fn handle_events(
                         backtracking: BacktrackingSettings::default(),
                     };
 
+                    backends.multithreaded = multithreaded;
+                    let backend: &mut dyn Backend = if multithreaded {
+                        &mut backends.multi_threaded
+                    } else {
+                        &mut backends.single_threaded
+                    };
                     backend.queue_task(task).unwrap();
                 }
 
@@ -160,7 +153,8 @@ fn handle_events(
                     backtracking: BacktrackingSettings::default(),
                 };
 
-                backend.queue_task(task).unwrap();
+                backends.multithreaded = false;
+                backends.single_threaded.queue_task(task).unwrap();
 
                 let rng = SmallRng::seed_from_u64(seed);
                 let new_world = World {
