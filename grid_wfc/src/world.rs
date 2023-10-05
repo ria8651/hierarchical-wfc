@@ -174,6 +174,66 @@ impl World {
                     }
                 }
             }
+            ChunkType::Corner => {
+                let chunks = IVec2::new(
+                    self.world.len() as i32 / self.chunk_size as i32,
+                    self.world[0].len() as i32 / self.chunk_size as i32,
+                );
+
+                for direction in 0..4 {
+                    let next_corner = chunk + 2 * Direction::from(direction).to_ivec2();
+                    let edge = chunk + Direction::from(direction).to_ivec2();
+
+                    // check if next corner is in bounds
+                    if next_corner.cmplt(IVec2::ZERO).any() || next_corner.cmpge(chunks).any() {
+                        ready_chunks.push((edge, ChunkType::Edge));
+                        continue;
+                    }
+
+                    // check if next corner is done
+                    if let Some(state) = self.generated_chunks.get(&next_corner) {
+                        if *state == ChunkState::Done {
+                            ready_chunks.push((edge, ChunkType::Edge));
+                        }
+                    }
+                }
+            }
+            ChunkType::Edge => {
+                let chunks = IVec2::new(
+                    self.world.len() as i32 / self.chunk_size as i32,
+                    self.world[0].len() as i32 / self.chunk_size as i32,
+                );
+
+                for direction in 0..4 {
+                    let center = chunk + Direction::from(direction).to_ivec2();
+                    if self.generated_chunks.contains_key(&center)
+                        || center.cmplt(IVec2::ZERO).any()
+                        || center.cmpge(chunks).any()
+                    {
+                        continue;
+                    }
+
+                    let mut good = 0;
+                    for direction in 0..4 {
+                        let edge = center + Direction::from(direction).to_ivec2();
+                        if let Some(state) = self.generated_chunks.get(&edge) {
+                            if *state == ChunkState::Done {
+                                good += 1;
+                                continue;
+                            }
+                        }
+
+                        if edge.cmplt(IVec2::ZERO).any() || edge.cmpge(chunks).any() {
+                            good += 1;
+                            continue;
+                        }
+                    }
+
+                    if good == 4 {
+                        ready_chunks.push((center, ChunkType::Center));
+                    }
+                }
+            }
             _ => {
                 // TODO: Implement
             }
