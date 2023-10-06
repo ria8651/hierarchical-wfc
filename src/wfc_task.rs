@@ -6,14 +6,18 @@ use std::{any::Any, sync::Arc};
 
 pub type Metadata = Option<Arc<dyn Any + Send + Sync>>;
 
-pub struct BacktrackingSettings {
-    pub max_restarts: usize,
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BacktrackingSettings {
+    Disabled,
+    Enabled { restarts_left: usize },
 }
+
 impl Default for BacktrackingSettings {
     fn default() -> Self {
-        Self { max_restarts: 100 }
+        BacktrackingSettings::Enabled { restarts_left: 100 }
     }
 }
+
 pub struct WfcTask {
     pub graph: Graph<WaveFunction>,
     pub tileset: Arc<dyn TileSet>,

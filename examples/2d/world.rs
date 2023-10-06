@@ -1,7 +1,5 @@
 use crate::ui::RenderUpdateEvent;
-use anyhow::Result;
 use bevy::{prelude::*, utils::HashMap};
-use crossbeam::queue::SegQueue;
 use grid_wfc::{
     graph_grid::{self, GridGraphSettings},
     world::{ChunkState, ChunkType, GenerationMode, World},
@@ -48,20 +46,17 @@ struct Backends {
     multithreaded: bool,
     single_threaded: SingleThreaded,
     multi_threaded: MultiThreaded,
-    output: Arc<SegQueue<Result<WfcTask>>>,
 }
 
 impl Default for Backends {
     fn default() -> Self {
-        let output = Arc::new(SegQueue::new());
-        let single_threaded = SingleThreaded::new(output.clone());
-        let multi_threaded = MultiThreaded::new(output.clone(), 8);
+        let single_threaded = SingleThreaded::new();
+        let multi_threaded = MultiThreaded::new(8);
 
         Self {
             multithreaded: false,
             single_threaded,
             multi_threaded,
-            output,
         }
     }
 }
@@ -132,6 +127,7 @@ fn handle_events(
                     } else {
                         &mut backends.single_threaded
                     };
+                    new_world.outstanding += 1;
                     backend.queue_task(task).unwrap();
                 }
 
@@ -177,16 +173,24 @@ fn handle_output(
     mut world: ResMut<MaybeWorld>,
     mut render_world_event: EventWriter<RenderUpdateEvent>,
 ) {
-    while let Some(Ok(task)) = backends.output.pop() {
-        let task_metadata = task.metadata.as_ref().unwrap().downcast_ref().unwrap();
+    let world = world.as_mut().as_mut().unwrap();
+    let backend: &mut dyn Backend = if backends.multithreaded {
+        &mut backends.multi_threaded
+    } else {
+        &mut backends.single_threaded
+    };
 
-        let backend: &mut dyn Backend = if backends.multithreaded {
-            &mut backends.multi_threaded
-        } else {
-            &mut backends.single_threaded
+    while let Some(task) = backend.check_output() {
+        world.outstanding -= 1;
+        let task = match task {
+            Ok(task) => task,
+            Err(e) => {
+                error!("Error: {:?}", e);
+                continue;
+            }
         };
 
-        let world = world.as_mut().as_mut().unwrap();
+        let task_metadata = task.metadata.as_ref().unwrap().downcast_ref().unwrap();
 
         match task_metadata {
             TaskData::Chunked { chunk, chunk_type } => {
@@ -210,6 +214,7 @@ fn handle_output(
                         backtracking: BacktrackingSettings::default(),
                     };
 
+                    world.outstanding += 1;
                     backend.queue_task(task).unwrap();
                 }
 

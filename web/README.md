@@ -5,7 +5,7 @@
 First install wasm-bindgen and add the wasm32-unknown-unknown target with rustup. Then run:
 
 ```bash
-build --release --target wasm32-unknown-unknown
+cargo build --release --target wasm32-unknown-unknown
 wasm-bindgen --out-name hierarchical-wfc \
   --out-dir web \
   --target web target/wasm32-unknown-unknown/release/hierarchical-wfc.wasm

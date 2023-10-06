@@ -1,15 +1,29 @@
 use super::Backend;
-use crate::{WaveFunction, WfcTask};
+use crate::{wfc_task::BacktrackingSettings, WaveFunction, WfcTask};
 use anyhow::{anyhow, Result};
-use crossbeam::{
-    channel::{self, Sender},
-    queue::SegQueue,
-};
+use crossbeam::channel::{self, Receiver, Sender};
 use rand::{rngs::SmallRng, SeedableRng};
-use std::{sync::Arc, thread};
+use std::thread;
 
 pub struct SingleThreaded {
     queue: Sender<WfcTask>,
+    output: Receiver<Result<WfcTask>>,
+}
+
+impl Backend for SingleThreaded {
+    fn queue_task(&mut self, task: WfcTask) -> Result<()> {
+        self.queue.send(task)?;
+
+        Ok(())
+    }
+
+    fn check_output(&mut self) -> Option<Result<WfcTask>> {
+        self.output.try_recv().ok()
+    }
+
+    fn wait_for_output(&mut self) -> Result<WfcTask> {
+        self.output.recv()?
+    }
 }
 
 struct History {
@@ -23,8 +37,9 @@ struct HistoryCell {
 }
 
 impl SingleThreaded {
-    pub fn new(output: Arc<SegQueue<Result<WfcTask>>>) -> Self {
+    pub fn new() -> Self {
         let (tx, rx) = channel::unbounded::<WfcTask>();
+        let (output_tx, output_rx) = channel::unbounded::<Result<WfcTask>>();
 
         thread::Builder::new()
             .name("WFC CPU backend".to_string())
@@ -32,26 +47,27 @@ impl SingleThreaded {
                 while let Ok(mut task) = rx.recv() {
                     let task_result = Self::execute(&mut task);
                     match task_result {
-                        Err(e) => {
-                            dbg!(&e);
-                            output.push(Err(e))
+                        Ok(()) => {
+                            output_tx.send(Ok(task)).unwrap();
                         }
-                        Ok(_) => {
-                            output.push(Ok(task));
+                        Err(e) => {
+                            output_tx.send(Err(e)).unwrap();
                         }
                     }
                 }
             })
             .unwrap();
 
-        Self { queue: tx }
+        Self {
+            queue: tx,
+            output: output_rx,
+        }
     }
 
     pub fn execute(task: &mut WfcTask) -> Result<()> {
         let mut rng = SmallRng::seed_from_u64(task.seed);
         let weights = task.tileset.get_weights();
         let tileset = task.tileset.clone();
-        let mut attemps_left = task.backtracking.max_restarts;
 
         let mut initial_state: Vec<HistoryCell> = Vec::new();
 
@@ -83,6 +99,10 @@ impl SingleThreaded {
                             history.stack.push(neighbor.index);
                         }
                         if task.graph.tiles[neighbor.index].count_bits() == 0 {
+                            if task.backtracking == BacktrackingSettings::Disabled {
+                                return Err(anyhow!("Contradiction found"));
+                            }
+
                             // contradiction found
                             backtrack_flag = true;
                             break;
@@ -95,16 +115,21 @@ impl SingleThreaded {
                         stack.clear();
                         stack.push(continue_from);
                     } else {
+                        let restarts_left = match &mut task.backtracking {
+                            BacktrackingSettings::Disabled => unreachable!(),
+                            BacktrackingSettings::Enabled {
+                                restarts_left: max_restarts,
+                            } => max_restarts,
+                        };
+
                         // If there's no collapsed cell in the history,
                         // there's an unsolvable configuration.
                         // Perform a random restart.
-                        attemps_left -= 1;
-                        if attemps_left == 0 {
-                            task.graph.tiles.fill(WaveFunction::empty());
+                        *restarts_left -= 1;
+                        if *restarts_left == 0 {
                             let seed = task.seed;
-                            let restarts = task.backtracking.max_restarts;
                             return Err(anyhow!(
-                                "Backtracking exceeded {restarts} on seed {seed:x}"
+                                "Ran out of backtracking attempts on seed {seed:x}"
                             ));
                         }
                         task.clear();
@@ -212,13 +237,5 @@ impl SingleThreaded {
             options,
         });
         Ok(collapsed_index)
-    }
-}
-
-impl Backend for SingleThreaded {
-    fn queue_task(&mut self, task: WfcTask) -> Result<()> {
-        self.queue.send(task)?;
-
-        Ok(())
     }
 }
