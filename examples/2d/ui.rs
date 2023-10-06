@@ -12,7 +12,7 @@ use grid_wfc::{
     basic_tileset::BasicTileset, carcassonne_tileset::CarcassonneTileset,
     graph_grid::GridGraphSettings, mxgmn_tileset::MxgmnTileset,
 };
-use hierarchical_wfc::TileSet;
+use hierarchical_wfc::{wfc_task::BacktrackingSettings, TileSet};
 use std::sync::Arc;
 
 use crate::world::{GenerateEvent, MaybeWorld};
@@ -40,6 +40,7 @@ struct UiState {
     multithreaded: bool,
     chunk_size: usize,
     overlap: usize,
+    backtracking: BacktrackingSettings,
     #[reflect(ignore)]
     picked_tileset: usize,
     #[reflect(ignore)]
@@ -84,8 +85,9 @@ impl Default for UiState {
             grid_graph_settings: GridGraphSettings::default(),
             deterministic: true,
             multithreaded: true,
-            chunk_size: 4,
-            overlap: 1,
+            chunk_size: 16,
+            overlap: 2,
+            backtracking: BacktrackingSettings::default(),
             picked_tileset: 0,
             tile_sets,
             weights: Vec::new(),
@@ -159,12 +161,14 @@ fn ui(
                             generate_events.send(GenerateEvent::Single {
                                 tileset,
                                 settings: ui_state.grid_graph_settings.clone(),
+                                backtracking: ui_state.backtracking.clone(),
                                 seed,
                             });
                         } else if ui.button("Generate Chunked").clicked() {
                             generate_events.send(GenerateEvent::Chunked {
                                 tileset,
                                 settings: ui_state.grid_graph_settings.clone(),
+                                backtracking: ui_state.backtracking.clone(),
                                 multithreaded: ui_state.multithreaded,
                                 deterministic: ui_state.deterministic,
                                 seed,

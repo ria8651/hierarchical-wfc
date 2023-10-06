@@ -7,7 +7,7 @@ use std::thread;
 
 pub struct SingleThreaded {
     queue: Sender<WfcTask>,
-    output: Receiver<Result<WfcTask>>,
+    output: Receiver<(WfcTask, Result<()>)>,
 }
 
 impl Backend for SingleThreaded {
@@ -17,12 +17,12 @@ impl Backend for SingleThreaded {
         Ok(())
     }
 
-    fn check_output(&mut self) -> Option<Result<WfcTask>> {
+    fn check_output(&mut self) -> Option<(WfcTask, Result<()>)> {
         self.output.try_recv().ok()
     }
 
-    fn wait_for_output(&mut self) -> Result<WfcTask> {
-        self.output.recv()?
+    fn wait_for_output(&mut self) -> (WfcTask, Result<()>) {
+        self.output.recv().unwrap()
     }
 }
 
@@ -38,22 +38,15 @@ struct HistoryCell {
 
 impl SingleThreaded {
     pub fn new() -> Self {
-        let (tx, rx) = channel::unbounded::<WfcTask>();
-        let (output_tx, output_rx) = channel::unbounded::<Result<WfcTask>>();
+        let (tx, rx) = channel::unbounded();
+        let (output_tx, output_rx) = channel::unbounded();
 
         thread::Builder::new()
             .name("WFC CPU backend".to_string())
             .spawn(move || {
                 while let Ok(mut task) = rx.recv() {
                     let task_result = Self::execute(&mut task);
-                    match task_result {
-                        Ok(()) => {
-                            output_tx.send(Ok(task)).unwrap();
-                        }
-                        Err(e) => {
-                            output_tx.send(Err(e)).unwrap();
-                        }
-                    }
+                    output_tx.send((task, task_result)).unwrap();
                 }
             })
             .unwrap();

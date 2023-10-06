@@ -12,8 +12,8 @@ pub struct GridGraphSettings {
 impl Default for GridGraphSettings {
     fn default() -> Self {
         Self {
-            width: 16,
-            height: 16,
+            width: 128,
+            height: 128,
             periodic: true,
         }
     }

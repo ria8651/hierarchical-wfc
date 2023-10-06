@@ -28,11 +28,13 @@ pub enum GenerateEvent {
     Single {
         tileset: Arc<dyn TileSet>,
         settings: GridGraphSettings,
+        backtracking: BacktrackingSettings,
         seed: u64,
     },
     Chunked {
         tileset: Arc<dyn TileSet>,
         settings: GridGraphSettings,
+        backtracking: BacktrackingSettings,
         multithreaded: bool,
         deterministic: bool,
         seed: u64,
@@ -81,6 +83,7 @@ fn handle_events(
             GenerateEvent::Chunked {
                 tileset,
                 settings,
+                backtracking,
                 multithreaded,
                 deterministic,
                 seed,
@@ -97,6 +100,7 @@ fn handle_events(
                     tileset: tileset.clone(),
                     rng,
                     outstanding: 0,
+                    backtracking: backtracking.clone(),
                 };
 
                 let generation_mode = match deterministic {
@@ -118,7 +122,7 @@ fn handle_events(
                         tileset: new_world.tileset.clone(),
                         seed,
                         metadata,
-                        backtracking: BacktrackingSettings::default(),
+                        backtracking: backtracking.clone(),
                     };
 
                     backends.multithreaded = multithreaded;
@@ -136,6 +140,7 @@ fn handle_events(
             GenerateEvent::Single {
                 tileset,
                 settings,
+                backtracking,
                 seed,
             } => {
                 let graph =
@@ -146,7 +151,7 @@ fn handle_events(
                     tileset: tileset.clone(),
                     seed,
                     metadata: Some(Arc::new(TaskData::Single { size })),
-                    backtracking: BacktrackingSettings::default(),
+                    backtracking: backtracking.clone(),
                 };
 
                 backends.multithreaded = false;
@@ -161,6 +166,7 @@ fn handle_events(
                     tileset: tileset.clone(),
                     rng: rng.clone(),
                     outstanding: 0,
+                    backtracking: backtracking.clone(),
                 };
                 *world = MaybeWorld(Some(new_world));
             }
@@ -173,22 +179,19 @@ fn handle_output(
     mut world: ResMut<MaybeWorld>,
     mut render_world_event: EventWriter<RenderUpdateEvent>,
 ) {
-    let world = world.as_mut().as_mut().unwrap();
     let backend: &mut dyn Backend = if backends.multithreaded {
         &mut backends.multi_threaded
     } else {
         &mut backends.single_threaded
     };
 
-    while let Some(task) = backend.check_output() {
+    while let Some((task, error)) = backend.check_output() {
+        let world = world.as_mut().as_mut().unwrap();
         world.outstanding -= 1;
-        let task = match task {
-            Ok(task) => task,
-            Err(e) => {
-                error!("Error: {:?}", e);
-                continue;
-            }
-        };
+        
+        if error.is_err() {
+            error!("Error while generating world: {:?}", error);
+        }
 
         let task_metadata = task.metadata.as_ref().unwrap().downcast_ref().unwrap();
 
@@ -211,7 +214,7 @@ fn handle_output(
                         tileset: world.tileset.clone(),
                         seed,
                         metadata,
-                        backtracking: BacktrackingSettings::default(),
+                        backtracking: world.backtracking.clone(),
                     };
 
                     world.outstanding += 1;
@@ -221,8 +224,6 @@ fn handle_output(
                 render_world_event.send(RenderUpdateEvent);
             }
             TaskData::Single { size } => {
-                // println!("Single done");
-
                 // Note: Assumes that the graph is a grid graph with a standard ordering
                 let graph = task.graph;
                 let mut new_world =

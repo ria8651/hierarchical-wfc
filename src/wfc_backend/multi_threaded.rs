@@ -10,7 +10,7 @@ use std::{sync::Arc, thread};
 pub struct MultiThreaded {
     queue: Arc<SegQueue<WfcTask>>,
     update_channel: Sender<()>,
-    output: Receiver<Result<WfcTask>>,
+    output: Receiver<(WfcTask, Result<()>)>,
 }
 
 impl Backend for MultiThreaded {
@@ -21,12 +21,12 @@ impl Backend for MultiThreaded {
         Ok(())
     }
 
-    fn check_output(&mut self) -> Option<Result<WfcTask>> {
+    fn check_output(&mut self) -> Option<(WfcTask, Result<()>)> {
         self.output.try_recv().ok()
     }
 
-    fn wait_for_output(&mut self) -> Result<WfcTask> {
-        self.output.recv()?
+    fn wait_for_output(&mut self) -> (WfcTask, Result<()>) {
+        self.output.recv().unwrap()
     }
 }
 
@@ -47,14 +47,7 @@ impl MultiThreaded {
                     while let Ok(()) = rx.recv() {
                         if let Some(mut task) = queue.pop() {
                             let task_result = SingleThreaded::execute(&mut task);
-                            match task_result {
-                                Ok(()) => {
-                                    output_tx.send(Ok(task)).unwrap();
-                                }
-                                Err(e) => {
-                                    output_tx.send(Err(e)).unwrap();
-                                }
-                            }
+                            output_tx.send((task, task_result)).unwrap();
                         }
                     }
                 })

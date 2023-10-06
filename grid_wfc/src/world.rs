@@ -1,6 +1,6 @@
 use crate::graph_grid::{self, Direction, GridGraphSettings};
 use bevy::{prelude::*, utils::HashMap};
-use hierarchical_wfc::{Graph, TileSet, WaveFunction};
+use hierarchical_wfc::{wfc_task::BacktrackingSettings, Graph, TileSet, WaveFunction};
 use rand::{rngs::SmallRng, Rng};
 use std::sync::Arc;
 
@@ -25,6 +25,7 @@ pub struct World {
     pub tileset: Arc<dyn TileSet>,
     pub rng: SmallRng,
     pub outstanding: usize,
+    pub backtracking: BacktrackingSettings,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]

@@ -29,3 +29,11 @@ harness = false
 [[bench]]
 name = "stats"
 harness = false
+
+[[bench]]
+name = "map_size"
+harness = false
+
+[[bench]]
+name = "failure_rate"
+harness = false

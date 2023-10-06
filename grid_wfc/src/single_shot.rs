@@ -25,6 +25,7 @@ fn generate_world(
     generation_mode: GenerationMode,
     chunk_size: usize,
     overlap: usize,
+    backtracking: BacktrackingSettings,
 ) -> World {
     let filled = WaveFunction::filled(tileset.tile_count());
     let rng = SmallRng::seed_from_u64(seed);
@@ -36,6 +37,7 @@ fn generate_world(
         tileset,
         rng,
         outstanding: 0,
+        backtracking: backtracking.clone(),
     };
 
     let start_chunks = world.start_generation(generation_mode);
@@ -51,7 +53,7 @@ fn generate_world(
             tileset,
             seed,
             metadata,
-            backtracking: BacktrackingSettings::default(),
+            backtracking: backtracking.clone(),
         };
 
         world.outstanding += 1;
@@ -59,16 +61,12 @@ fn generate_world(
     }
 
     while world.outstanding > 0 {
-        let task = backend.wait_for_output();
+        let (task, error) = backend.wait_for_output();
         world.outstanding -= 1;
 
-        let task = match task {
-            Ok(task) => task,
-            Err(e) => {
-                error!("Error: {:?}", e);
-                continue;
-            }
-        };
+        if error.is_err() {
+            error!("Error while generating world: {:?}", error);
+        }
 
         let task_metadata = task.metadata.as_ref().unwrap().downcast_ref().unwrap();
         match task_metadata {

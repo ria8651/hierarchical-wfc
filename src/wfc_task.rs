@@ -1,12 +1,11 @@
-use crate::tileset::*;
-use crate::wfc_graph::*;
-
+use crate::{tileset::*, wfc_graph::*};
+use bevy::reflect::Reflect;
 use rand::Rng;
 use std::{any::Any, sync::Arc};
 
 pub type Metadata = Option<Arc<dyn Any + Send + Sync>>;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Reflect)]
 pub enum BacktrackingSettings {
     Disabled,
     Enabled { restarts_left: usize },
