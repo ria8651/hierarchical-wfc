@@ -4,12 +4,19 @@ use grid_wfc::{
     carcassonne_tileset::CarcassonneTileset,
     graph_grid::{self, GridGraphSettings},
     mxgmn_tileset::MxgmnTileset,
+    single_shot,
+    world::GenerationMode,
 };
 use hierarchical_wfc::{
-    wfc_backend::SingleThreaded, wfc_task::BacktrackingSettings, TileSet, WaveFunction, WfcTask,
+    wfc_backend::{MultiThreaded, SingleThreaded},
+    wfc_task::BacktrackingSettings,
+    TileSet, WaveFunction, WfcTask,
 };
 use rand::Rng;
 use std::sync::Arc;
+use web_time::Duration;
+
+const THREADS: usize = 8;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     let tilesets = load_tilesets();
@@ -18,12 +25,16 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let mut seed: u64 = rng.gen();
 
     let mut group = c.benchmark_group("Map Size");
-    for (tileset, tileset_name) in tilesets {
-        for size in [8, 16, 32, 64].into_iter() {
+    for (tileset, tileset_name) in tilesets.iter() {
+        for size in [32, 64, 128, 256].into_iter() {
+            if tileset_name == "Summer" && size >= 128 {
+                continue;
+            }
+
             let mut iterations = 0;
             let mut failures = 0;
 
-            group.bench_with_input(BenchmarkId::new(&tileset_name, size), &size, |b, &size| {
+            group.bench_with_input(BenchmarkId::new(tileset_name, size), &size, |b, &size| {
                 b.iter(|| {
                     let settings = GridGraphSettings {
                         height: size,
@@ -55,6 +66,48 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             );
         }
     }
+    drop(group);
+
+    let mut backend = MultiThreaded::new(THREADS);
+    let mut group = c.benchmark_group("Map Size Deterministic");
+    for (tileset, tileset_name) in tilesets.iter() {
+        for size in [32, 64, 128, 256].into_iter() {
+            let mut iterations = 0;
+            let mut failures = 0;
+
+            group.bench_with_input(BenchmarkId::new(tileset_name, size), &size, |b, &size| {
+                b.iter(|| {
+                    let settings = GridGraphSettings {
+                        height: size,
+                        width: size,
+                        periodic: false,
+                    };
+
+                    let (_, error) = single_shot::generate_world(
+                        tileset.clone(),
+                        &mut backend,
+                        settings,
+                        seed,
+                        GenerationMode::Deterministic,
+                        16,
+                        2,
+                        BacktrackingSettings::Enabled { restarts_left: 100 },
+                    );
+
+                    iterations += 1;
+                    failures += error.is_err() as usize;
+
+                    seed += 1;
+                })
+            });
+
+            println!(
+                "{}: {}x{} {} iterations, {} failures",
+                tileset_name, size, size, iterations, failures
+            );
+        }
+    }
+    drop(group);
 }
 
 pub fn load_tilesets() -> Vec<(Arc<dyn TileSet>, String)> {
@@ -90,5 +143,12 @@ pub fn load_tilesets() -> Vec<(Arc<dyn TileSet>, String)> {
     tile_sets
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group!(
+    name = benches;
+    config = Criterion::default()
+        .sample_size(10)
+        .warm_up_time(Duration::from_secs(1))
+        .measurement_time(Duration::from_secs(3));
+    targets = criterion_benchmark
+);
 criterion_main!(benches);

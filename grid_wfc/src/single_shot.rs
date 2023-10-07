@@ -17,7 +17,7 @@ struct TaskData {
 }
 
 #[allow(dead_code)]
-fn generate_world(
+pub fn generate_world(
     tileset: Arc<dyn TileSet>,
     backend: &mut dyn Backend,
     settings: GridGraphSettings,
@@ -26,7 +26,7 @@ fn generate_world(
     chunk_size: usize,
     overlap: usize,
     backtracking: BacktrackingSettings,
-) -> World {
+) -> (World, anyhow::Result<()>) {
     let filled = WaveFunction::filled(tileset.tile_count());
     let rng = SmallRng::seed_from_u64(seed);
     let mut world = World {
@@ -60,12 +60,15 @@ fn generate_world(
         backend.queue_task(task).unwrap();
     }
 
+    let mut failed = false;
+
     while world.outstanding > 0 {
         let (task, error) = backend.wait_for_output();
         world.outstanding -= 1;
 
-        if error.is_err() {
-            error!("Error while generating world: {:?}", error);
+        if error.is_err() || failed {
+            failed = true;
+            continue;
         }
 
         let task_metadata = task.metadata.as_ref().unwrap().downcast_ref().unwrap();
@@ -97,5 +100,9 @@ fn generate_world(
         }
     }
 
-    world
+    if failed {
+        (world, Err(anyhow::anyhow!("Failed to generate world")))
+    } else {
+        (world, Ok(()))
+    }
 }
