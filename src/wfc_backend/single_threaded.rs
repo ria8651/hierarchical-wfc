@@ -17,7 +17,7 @@ impl Backend for SingleThreaded {
         Ok(())
     }
 
-    fn check_output(&mut self) -> Option<(WfcTask, Result<()>)> {
+    fn get_output(&mut self) -> Option<(WfcTask, Result<()>)> {
         self.output.try_recv().ok()
     }
 

@@ -10,7 +10,7 @@ use bevy_inspector_egui::{
 };
 use grid_wfc::{
     basic_tileset::BasicTileset, carcassonne_tileset::CarcassonneTileset,
-    graph_grid::GridGraphSettings, mxgmn_tileset::MxgmnTileset,
+    graph_grid::GridGraphSettings, mxgmn_tileset::MxgmnTileset, world::ChunkState,
 };
 use hierarchical_wfc::{wfc_task::BacktrackingSettings, TileSet};
 use std::sync::Arc;
@@ -27,7 +27,7 @@ impl Plugin for UiPlugin {
             .init_resource::<UiState>()
             .register_type::<UiState>()
             .register_type::<GridGraphSettings>()
-            .add_systems(Update, (ui, render_world).chain());
+            .add_systems(Update, (ui, render_world, debug_gizmos).chain());
     }
 }
 
@@ -41,6 +41,7 @@ struct UiState {
     chunk_size: usize,
     overlap: usize,
     backtracking: BacktrackingSettings,
+    draw_gizmos: bool,
     #[reflect(ignore)]
     picked_tileset: usize,
     #[reflect(ignore)]
@@ -88,6 +89,7 @@ impl Default for UiState {
             chunk_size: 16,
             overlap: 2,
             backtracking: BacktrackingSettings::default(),
+            draw_gizmos: false,
             picked_tileset: 0,
             tile_sets,
             weights: Vec::new(),
@@ -196,6 +198,33 @@ fn ui(
                     });
             });
         });
+}
+
+fn debug_gizmos(mut gizmos: Gizmos, world: Res<MaybeWorld>, ui_state: Res<UiState>) {
+    if ui_state.draw_gizmos {
+        let world = match world.as_ref().as_ref() {
+            Some(world) => world,
+            None => return,
+        };
+
+        let height = world.world[0].len();
+
+        for (chunk, state) in world.generated_chunks.iter() {
+            let color = match state {
+                ChunkState::Scheduled => Color::rgb(0.0, 0.0, 1.0),
+                ChunkState::Done => Color::rgb(0.0, 1.0, 0.0),
+            };
+
+            let (bottom_left, top_right) = world.chunk_bounds(*chunk);
+            let (bottom_left, top_right) = (
+                bottom_left.as_vec2() / height as f32 - 0.5,
+                top_right.as_vec2() / height as f32 - 0.5,
+            );
+            let center = (bottom_left + top_right) / 2.0;
+            let size = top_right - bottom_left;
+            gizmos.rect_2d(center, 0.0, size, color);
+        }
+    }
 }
 
 #[derive(Event)]

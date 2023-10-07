@@ -30,7 +30,7 @@ pub struct World {
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ChunkType {
-    NonDeterministic,
+    NonDeterministic { center: IVec2 },
     Corner,
     Edge,
     Center,
@@ -121,7 +121,12 @@ impl World {
                     self.rng.gen_range(0..chunks.y),
                 );
 
-                start_chunks.push((start_chunk, ChunkType::NonDeterministic));
+                start_chunks.push((
+                    start_chunk,
+                    ChunkType::NonDeterministic {
+                        center: start_chunk,
+                    },
+                ));
             }
             GenerationMode::Deterministic => {
                 let chunks = IVec2::new(
@@ -150,7 +155,7 @@ impl World {
         let mut ready_chunks = Vec::new();
 
         match chunk_type {
-            ChunkType::NonDeterministic => {
+            ChunkType::NonDeterministic { center } => {
                 'outer: for direction in 0..4 {
                     let neighbor = chunk + Direction::from(direction).to_ivec2();
                     let chunks = IVec2::new(
@@ -162,16 +167,21 @@ impl World {
                         && neighbor.cmplt(chunks).all()
                     {
                         // check if neighbor's neighbors are done
+                        let mut done = 0;
                         for direction in 0..4 {
-                            let neighbor = neighbor + Direction::from(direction).to_ivec2();
-                            if let Some(state) = self.generated_chunks.get(&neighbor) {
+                            let next_neighbor = neighbor + Direction::from(direction).to_ivec2();
+                            if let Some(state) = self.generated_chunks.get(&next_neighbor) {
                                 if *state == ChunkState::Scheduled {
                                     continue 'outer;
+                                } else {
+                                    done += 1;
                                 }
                             }
                         }
 
-                        ready_chunks.push((neighbor, ChunkType::NonDeterministic));
+                        if done >= 2 || center.x == neighbor.x || center.y == neighbor.y {
+                            ready_chunks.push((neighbor, ChunkType::NonDeterministic { center }));
+                        }
                     }
                 }
             }
@@ -187,6 +197,10 @@ impl World {
 
                     // check if next corner is in bounds
                     if next_corner.cmplt(IVec2::ZERO).any() || next_corner.cmpge(chunks).any() {
+                        // check if edge is in bounds
+                        if edge.cmplt(IVec2::ZERO).any() || edge.cmpge(chunks).any() {
+                            continue;
+                        }
                         ready_chunks.push((edge, ChunkType::Edge));
                         continue;
                     }

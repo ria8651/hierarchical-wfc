@@ -21,7 +21,7 @@ impl Backend for MultiThreaded {
         Ok(())
     }
 
-    fn check_output(&mut self) -> Option<(WfcTask, Result<()>)> {
+    fn get_output(&mut self) -> Option<(WfcTask, Result<()>)> {
         self.output.try_recv().ok()
     }
 

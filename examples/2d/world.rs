@@ -185,10 +185,10 @@ fn handle_output(
         &mut backends.single_threaded
     };
 
-    while let Some((task, error)) = backend.check_output() {
+    while let Some((task, error)) = backend.get_output() {
         let world = world.as_mut().as_mut().unwrap();
         world.outstanding -= 1;
-        
+
         if error.is_err() {
             error!("Error while generating world: {:?}", error);
         }
