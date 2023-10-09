@@ -108,6 +108,8 @@ fn ui(
     type_registry: Res<AppTypeRegistry>,
     asset_server: Res<AssetServer>,
     mut generate_events: EventWriter<GenerateEvent>,
+    mut world: ResMut<MaybeWorld>,
+    mut render_world_event: EventWriter<RenderUpdateEvent>,
 ) {
     let mut tileset = ui_state.tile_sets[ui_state.picked_tileset].0.clone();
 
@@ -167,16 +169,33 @@ fn ui(
                                 seed,
                             });
                         } else if ui.button("Generate Chunked").clicked() {
-                            generate_events.send(GenerateEvent::Chunked {
+                            // generate_events.send(GenerateEvent::Chunked {
+                            //     tileset,
+                            //     settings: ui_state.grid_graph_settings.clone(),
+                            //     backtracking: ui_state.backtracking.clone(),
+                            //     multithreaded: ui_state.multithreaded,
+                            //     deterministic: ui_state.deterministic,
+                            //     seed,
+                            //     chunk_size: ui_state.chunk_size,
+                            //     overlap: ui_state.overlap,
+                            // });
+
+                            // good for debugging
+                            let (new_world, _) = grid_wfc::single_shot::generate_world(
                                 tileset,
-                                settings: ui_state.grid_graph_settings.clone(),
-                                backtracking: ui_state.backtracking.clone(),
-                                multithreaded: ui_state.multithreaded,
-                                deterministic: ui_state.deterministic,
+                                &mut hierarchical_wfc::wfc_backend::MultiThreaded::new(8),
+                                ui_state.grid_graph_settings.clone(),
                                 seed,
-                                chunk_size: ui_state.chunk_size,
-                                overlap: ui_state.overlap,
-                            });
+                                match ui_state.deterministic {
+                                    true => grid_wfc::world::GenerationMode::Deterministic,
+                                    false => grid_wfc::world::GenerationMode::NonDeterministic,
+                                },
+                                ui_state.chunk_size,
+                                ui_state.overlap,
+                                ui_state.backtracking.clone(),
+                            );
+                            world.as_mut().replace(new_world);
+                            render_world_event.send(RenderUpdateEvent);
                         }
                     });
 
@@ -213,6 +232,7 @@ fn debug_gizmos(mut gizmos: Gizmos, world: Res<MaybeWorld>, ui_state: Res<UiStat
             let color = match state {
                 ChunkState::Scheduled => Color::rgb(0.0, 0.0, 1.0),
                 ChunkState::Done => Color::rgb(0.0, 1.0, 0.0),
+                ChunkState::Failed => Color::rgb(1.0, 0.0, 0.0),
             };
 
             let (bottom_left, top_right) = world.chunk_bounds(*chunk);

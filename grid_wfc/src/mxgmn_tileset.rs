@@ -57,12 +57,12 @@ impl MxgmnTileset {
                 Box<dyn Fn(usize) -> usize>,
             ) = match tile.symmetry {
                 'L' => (
-                    4,
+                    4, //
                     Box::new(|i| (i + 1) % 4),
                     Box::new(|i| if i % 2 == 0 { i + 1 } else { i - 1 }),
                 ),
                 'T' => (
-                    4,
+                    4, //
                     Box::new(|i| (i + 1) % 4),
                     Box::new(|i| if i % 2 == 0 { i } else { 4 - i }),
                 ),
@@ -77,7 +77,7 @@ impl MxgmnTileset {
                     Box::new(|i| 1 - i),
                 ),
                 'F' => (
-                    8,
+                    8, //
                     Box::new(|i| if i < 4 { (i + 1) % 4 } else { 4 + (i - 1) % 4 }),
                     Box::new(|i| if i < 4 { i + 4 } else { i - 4 }),
                 ),

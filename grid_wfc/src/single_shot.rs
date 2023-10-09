@@ -61,42 +61,45 @@ pub fn generate_world(
     }
 
     let mut failed = false;
-
     while world.outstanding > 0 {
         let (task, error) = backend.wait_for_output();
         world.outstanding -= 1;
 
-        if error.is_err() || failed {
-            failed = true;
+        if failed {
             continue;
         }
 
         let task_metadata = task.metadata.as_ref().unwrap().downcast_ref().unwrap();
-        match task_metadata {
-            TaskData { chunk, chunk_type } => {
-                world.merge_chunk(*chunk, task.graph);
-                world.generated_chunks.insert(*chunk, ChunkState::Done);
+        let TaskData { chunk, chunk_type } = *task_metadata;
+        
+        world.merge_chunk(chunk, task.graph);
+        world.generated_chunks.insert(chunk, ChunkState::Done);
 
-                let ready = world.process_chunk(*chunk, *chunk_type);
+        if error.is_err() {
+            error!("Failed to generate chunk {:?}: {:?}", chunk, error);
 
-                for (chunk, chunk_type) in ready {
-                    world.generated_chunks.insert(chunk, ChunkState::Scheduled);
-                    let graph = world.extract_chunk(chunk);
-                    let seed = chunk.x as u64 * 1000 as u64 + chunk.y as u64;
-                    let metadata: Metadata = Some(Arc::new(TaskData { chunk, chunk_type }));
+            world.generated_chunks.insert(chunk, ChunkState::Failed);
+            failed = true;
+            continue;
+        }
 
-                    let task = WfcTask {
-                        graph,
-                        tileset: world.tileset.clone(),
-                        seed,
-                        metadata,
-                        backtracking: BacktrackingSettings::default(),
-                    };
+        let ready = world.process_chunk(chunk, chunk_type);
+        for (chunk, chunk_type) in ready {
+            world.generated_chunks.insert(chunk, ChunkState::Scheduled);
+            let graph = world.extract_chunk(chunk);
+            let seed = chunk.x as u64 * 1000 as u64 + chunk.y as u64;
+            let metadata: Metadata = Some(Arc::new(TaskData { chunk, chunk_type }));
 
-                    world.outstanding += 1;
-                    backend.queue_task(task).unwrap();
-                }
-            }
+            let task = WfcTask {
+                graph,
+                tileset: world.tileset.clone(),
+                seed,
+                metadata,
+                backtracking: BacktrackingSettings::default(),
+            };
+
+            world.outstanding += 1;
+            backend.queue_task(task).unwrap();
         }
     }
 

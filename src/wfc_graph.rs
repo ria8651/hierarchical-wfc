@@ -56,6 +56,10 @@ impl WaveFunction {
         self[tile / 32] |= 1 << (tile % 32);
     }
 
+    pub fn remove_tile(&mut self, tile: usize) {
+        self[tile / 32] &= !(1 << (tile % 32));
+    }
+
     /// Leaves a random bit set to 1 and the rest to 0
     pub fn select_random<R: Rng>(&mut self, rng: &mut R, weights: &Vec<f32>) -> Result<()> {
         let mut weighted_rng = WeightedIndex::new(weights)?;

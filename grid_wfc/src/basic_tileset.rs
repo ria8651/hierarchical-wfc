@@ -72,6 +72,10 @@ impl Default for BasicTileset {
             allowed_neighbors.push(allowed_neighbors_for_tile);
         }
 
+        // dont allow tile 8 and 10 to be next to each other
+        allowed_neighbors[10][Direction::Right as usize].remove_tile(8);
+        allowed_neighbors[8][Direction::Left as usize].remove_tile(10);
+
         let mut weights = Vec::new();
         for _ in 0..TILE_COUNT {
             weights.push(1.0);

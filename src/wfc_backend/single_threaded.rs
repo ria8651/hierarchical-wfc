@@ -79,6 +79,7 @@ impl SingleThreaded {
             stack: Vec::new(),
             decision_cells: Vec::new(),
         };
+        let mut initial = true;
         loop {
             let mut backtrack_flag = false;
             // propagate changes
@@ -88,10 +89,16 @@ impl SingleThreaded {
                     let neighbor = task.graph.neighbors[index][i];
                     if task.propagate(index, neighbor) {
                         stack.push(neighbor.index);
-                        if task.graph.tiles[neighbor.index].count_bits() == 1 {
+
+                        let bits = task.graph.tiles[neighbor.index].count_bits();
+                        if bits == 1 && task.backtracking != BacktrackingSettings::Disabled {
                             history.stack.push(neighbor.index);
                         }
-                        if task.graph.tiles[neighbor.index].count_bits() == 0 {
+                        if bits == 0 {
+                            if initial {
+                                return Err(anyhow!("Invalid initial state"));
+                            }
+
                             if task.backtracking == BacktrackingSettings::Disabled {
                                 return Err(anyhow!("Contradiction found"));
                             }
@@ -140,19 +147,25 @@ impl SingleThreaded {
                 }
             }
 
+            initial = false;
+
             if let Some(cell) = task.lowest_entropy(&mut rng) {
                 let mut options = task.graph.tiles[cell].clone();
+
                 // collapse cell
                 task.graph.tiles[cell]
                     .select_random(&mut rng, &weights)
                     .unwrap();
                 stack.push(cell);
-                options = WaveFunction::difference(&options, &task.graph.tiles[cell]);
-                history.stack.push(cell);
-                history.decision_cells.push(HistoryCell {
-                    index: history.stack.len() - 1,
-                    options,
-                });
+
+                if task.backtracking != BacktrackingSettings::Disabled {
+                    options = WaveFunction::difference(&options, &task.graph.tiles[cell]);
+                    history.stack.push(cell);
+                    history.decision_cells.push(HistoryCell {
+                        index: history.stack.len() - 1,
+                        options,
+                    });
+                }
             } else {
                 // all cells collapsed
                 return Ok(());

@@ -193,11 +193,14 @@ fn handle_output(
             error!("Error while generating world: {:?}", error);
         }
 
-        let task_metadata = task.metadata.as_ref().unwrap().downcast_ref().unwrap();
-
-        match task_metadata {
+        match task.metadata.as_ref().unwrap().downcast_ref().unwrap() {
             TaskData::Chunked { chunk, chunk_type } => {
                 world.merge_chunk(*chunk, task.graph);
+                if error.is_err() {
+                    world.generated_chunks.insert(*chunk, ChunkState::Failed);
+                    continue;
+                }
+
                 world.generated_chunks.insert(*chunk, ChunkState::Done);
 
                 let ready = world.process_chunk(*chunk, *chunk_type);

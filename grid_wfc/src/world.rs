@@ -8,6 +8,7 @@ use std::sync::Arc;
 pub enum ChunkState {
     Scheduled,
     Done,
+    Failed,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -171,10 +172,10 @@ impl World {
                         for direction in 0..4 {
                             let next_neighbor = neighbor + Direction::from(direction).to_ivec2();
                             if let Some(state) = self.generated_chunks.get(&next_neighbor) {
-                                if *state == ChunkState::Scheduled {
-                                    continue 'outer;
-                                } else {
+                                if *state == ChunkState::Done {
                                     done += 1;
+                                } else {
+                                    continue 'outer;
                                 }
                             }
                         }
