@@ -5,12 +5,16 @@ use crossbeam::{
     channel::{self, Receiver, Sender},
     queue::SegQueue,
 };
-use std::{sync::Arc, thread};
+use std::{
+    sync::Arc,
+    thread::{self, JoinHandle},
+};
 
 pub struct MultiThreaded {
     queue: Arc<SegQueue<WfcTask>>,
     update_channel: Sender<()>,
     output: Receiver<(WfcTask, Result<()>)>,
+    threads: Vec<JoinHandle<()>>,
 }
 
 impl Backend for MultiThreaded {
@@ -36,28 +40,43 @@ impl MultiThreaded {
         let (tx, rx) = channel::unbounded();
         let (output_tx, output_rx) = channel::unbounded();
 
+        let mut threads = vec![];
         for _ in 0..num_threads {
             let queue = queue.clone();
             let rx = rx.clone();
             let output_tx = output_tx.clone();
 
-            thread::Builder::new()
-                .name("WFC multi threaded CPU backend".to_string())
-                .spawn(move || loop {
-                    while let Ok(()) = rx.recv() {
-                        if let Some(mut task) = queue.pop() {
-                            let task_result = SingleThreaded::execute(&mut task);
-                            output_tx.send((task, task_result)).unwrap();
+            threads.push(
+                thread::Builder::new()
+                    .name("WFC multi threaded CPU backend".to_string())
+                    .spawn(move || {
+                        while let Ok(()) = rx.recv() {
+                            if let Some(mut task) = queue.pop() {
+                                let task_result = SingleThreaded::execute(&mut task);
+                                output_tx.send((task, task_result)).unwrap();
+                            }
                         }
-                    }
-                })
-                .unwrap();
+                    })
+                    .unwrap(),
+            );
         }
 
         Self {
             queue,
             update_channel: tx,
             output: output_rx,
+            threads,
         }
+    }
+}
+
+impl Drop for MultiThreaded {
+    fn drop(&mut self) {
+        // let mut threads = vec![];
+        // std::mem::swap(&mut threads, &mut self.threads);
+
+        // for thread in threads {
+        //     thread.join().unwrap();
+        // }
     }
 }
