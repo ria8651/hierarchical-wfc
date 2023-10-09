@@ -19,6 +19,7 @@ impl Plugin for WorldPlugin {
         app.add_event::<GenerateEvent>()
             .init_resource::<Backends>()
             .init_resource::<MaybeWorld>()
+            .init_resource::<Failed>()
             .add_systems(Update, (handle_events, handle_output).chain());
     }
 }
@@ -71,13 +72,19 @@ enum TaskData {
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct MaybeWorld(Option<World>);
 
+#[derive(Resource, Deref, DerefMut, Default)]
+struct Failed(bool);
+
 fn handle_events(
     mut generate_event: EventReader<GenerateEvent>,
     mut backends: ResMut<Backends>,
     mut world: ResMut<MaybeWorld>,
+    mut failed: ResMut<Failed>,
 ) {
     for generate_event in generate_event.iter() {
         let generate_event = generate_event.clone();
+
+        failed.0 = false;
 
         match generate_event {
             GenerateEvent::Chunked {
@@ -178,6 +185,7 @@ fn handle_output(
     mut backends: ResMut<Backends>,
     mut world: ResMut<MaybeWorld>,
     mut render_world_event: EventWriter<RenderUpdateEvent>,
+    mut failed: ResMut<Failed>,
 ) {
     let backend: &mut dyn Backend = if backends.multithreaded {
         &mut backends.multi_threaded
@@ -189,15 +197,21 @@ fn handle_output(
         let world = world.as_mut().as_mut().unwrap();
         world.outstanding -= 1;
 
-        if error.is_err() {
-            error!("Error while generating world: {:?}", error);
+        if failed.0 {
+            continue;
         }
-
+        
         match task.metadata.as_ref().unwrap().downcast_ref().unwrap() {
             TaskData::Chunked { chunk, chunk_type } => {
                 world.merge_chunk(*chunk, task.graph);
                 if error.is_err() {
+                    error!("Error while generating world: {:?}", error);
+
+                    failed.0 = true;
                     world.generated_chunks.insert(*chunk, ChunkState::Failed);
+
+                    render_world_event.send(RenderUpdateEvent);
+
                     continue;
                 }
 

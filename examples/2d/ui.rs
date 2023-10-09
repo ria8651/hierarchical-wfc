@@ -84,13 +84,13 @@ impl Default for UiState {
             seed: 0,
             random_seed: true,
             grid_graph_settings: GridGraphSettings::default(),
-            deterministic: true,
+            deterministic: false,
             multithreaded: true,
-            chunk_size: 16,
-            overlap: 2,
+            chunk_size: 32,
+            overlap: 4,
             backtracking: BacktrackingSettings::default(),
-            draw_gizmos: false,
-            picked_tileset: 0,
+            draw_gizmos: true,
+            picked_tileset: 3,
             tile_sets,
             weights: Vec::new(),
             image_handles: Vec::new(),
@@ -108,8 +108,8 @@ fn ui(
     type_registry: Res<AppTypeRegistry>,
     asset_server: Res<AssetServer>,
     mut generate_events: EventWriter<GenerateEvent>,
-    mut world: ResMut<MaybeWorld>,
-    mut render_world_event: EventWriter<RenderUpdateEvent>,
+    // mut world: ResMut<MaybeWorld>,
+    // mut render_world_event: EventWriter<RenderUpdateEvent>,
 ) {
     let mut tileset = ui_state.tile_sets[ui_state.picked_tileset].0.clone();
 
@@ -169,33 +169,33 @@ fn ui(
                                 seed,
                             });
                         } else if ui.button("Generate Chunked").clicked() {
-                            // generate_events.send(GenerateEvent::Chunked {
-                            //     tileset,
-                            //     settings: ui_state.grid_graph_settings.clone(),
-                            //     backtracking: ui_state.backtracking.clone(),
-                            //     multithreaded: ui_state.multithreaded,
-                            //     deterministic: ui_state.deterministic,
-                            //     seed,
-                            //     chunk_size: ui_state.chunk_size,
-                            //     overlap: ui_state.overlap,
-                            // });
+                            generate_events.send(GenerateEvent::Chunked {
+                                tileset,
+                                settings: ui_state.grid_graph_settings.clone(),
+                                backtracking: ui_state.backtracking.clone(),
+                                multithreaded: ui_state.multithreaded,
+                                deterministic: ui_state.deterministic,
+                                seed,
+                                chunk_size: ui_state.chunk_size,
+                                overlap: ui_state.overlap,
+                            });
 
                             // good for debugging
-                            let (new_world, _) = grid_wfc::single_shot::generate_world(
-                                tileset,
-                                &mut hierarchical_wfc::wfc_backend::MultiThreaded::new(8),
-                                ui_state.grid_graph_settings.clone(),
-                                seed,
-                                match ui_state.deterministic {
-                                    true => grid_wfc::world::GenerationMode::Deterministic,
-                                    false => grid_wfc::world::GenerationMode::NonDeterministic,
-                                },
-                                ui_state.chunk_size,
-                                ui_state.overlap,
-                                ui_state.backtracking.clone(),
-                            );
-                            world.as_mut().replace(new_world);
-                            render_world_event.send(RenderUpdateEvent);
+                            // let (new_world, _) = grid_wfc::single_shot::generate_world(
+                            //     tileset,
+                            //     &mut hierarchical_wfc::wfc_backend::MultiThreaded::new(8),
+                            //     ui_state.grid_graph_settings.clone(),
+                            //     seed,
+                            //     match ui_state.deterministic {
+                            //         true => grid_wfc::world::GenerationMode::Deterministic,
+                            //         false => grid_wfc::world::GenerationMode::NonDeterministic,
+                            //     },
+                            //     ui_state.chunk_size,
+                            //     ui_state.overlap,
+                            //     ui_state.backtracking.clone(),
+                            // );
+                            // world.as_mut().replace(new_world);
+                            // render_world_event.send(RenderUpdateEvent);
                         }
                     });
 

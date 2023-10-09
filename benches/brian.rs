@@ -27,9 +27,14 @@ fn time_process<F: FnMut() -> bool>(mut f: F) -> Result<f64> {
     for _ in 0..ITTERATIONS {
         let now = Instant::now();
         let result = f();
+        let time = now.elapsed().as_secs_f64();
+        if time > 10.0 {
+            return Err(anyhow::anyhow!("Too long: {}s", time));
+        }
+
         if result {
             iterations += 1;
-            total_time += now.elapsed().as_secs_f64();
+            total_time += time;
         } else {
             failures += 1;
         }
@@ -49,129 +54,90 @@ fn time_process<F: FnMut() -> bool>(mut f: F) -> Result<f64> {
 
 fn main() {
     let tilesets = load_tilesets();
+    let mut backend = MultiThreaded::new(THREADS);
 
     let mut rng = rand::thread_rng();
     let mut seed: u64 = rng.gen();
 
-    let mut csv = Writer::from_path("target/map_size_single.csv").unwrap();
-    csv.write_record(&["tileset", "size", "time"]).unwrap();
+    for generation_type in ["standard", "non_deterministic", "deterministic"].iter() {
+        let mut csv =
+            Writer::from_path(format!("benches/data/map_size_{}.csv", generation_type)).unwrap();
+        csv.write_record(&["tileset", "size", "time"]).unwrap();
 
-    for (tileset, tileset_name) in tilesets.iter() {
-        for size in [32, 64, 128, 256].into_iter() {
-            if tileset_name == "Summer" && size >= 256 {
-                continue;
+        for size in [64, 128, 256].into_iter() {
+            for (tileset, tileset_name) in tilesets.iter() {
+                match *generation_type {
+                    "standard" => {
+                        let time = time_process(|| -> bool {
+                            let settings = GridGraphSettings {
+                                height: size,
+                                width: size,
+                                periodic: false,
+                            };
+                            let filled = WaveFunction::filled(tileset.tile_count());
+                            let graph = graph_grid::create(&settings, filled);
+
+                            let mut task = WfcTask {
+                                graph,
+                                tileset: tileset.clone(),
+                                seed,
+                                metadata: None,
+                                backtracking: BacktrackingSettings::Enabled { restarts_left: 100 },
+                            };
+
+                            let result = SingleThreaded::execute(&mut task);
+                            seed += 1;
+
+                            result.is_ok()
+                        })
+                        .unwrap_or(f64::NAN);
+
+                        println!("{}: {}x{} {}s", tileset_name, size, size, time);
+                        csv.write_record(&[tileset_name, &size.to_string(), &time.to_string()])
+                            .unwrap();
+                    }
+                    "non_deterministic" | "deterministic" => {
+                        let time = time_process(|| -> bool {
+                            let settings = GridGraphSettings {
+                                height: size,
+                                width: size,
+                                periodic: false,
+                            };
+
+                            let chunk_size = 32;
+                            let generation_mode = match *generation_type {
+                                "non_deterministic" => GenerationMode::NonDeterministic,
+                                "deterministic" => GenerationMode::Deterministic,
+                                _ => unreachable!(),
+                            };
+                            let (_, error) = single_shot::generate_world(
+                                tileset.clone(),
+                                &mut backend,
+                                settings,
+                                seed,
+                                generation_mode,
+                                chunk_size,
+                                4,
+                                BacktrackingSettings::Enabled { restarts_left: 100 },
+                            );
+
+                            seed += 1;
+
+                            error.is_ok()
+                        })
+                        .unwrap_or(f64::NAN);
+
+                        println!("{}: {}x{} {}s", tileset_name, size, size, time);
+                        csv.write_record(&[tileset_name, &size.to_string(), &time.to_string()])
+                            .unwrap();
+                    }
+                    _ => unreachable!(),
+                }
             }
-
-            let time = time_process(|| -> bool {
-                let settings = GridGraphSettings {
-                    height: size,
-                    width: size,
-                    periodic: false,
-                };
-                let filled = WaveFunction::filled(tileset.tile_count());
-                let graph = graph_grid::create(&settings, filled);
-
-                let mut task = WfcTask {
-                    graph,
-                    tileset: tileset.clone(),
-                    seed,
-                    metadata: None,
-                    backtracking: BacktrackingSettings::Enabled { restarts_left: 100 },
-                };
-
-                let result = SingleThreaded::execute(&mut task);
-                seed += 1;
-
-                result.is_ok()
-            })
-            .unwrap();
-
-            println!("{}: {}x{} {}s", tileset_name, size, size, time);
-            csv.write_record(&[tileset_name, &size.to_string(), &time.to_string()])
-                .unwrap();
         }
+
+        csv.flush().unwrap();
     }
-    csv.flush().unwrap();
-
-    let mut csv = Writer::from_path("target/map_size_non_deterministic.csv").unwrap();
-    csv.write_record(&["tileset", "size", "time"]).unwrap();
-
-    let mut backend = MultiThreaded::new(THREADS);
-    for (tileset, tileset_name) in tilesets.iter() {
-        for size in [32, 64, 128, 256].into_iter() {
-            let time = time_process(|| -> bool {
-                let settings = GridGraphSettings {
-                    height: size,
-                    width: size,
-                    periodic: false,
-                };
-
-                let chunk_size = match size {
-                    32 => 16,
-                    _ => 32,
-                };
-                let (_, error) = single_shot::generate_world(
-                    tileset.clone(),
-                    &mut backend,
-                    settings,
-                    seed,
-                    GenerationMode::NonDeterministic,
-                    chunk_size,
-                    4,
-                    BacktrackingSettings::Enabled { restarts_left: 100 },
-                );
-
-                seed += 1;
-
-                error.is_ok()
-            }).unwrap_or(f64::NAN);
-
-            println!("{}: {}x{} {}s", tileset_name, size, size, time);
-            csv.write_record(&[tileset_name, &size.to_string(), &time.to_string()])
-                .unwrap();
-        }
-    }
-    csv.flush().unwrap();
-
-    let mut csv = Writer::from_path("target/map_size_deterministic.csv").unwrap();
-    csv.write_record(&["tileset", "size", "time"]).unwrap();
-
-    let mut backend = MultiThreaded::new(THREADS);
-    for (tileset, tileset_name) in tilesets.iter() {
-        for size in [32, 64, 128, 256].into_iter() {
-            let time = time_process(|| -> bool {
-                let settings = GridGraphSettings {
-                    height: size,
-                    width: size,
-                    periodic: false,
-                };
-
-                let chunk_size = match size {
-                    32 => 16,
-                    _ => 32,
-                };
-                let (_, error) = single_shot::generate_world(
-                    tileset.clone(),
-                    &mut backend,
-                    settings,
-                    seed,
-                    GenerationMode::Deterministic,
-                    chunk_size,
-                    4,
-                    BacktrackingSettings::Enabled { restarts_left: 100 },
-                );
-
-                seed += 1;
-
-                error.is_ok()
-            }).unwrap_or(f64::NAN);
-
-            println!("{}: {}x{} {}s", tileset_name, size, size, time);
-            csv.write_record(&[tileset_name, &size.to_string(), &time.to_string()])
-                .unwrap();
-        }
-    }
-    csv.flush().unwrap();
 }
 
 pub fn load_tilesets() -> Vec<(Arc<dyn TileSet>, String)> {
