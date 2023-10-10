@@ -306,14 +306,21 @@ impl World {
         let world_width = self.world.len();
         let world_height = self.world.first().unwrap().len();
 
+        let mut node_positions: Vec<(i32, i32)> = Vec::with_capacity(world_height * world_width);
+        for x in 0..world_width as i32 {
+            for y in 0..world_height as i32 {
+                node_positions.push((x, y));
+            }
+        }
+
         let graph = Graph {
             tiles: self
                 .world
                 .iter()
                 .flat_map(|r| r.iter().map(|t| t.clone()))
                 .collect::<Vec<_>>(),
-            neighbors: (0..world_width - 1)
-                .flat_map(|x| (0..world_height - 1).map(move |y| (x, y)))
+            neighbors: (0..world_width)
+                .flat_map(|x| (0..world_height).map(move |y| (x, y)))
                 .map(|(x, y)| {
                     directions
                         .iter()
@@ -321,8 +328,8 @@ impl World {
                         .flat_map(|(dir_index, dir)| {
                             if 0 <= dir.x + x as i32 && x as i32 + dir.x < world_width as i32 {
                                 if 0 <= dir.y + y as i32 && y as i32 + dir.y < world_height as i32 {
-                                    let x = (x as i32).max(x as i32 + dir.x) as usize;
-                                    let y = (y as i32).max(y as i32 + dir.y) as usize;
+                                    let x = (x as i32 + dir.x) as usize;
+                                    let y = (y as i32 + dir.y) as usize;
                                     return Some(Neighbor {
                                         index: x * world_height + y,
                                         direction: dir_index,
@@ -336,6 +343,23 @@ impl World {
                 })
                 .collect::<Vec<_>>(),
         };
+
+        // assert_eq!(graph.tiles.len(), graph.neighbors.len());
+        // for (i, (node, neigbhours)) in node_positions
+        //     .iter()
+        //     .zip(graph.neighbors.iter())
+        //     .enumerate()
+        // {
+        //     for n in neigbhours {
+        //         assert_eq!(
+        //             (
+        //                 node.0 + directions[n.direction].x,
+        //                 node.1 + directions[n.direction].y
+        //             ),
+        //             node_positions[n.index]
+        //         );
+        //     }
+        // }
 
         graph.validate()
     }

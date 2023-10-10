@@ -1,6 +1,5 @@
 use anyhow::Error;
-use bevy::utils::hashbrown::HashMap;
-use bevy_inspector_egui::egui::Key;
+use bevy::utils::{hashbrown::HashMap, HashSet};
 use grid_wfc::{
     carcassonne_tileset::CarcassonneTileset,
     graph_grid::{self, GridGraphSettings},
@@ -10,10 +9,10 @@ use grid_wfc::{
 };
 use hierarchical_wfc::{
     wfc_backend::{self, Backend, SingleThreaded},
-    wfc_task::BacktrackingSettings,
+    wfc_task::{BacktrackingSettings, Entropy, WfcSettings},
     Graph, Neighbor, TileSet, WaveFunction, WfcTask,
 };
-use std::{cell::RefCell, path::Path, rc::Rc, sync::Arc};
+use std::{cell::RefCell, hash::Hash, path::Path, rc::Rc, sync::Arc};
 
 // https://en.wikipedia.org/wiki/Standard_deviation#Rapid_calculation_methods
 #[derive(Default)]
@@ -83,14 +82,7 @@ impl RollingStdErr<f64> {
         self.current = 0.0;
         self.n += 1;
     }
-    // fn avg_manual_sample_count(&self, n: usize) -> StdErr<f64> {
-    //     assert!(n > 0);
 
-    //     let avg = self.s_1 / n as f64;
-    //     let sigma = (n as f64 * self.s_2 - self.s_1 * self.s_1).sqrt() / n as f64;
-    //     let std_err = sigma / (n as f64).sqrt();
-    //     StdErr::<f64> { n: avg, s: std_err }
-    // }
     fn avg(&self) -> StdErr<f64> {
         if self.n == 0 {
             return StdErr::<f64> { n: 0.0, s: 0.0 };
@@ -103,8 +95,8 @@ impl RollingStdErr<f64> {
     }
 }
 const THREADS: usize = 8;
-const SAMPLES: usize = 128;
-const SIZE: usize = 32;
+const SAMPLES: usize = 256;
+const SIZE: usize = 64;
 const CHUNK_SIZE: usize = 16;
 const OVERLAP: usize = 4;
 const RESTARTS: usize = 100;
@@ -139,7 +131,14 @@ fn tile_in_dir<'a, T: Copy>(
         .next()
 }
 
-struct Stats {
+struct StatsDistributions {
+    single: HashMap<usize, StdErr<f64>>,
+    pair: HashMap<[usize; 3], StdErr<f64>>,
+    quad: HashMap<[usize; 4], StdErr<f64>>,
+    neighbours: HashMap<[usize; 5], StdErr<f64>>,
+}
+
+struct StatsBuilder {
     seed: u64,
     samples: usize,
     generation_fn: Box<dyn Fn(u64) -> Result<Graph<usize>, Error>>,
@@ -148,8 +147,46 @@ struct Stats {
     distributions_quad: HashMap<[usize; 4], RollingStdErr<f64>>,
     distributions_neighbours: HashMap<[usize; 5], RollingStdErr<f64>>,
 }
+trait Distribution<K> {
+    fn reasonable_keys(&self) -> HashSet<K>;
+    fn compare(&self, other: &Self) -> ();
+}
 
-impl Stats {
+impl<K: Eq + Hash + Clone> Distribution<K> for HashMap<K, StdErr<f64>> {
+    fn reasonable_keys(&self) -> HashSet<K> {
+        HashSet::from_iter(self.iter().flat_map(|(k, v)| {
+            if v.n == 0.0 {
+                None
+            } else {
+                if v.s / v.n < 0.1 {
+                    Some(k.clone())
+                } else {
+                    None
+                }
+            }
+        }))
+    }
+
+    fn compare(&self, other: &Self) {
+        let a_keys = self.reasonable_keys();
+        let b_keys = other.reasonable_keys();
+        let keys = a_keys.intersection(&b_keys);
+
+        let mut count = 0.0;
+        let mut avg = 0.0;
+        for k in keys {
+            let a = self.get(k).unwrap();
+            let b = other.get(k).unwrap();
+            // println!("{:.2} {:.2}: {:.4}", a.n, b.n, a.t_test(b));
+            avg += a.t_test(b).abs();
+            count += 1.0;
+        }
+        avg /= count;
+        println!("avg: {avg:.4} ({count})");
+    }
+}
+
+impl StatsBuilder {
     pub fn new(
         samples: usize,
         generation_fn: Box<dyn Fn(u64) -> Result<Graph<usize>, Error>>,
@@ -262,24 +299,35 @@ impl Stats {
         }
     }
 
-    fn analyse(&self) {
+    fn build(&self) -> StatsDistributions {
+        let distributions = StatsDistributions {
+            single: self
+                .distributions_single
+                .iter()
+                .map(|(k, r)| (*k, r.avg()))
+                .collect::<HashMap<_, _>>(),
+            pair: self
+                .distributions_pair
+                .iter()
+                .map(|(k, r)| (*k, r.avg()))
+                .collect::<HashMap<_, _>>(),
+            quad: self
+                .distributions_quad
+                .iter()
+                .map(|(k, r)| (*k, r.avg()))
+                .collect::<HashMap<_, _>>(),
+            neighbours: self
+                .distributions_neighbours
+                .iter()
+                .map(|(k, r)| (*k, r.avg()))
+                .collect::<HashMap<_, _>>(),
+        };
+
         let dists = [
-            self.distributions_single
-                .values()
-                .map(|r| r.avg())
-                .collect::<Vec<_>>(),
-            self.distributions_pair
-                .values()
-                .map(|r| r.avg())
-                .collect::<Vec<_>>(),
-            self.distributions_quad
-                .values()
-                .map(|r| r.avg())
-                .collect::<Vec<_>>(),
-            self.distributions_neighbours
-                .values()
-                .map(|r| r.avg())
-                .collect::<Vec<_>>(),
+            distributions.single.values().collect::<Vec<_>>(),
+            distributions.pair.values().collect::<Vec<_>>(),
+            distributions.quad.values().collect::<Vec<_>>(),
+            distributions.neighbours.values().collect::<Vec<_>>(),
         ];
 
         for d in dists {
@@ -296,6 +344,7 @@ impl Stats {
             let total = d.len();
             dbg!((count, total));
         }
+        distributions
     }
 }
 
@@ -310,209 +359,60 @@ pub fn main() {
 
     let threaded_backend = Rc::new(RefCell::new(wfc_backend::MultiThreaded::new(THREADS)));
 
-    let mut single_stats = {
-        let tileset = tileset.clone();
+    let single = {
+        let mut single_stats = {
+            let tileset = tileset.clone();
 
-        Stats::new(
-            SAMPLES,
-            Box::new(move |seed| generate_single(seed, SIZE, tileset.clone())),
-        )
+            StatsBuilder::new(
+                SAMPLES,
+                Box::new(move |seed| generate_single(seed, SIZE, tileset.clone())),
+            )
+        };
+        single_stats.run();
+        single_stats.build()
     };
-    single_stats.run();
 
-    // let mut chunked_stats = {
-    //     let tileset = tileset.clone();
-    //     Stats::new(
-    //         SAMPLES,
-    //         Box::new(move |seed| {
-    //             generate_chunked(
-    //                 seed,
-    //                 SIZE,
-    //                 tileset.clone(),
-    //                 GenerationMode::Deterministic,
-    //                 threaded_backend.clone(),
-    //             )
-    //         }),
-    //     )
-    // };
-    // chunked_stats.run();
+    let single_2 = {
+        let mut single_stats = {
+            let tileset = tileset.clone();
 
-    // let counts: Vec<_> = single_stats
-    //     .distributions_pair
-    //     .values()
-    //     .map(|r| {
-    //         let avg = r.avg();
-    //         avg.s / avg.n
-    //     })
-    //     .collect();
+            StatsBuilder::new(
+                SAMPLES,
+                Box::new(move |seed| generate_single(seed, SIZE, tileset.clone())),
+            )
+        };
+        single_stats.seed = 172341234;
+        single_stats.run();
+        single_stats.build()
+    };
 
-    // dbg!(&counts);
-    // dbg!(counts.iter().min_by(|a, b| a.partial_cmp(b).unwrap()));
-    // dbg!(counts.iter().max_by(|a, b| a.partial_cmp(b).unwrap()));
+    let threaded = {
+        let mut threaded_stats = {
+            let tileset = tileset.clone();
+            let backend = threaded_backend.clone();
+            StatsBuilder::new(
+                SAMPLES,
+                Box::new(move |seed| {
+                    generate_chunked(
+                        seed,
+                        SIZE,
+                        tileset.clone(),
+                        GenerationMode::NonDeterministic,
+                        backend.clone(),
+                    )
+                }),
+            )
+        };
+        threaded_stats.run();
+        threaded_stats.build()
+    };
 
-    // let a_sparse_vec: HashMap<Key, StdErr<f64>> = {
-    //     let mut valid_samples: usize = 0;
-    //     let mut rolling_std_err: HashMap<[usize; 5], RollingStdErr<f64>> = HashMap::new();
-    //     for seed in 0..SAMPLES {
-    //         let graph = graph_grid::create(&settings, WaveFunction::filled(tileset.tile_count()));
-    //         let task = WfcTask {
-    //             graph,
-    //             tileset: tileset.clone(),
-    //             seed,
-    //             metadata: None,
-    //             backtracking: wfc_task::BacktrackingSettings::default(),
-    //         };
-
-    //         multi_threaded_backend.queue_task(task).unwrap();
-    //     }
-
-    //     'skip: for seed in 0..SAMPLES {
-    //         dbg!(seed);
-    //         let mut frequnecy: HashMap<[usize; 5], usize> = HashMap::new();
-
-    //         'outer: loop {
-    //             match output.pop() {
-    //                 Some(Ok(result)) => {
-    //                     let result = result.graph.validate().unwrap();
-    //                     for (tile, neigbours) in result.tiles.iter().zip(result.neighbors.iter()) {
-    //                         let mut tiles = [None; 5];
-    //                         tiles[0] = Some(*tile);
-    //                         for neighbour in neigbours {
-    //                             tiles[neighbour.direction + 1] =
-    //                                 Some(result.tiles[neighbour.index]);
-    //                         }
-    //                         if tiles.map(|t| t.is_some()).contains(&false) {
-    //                             continue;
-    //                         }
-    //                         let tiles: [usize; 5] = tiles.map(|n| n.unwrap());
-    //                         {
-    //                             let value = *frequnecy.get(&tiles).unwrap_or(&0);
-    //                             frequnecy.insert(tiles, value + 1); //.entry(tiles).insert(value + 1);
-    //                         }
-    //                     }
-    //                     break 'outer;
-    //                 }
-    //                 Some(Err(_)) => {
-    //                     continue 'skip;
-    //                 }
-    //                 _ => (),
-    //             }
-    //         }
-
-    //         for (k, v) in frequnecy {
-    //             rolling_std_err.entry(k).or_default().insert(v as f64);
-    //         }
-    //         valid_samples += 1;
-    //     }
-    //     rolling_std_err
-    //         .into_iter()
-    //         .map(|(k, v)| (k, v.avg_manual_sample_count(valid_samples)))
-    //         .collect()
-    // };
-    // let b_sparse_vec: HashMap<Key, StdErr<f64>> = {
-    //     let chunked_generator = get_chunked_generator(tileset.clone(), output.clone());
-
-    //     let mut rolling_std_err: HashMap<[usize; 5], RollingStdErr<f64>> = HashMap::new();
-    //     let mut valid_samples: usize = 0;
-    //     for seed in 0..SAMPLES {
-    //         dbg!(seed);
-    //         let mut frequnecy: HashMap<[usize; 5], usize> = HashMap::new();
-    //         let result =
-    //             chunked_generator(seed, CHUNK_SIZE, &settings, &mut multi_threaded_backend);
-    //         let result = match result {
-    //             Ok(r) => r,
-    //             Err(e) => {
-    //                 dbg!(e);
-    //                 continue;
-    //             }
-    //         };
-
-    //         for j in 1..result.len() - 1 {
-    //             for i in 1..result.first().unwrap().len() - 1 {
-    //                 let directions = [
-    //                     IVec2::new(0, 0),
-    //                     IVec2::new(0, 1),
-    //                     IVec2::new(0, -1),
-    //                     IVec2::new(-1, 0),
-    //                     IVec2::new(1, 0),
-    //                 ];
-
-    //                 let tiles = directions.map(|delta| {
-    //                     result[j + delta.x as usize][i + delta.y as usize]
-    //                         .collapse()
-    //                         .unwrap()
-    //                 });
-
-    //                 {
-    //                     let value = *frequnecy.get(&tiles).unwrap_or(&0);
-    //                     frequnecy.insert(tiles, value + 1);
-    //                 }
-    //             }
-    //         }
-    //         for (k, v) in frequnecy {
-    //             rolling_std_err.entry(k).or_default().insert(v as f64);
-    //         }
-    //         valid_samples += 1;
-    //     }
-    //     rolling_std_err
-    //         .into_iter()
-    //         .map(|(k, v)| (k, v.avg_manual_sample_count(valid_samples)))
-    //         .collect()
-    // };
-
-    // let a_keys: HashSet<_> = a_sparse_vec.keys().collect();
-    // let b_keys: HashSet<_> = b_sparse_vec.keys().collect();
-
-    // let mut results = a_keys
-    //     .intersection(&b_keys)
-    //     .map(|k| {
-    //         (
-    //             **k,
-    //             a_sparse_vec.get(*k).unwrap(),
-    //             b_sparse_vec.get(*k).unwrap(),
-    //         )
-    //     })
-    //     .collect::<Vec<_>>();
-
-    // results.sort_by(|a, b| (a.1.n.max(a.2.n)).total_cmp(&(b.1.n.max(b.2.n))));
-
-    // println!("t-test results:");
-    // let mut t_tests: Vec<f64> = vec![];
-    // for key in a_keys.intersection(&b_keys).into_iter() {
-    //     let a = a_sparse_vec.get(*key).unwrap();
-    //     let b = b_sparse_vec.get(*key).unwrap();
-    //     if a.n <= 0.0 || b.n <= 0.0 {
-    //         continue;
-    //     }
-
-    //     let t = a.t_test(b);
-    //     println!("\t{t} for \t{a}, {b}");
-    //     t_tests.push(t);
-    // }
-    // println!();
-
-    // let n = t_tests.len() as f64;
-    // let avg = t_tests.iter().fold(0.0, |acc, next| acc + next.abs() / n);
-    // println!("Average t-test value: {avg:0.3}");
-
-    // for res in results.iter().rev().take(10) {
-    //     let (key, a, b) = res;
-    //     println!("{a} {b} for {key:?}");
-    // }
-
-    // let sum_a = a_sparse_vec
-    //     .values()
-    //     .map(|v| v.n)
-    //     .reduce(|a, b| a + b)
-    //     .unwrap();
-
-    // let sum_b = b_sparse_vec
-    //     .values()
-    //     .map(|v| v.n)
-    //     .reduce(|a, b| a + b)
-    //     .unwrap();
-
-    // dbg!((sum_a, sum_b));
+    print!("[single_1 vs single_2] ");
+    single.single.compare(&single_2.single);
+    print!("[single_1 vs threaded] ");
+    single.single.compare(&threaded.single);
+    print!("[single_2 vs threaded] ");
+    single_2.single.compare(&threaded.single);
 }
 
 fn generate_single(
@@ -533,7 +433,12 @@ fn generate_single(
         tileset: tileset.clone(),
         seed,
         metadata: None,
-        backtracking: BacktrackingSettings::Enabled { restarts_left: 100 },
+        settings: WfcSettings {
+            backtracking: BacktrackingSettings::Enabled {
+                restarts_left: RESTARTS,
+            },
+            entropy: Entropy::Shannon,
+        },
     };
 
     SingleThreaded::execute(&mut task)?;
@@ -563,8 +468,11 @@ fn generate_chunked(
         generation_mode,
         CHUNK_SIZE,
         OVERLAP,
-        BacktrackingSettings::Enabled {
-            restarts_left: RESTARTS,
+        WfcSettings {
+            backtracking: BacktrackingSettings::Enabled {
+                restarts_left: RESTARTS,
+            },
+            entropy: Entropy::Shannon,
         },
     );
     world.build_world_graph()
