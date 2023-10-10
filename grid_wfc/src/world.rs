@@ -1,6 +1,6 @@
 use crate::graph_grid::{self, Direction, GridGraphSettings};
 use bevy::{prelude::*, utils::HashMap};
-use hierarchical_wfc::{wfc_task::WfcSettings, Graph, TileSet, WaveFunction};
+use hierarchical_wfc::{wfc_task::WfcSettings, Graph, Neighbor, TileSet, WaveFunction};
 use rand::{rngs::SmallRng, Rng};
 use std::sync::Arc;
 
@@ -257,5 +257,51 @@ impl World {
         }
 
         ready_chunks
+    }
+
+    pub fn build_world_graph(&self) -> anyhow::Result<Graph<usize>> {
+        // TODO: Add this somewhere else (Don't break brians code tho)
+        let directions = [
+            IVec2::new(0, 1),
+            IVec2::new(0, -1),
+            IVec2::new(-1, 0),
+            IVec2::new(1, 0),
+        ];
+
+        let world_width = self.world.len();
+        let world_height = self.world.first().unwrap().len();
+
+        let graph = Graph {
+            tiles: self
+                .world
+                .iter()
+                .flat_map(|r| r.iter().map(|t| t.clone()))
+                .collect::<Vec<_>>(),
+            neighbors: (0..world_width - 1)
+                .flat_map(|x| (0..world_height - 1).map(move |y| (x, y)))
+                .map(|(x, y)| {
+                    directions
+                        .iter()
+                        .enumerate()
+                        .flat_map(|(dir_index, dir)| {
+                            if 0 <= dir.x + x as i32 && x as i32 + dir.x < world_width as i32 {
+                                if 0 <= dir.y + y as i32 && y as i32 + dir.y < world_height as i32 {
+                                    let x = (x as i32).max(x as i32 + dir.x) as usize;
+                                    let y = (y as i32).max(y as i32 + dir.y) as usize;
+                                    return Some(Neighbor {
+                                        index: x * world_height + y,
+                                        direction: dir_index,
+                                    });
+                                }
+                            }
+
+                            None
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>(),
+        };
+
+        graph.validate()
     }
 }
