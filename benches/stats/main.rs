@@ -1,16 +1,14 @@
 use grid_wfc::{
     carcassonne_tileset::CarcassonneTileset,
-    graph_grid::{self, GridGraphSettings},
+    graph_grid::GridGraphSettings,
     mxgmn_tileset::MxgmnTileset,
-    single_shot,
     world::{ChunkMerging, ChunkSettings, GenerationMode},
 };
 use hierarchical_wfc::{
-    wfc_backend::{self, Backend, SingleThreaded},
+    wfc_backend,
     wfc_task::{BacktrackingSettings, Entropy, WfcSettings},
-    Graph, Neighbor, TileSet, WaveFunction, WfcTask,
 };
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{cell::RefCell, path::Path, rc::Rc, sync::Arc};
 
 mod std_err;
 
@@ -29,8 +27,6 @@ use crate::stats_builder::SparseDistribution;
 const THREADS: usize = 8;
 const SAMPLES: usize = 16;
 const SIZE: usize = 64;
-const CHUNK_SIZE: usize = 8;
-const OVERLAP: usize = 2;
 const RESTARTS: usize = 100;
 
 const GRID_GRAPH_SETTINGS: GridGraphSettings = GridGraphSettings {
@@ -41,6 +37,7 @@ const GRID_GRAPH_SETTINGS: GridGraphSettings = GridGraphSettings {
 const CHUNK_SETTINGS: ChunkSettings = ChunkSettings {
     chunk_size: 32,
     overlap: 4,
+    discard: 2,
     chunk_merging: ChunkMerging::Mixed,
 };
 const WFC_SETTINGS: WfcSettings = WfcSettings {
@@ -68,13 +65,13 @@ const CHUNKED_SETTINGS: ChunkedSettings = ChunkedSettings {
 };
 
 pub fn main() {
-    // let tileset = Arc::new(
-    //     MxgmnTileset::new(Path::new("assets/mxgmn/Circuit.xml"), None)
-    //         .ok()
-    //         .unwrap(),
-    // );
+    let tileset = Arc::new(
+        MxgmnTileset::new(Path::new("assets/mxgmn/Circuit.xml"), None)
+            .ok()
+            .unwrap(),
+    );
 
-    let tileset = Arc::new(CarcassonneTileset::default());
+    // let tileset = Arc::new(CarcassonneTileset::default());
 
     let threaded_backend = Rc::new(RefCell::new(wfc_backend::MultiThreaded::new(THREADS)));
     let threaded = {
