@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::Error;
 use hierarchical_wfc::Graph;
+use web_time::Duration;
 
 use crate::tile_util::Tile;
 
@@ -15,13 +16,13 @@ pub trait SparseDistribution<K> {
     fn compare(&self, other: &Self) -> ();
 }
 
-impl<K: Eq + Hash + Clone> SparseDistribution<K> for HashMap<K, StdErr<f64>> {
+impl<K: Eq + Hash + Clone + std::fmt::Debug> SparseDistribution<K> for HashMap<K, StdErr<f64>> {
     fn reasonable_keys(&self) -> HashSet<K> {
         HashSet::from_iter(self.iter().flat_map(|(k, v)| {
             if v.n == 0.0 || v.s == 0.0 {
                 None
             } else {
-                if v.s / v.n < 0.1 {
+                if v.s / v.n < 0.5 {
                     Some(k.clone())
                 } else {
                     None
@@ -37,16 +38,23 @@ impl<K: Eq + Hash + Clone> SparseDistribution<K> for HashMap<K, StdErr<f64>> {
 
         let mut count = 0.0;
         let mut avg = 0.0;
+        print!("[");
+
         for k in keys {
             let a = self.get(k).unwrap();
             let b = other.get(k).unwrap();
 
             // println!("{:.2} {:.2}: {:.4}", a.n, b.n, a.t_test(b));
             avg += a.t_test(b).abs();
+            print!("({:?}, {}),", k, a.t_test(b));
 
             count += 1.0;
         }
+        print!("]");
 
+        std::thread::sleep(Duration::from_secs(1));
+
+        panic!();
         avg /= count;
         println!("avg t-test: {avg:.4} ({count} features)");
     }

@@ -1,4 +1,3 @@
-use bevy_inspector_egui::egui::Grid;
 use grid_wfc::{
     carcassonne_tileset::CarcassonneTileset,
     grid_graph::GridGraphSettings,
@@ -74,12 +73,13 @@ pub fn main() {
         .write_record(["chunk_size", "average_t"])
         .unwrap();
 
-    for (tileset, tileset_name, scale, samples) in [
+    for (tileset, tileset_name, chunk_sizes, size, samples) in [
         (
             Arc::new(CarcassonneTileset::default()) as Arc<dyn TileSet>,
             "Carcassonne",
-            1,
-            8,
+            [2, 4, 8],
+            64,
+            32,
         ),
         (
             Arc::new(
@@ -88,15 +88,27 @@ pub fn main() {
                     .unwrap(),
             ) as Arc<dyn TileSet>,
             "Circuit",
-            1,
-            8,
+            [16, 16, 32],
+            64,
+            64,
         ),
+        // (
+        //     Arc::new(
+        //         MxgmnTileset::new(Path::new("assets/mxgmn/Summer.xml"), None)
+        //             .ok()
+        //             .unwrap(),
+        //     ) as Arc<dyn TileSet>,
+        //     "Summer",
+        //     [8, 16, 32],
+        //     128,
+        //     32,
+        // ),
     ] {
         let single = {
             let single_settings = SingleSettings {
                 grid_graph_settings: GridGraphSettings {
-                    width: SIZE / scale,
-                    height: SIZE / scale,
+                    width: size,
+                    height: size,
                     ..GRID_GRAPH_SETTINGS
                 },
 
@@ -117,12 +129,13 @@ pub fn main() {
                     }),
                 )
             };
+            single_stats.set_seed(0);
             single_stats.run();
             single_stats.build()
         };
-        for chunk_size in [8, 16, 32] {
+        for chunk_size in chunk_sizes {
             println!("\nSettings:");
-            println!("   Chunk size: {}", chunk_size / scale);
+            println!("   Chunk size: {}", chunk_size);
             println!("      Tileset: {}", tileset_name);
 
             let threaded = {
@@ -133,8 +146,8 @@ pub fn main() {
                         ..CHUNKED_SETTINGS.chunk_settings
                     },
                     grid_graph_settings: GridGraphSettings {
-                        width: SIZE / scale,
-                        height: SIZE / scale,
+                        width: size,
+                        height: size,
                         ..GRID_GRAPH_SETTINGS
                     },
                     ..CHUNKED_SETTINGS
@@ -153,6 +166,7 @@ pub fn main() {
                         }),
                     )
                 };
+                threaded_stats.set_seed(0);
                 threaded_stats.run();
                 threaded_stats.build()
             };
