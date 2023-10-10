@@ -21,12 +21,35 @@ pub enum GenerationMode {
 pub struct World {
     pub world: Vec<Vec<WaveFunction>>,
     pub generated_chunks: HashMap<IVec2, ChunkState>,
-    pub chunk_size: usize,
-    pub overlap: usize,
+    pub chunk_settings: ChunkSettings,
     pub tileset: Arc<dyn TileSet>,
     pub rng: SmallRng,
     pub outstanding: usize,
     pub settings: WfcSettings,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+pub struct ChunkSettings {
+    pub chunk_size: usize,
+    pub overlap: usize,
+    pub chunk_merging: ChunkMerging,
+}
+
+impl Default for ChunkSettings {
+    fn default() -> Self {
+        Self {
+            chunk_size: 32,
+            overlap: 4,
+            chunk_merging: ChunkMerging::Mixed,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+pub enum ChunkMerging {
+    Interior,
+    Full,
+    Mixed,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -50,12 +73,16 @@ impl World {
         let filled = WaveFunction::filled(self.tileset.tile_count());
         let mut graph = graph_grid::create(&settings, filled);
 
-        let chunk_bottom_left = chunk * self.chunk_size as i32;
-        let chunk_top_right = (chunk + IVec2::ONE) * self.chunk_size as i32;
+        let chunk_bottom_left = chunk * self.chunk_settings.chunk_size as i32;
+        let chunk_top_right = (chunk + IVec2::ONE) * self.chunk_settings.chunk_size as i32;
         for x in 0..size.x {
             for y in 0..size.y {
                 let pos = IVec2::new(bottom_left.x + x, bottom_left.y + y);
-                if pos.cmplt(chunk_bottom_left).any() || pos.cmpge(chunk_top_right).any() {
+                if pos.cmplt(chunk_bottom_left).any()
+                    || pos.cmpge(chunk_top_right).any()
+                    || self.chunk_settings.chunk_merging == ChunkMerging::Interior
+                    || self.chunk_settings.chunk_merging == ChunkMerging::Full
+                {
                     let tile = &self.world[pos.x as usize][pos.y as usize];
                     graph.tiles[x as usize * size.y as usize + y as usize] = tile.clone();
                 }
@@ -80,8 +107,8 @@ impl World {
         let (bottom_left, top_right) = self.chunk_bounds(chunk);
         let size = top_right - bottom_left;
 
-        let chunk_bottom_left = chunk * self.chunk_size as i32;
-        let chunk_top_right = (chunk + IVec2::ONE) * self.chunk_size as i32;
+        let chunk_bottom_left = chunk * self.chunk_settings.chunk_size as i32;
+        let chunk_top_right = (chunk + IVec2::ONE) * self.chunk_settings.chunk_size as i32;
 
         // Note: Assumes that the graph is a grid graph with a standard ordering
         for x in 0..size.x {
@@ -90,10 +117,17 @@ impl World {
 
                 // overwrite tiles inside the chunk while preserving tiles on the border
                 let tile = graph.tiles[x as usize * size.y as usize + y as usize].clone();
-                if (pos.cmpge(chunk_bottom_left).all() && pos.cmplt(chunk_top_right).all())
-                    || self.world[pos.x as usize][pos.y as usize].count_bits() > 1
-                    || tile.count_bits() == 0
-                {
+                let condition = match self.chunk_settings.chunk_merging {
+                    ChunkMerging::Mixed => {
+                        (pos.cmpge(chunk_bottom_left).all() && pos.cmplt(chunk_top_right).all())
+                            || self.world[pos.x as usize][pos.y as usize].count_bits() > 1
+                    }
+                    ChunkMerging::Interior => {
+                        pos.cmpge(chunk_bottom_left).all() && pos.cmplt(chunk_top_right).all()
+                    }
+                    ChunkMerging::Full => true,
+                };
+                if condition || tile.count_bits() == 0 {
                     self.world[pos.x as usize][pos.y as usize] = tile;
                 }
             }
@@ -102,10 +136,11 @@ impl World {
 
     pub fn chunk_bounds(&self, pos: IVec2) -> (IVec2, IVec2) {
         let world_size = IVec2::new(self.world.len() as i32, self.world[0].len() as i32);
-        let bottom_left =
-            (pos * self.chunk_size as i32 - IVec2::splat(self.overlap as i32)).max(IVec2::ZERO);
-        let top_right = ((pos + IVec2::ONE) * self.chunk_size as i32
-            + IVec2::splat(self.overlap as i32))
+        let bottom_left = (pos * self.chunk_settings.chunk_size as i32
+            - IVec2::splat(self.chunk_settings.overlap as i32))
+        .max(IVec2::ZERO);
+        let top_right = ((pos + IVec2::ONE) * self.chunk_settings.chunk_size as i32
+            + IVec2::splat(self.chunk_settings.overlap as i32))
         .min(world_size);
         (bottom_left, top_right)
     }
@@ -115,8 +150,8 @@ impl World {
         match generation_mode {
             GenerationMode::NonDeterministic => {
                 let chunks = IVec2::new(
-                    self.world.len() as i32 / self.chunk_size as i32,
-                    self.world[0].len() as i32 / self.chunk_size as i32,
+                    self.world.len() as i32 / self.chunk_settings.chunk_size as i32,
+                    self.world[0].len() as i32 / self.chunk_settings.chunk_size as i32,
                 );
                 let start_chunk = IVec2::new(
                     self.rng.gen_range(0..chunks.x),
@@ -132,8 +167,8 @@ impl World {
             }
             GenerationMode::Deterministic => {
                 let chunks = IVec2::new(
-                    self.world.len() as i32 / self.chunk_size as i32,
-                    self.world[0].len() as i32 / self.chunk_size as i32,
+                    self.world.len() as i32 / self.chunk_settings.chunk_size as i32,
+                    self.world[0].len() as i32 / self.chunk_settings.chunk_size as i32,
                 );
                 let half_chunks = chunks / 2;
                 for x in 0..half_chunks.x {
@@ -161,8 +196,8 @@ impl World {
                 'outer: for direction in 0..4 {
                     let neighbor = chunk + Direction::from(direction).to_ivec2();
                     let chunks = IVec2::new(
-                        self.world.len() as i32 / self.chunk_size as i32,
-                        self.world[0].len() as i32 / self.chunk_size as i32,
+                        self.world.len() as i32 / self.chunk_settings.chunk_size as i32,
+                        self.world[0].len() as i32 / self.chunk_settings.chunk_size as i32,
                     );
                     if !self.generated_chunks.contains_key(&neighbor)
                         && neighbor.cmpge(IVec2::ZERO).all()
@@ -189,8 +224,8 @@ impl World {
             }
             ChunkType::Corner => {
                 let chunks = IVec2::new(
-                    self.world.len() as i32 / self.chunk_size as i32,
-                    self.world[0].len() as i32 / self.chunk_size as i32,
+                    self.world.len() as i32 / self.chunk_settings.chunk_size as i32,
+                    self.world[0].len() as i32 / self.chunk_settings.chunk_size as i32,
                 );
 
                 for direction in 0..4 {
@@ -217,8 +252,8 @@ impl World {
             }
             ChunkType::Edge => {
                 let chunks = IVec2::new(
-                    self.world.len() as i32 / self.chunk_size as i32,
-                    self.world[0].len() as i32 / self.chunk_size as i32,
+                    self.world.len() as i32 / self.chunk_settings.chunk_size as i32,
+                    self.world[0].len() as i32 / self.chunk_settings.chunk_size as i32,
                 );
 
                 for direction in 0..4 {

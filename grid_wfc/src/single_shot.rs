@@ -1,6 +1,6 @@
 use crate::{
     graph_grid::GridGraphSettings,
-    world::{ChunkState, ChunkType, GenerationMode, World},
+    world::{ChunkState, ChunkType, GenerationMode, World, ChunkSettings},
 };
 use bevy::{prelude::*, utils::HashMap};
 use hierarchical_wfc::{
@@ -23,8 +23,7 @@ pub fn generate_world(
     settings: GridGraphSettings,
     seed: u64,
     generation_mode: GenerationMode,
-    chunk_size: usize,
-    overlap: usize,
+    chunk_settings: ChunkSettings,
     wfc_settings: WfcSettings,
 ) -> (World, anyhow::Result<()>) {
     let filled = WaveFunction::filled(tileset.tile_count());
@@ -32,8 +31,7 @@ pub fn generate_world(
     let mut world = World {
         world: vec![vec![filled; settings.height]; settings.width],
         generated_chunks: HashMap::new(),
-        chunk_size,
-        overlap,
+        chunk_settings,
         tileset,
         rng,
         outstanding: 0,

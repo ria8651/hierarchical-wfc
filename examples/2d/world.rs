@@ -2,7 +2,7 @@ use crate::ui::RenderUpdateEvent;
 use bevy::{prelude::*, utils::HashMap};
 use grid_wfc::{
     graph_grid::{self, GridGraphSettings},
-    world::{ChunkState, ChunkType, GenerationMode, World},
+    world::{ChunkSettings, ChunkState, ChunkType, GenerationMode, World},
 };
 use hierarchical_wfc::{
     wfc_backend::{Backend, MultiThreaded, SingleThreaded},
@@ -36,11 +36,10 @@ pub enum GenerateEvent {
         tileset: Arc<dyn TileSet>,
         settings: GridGraphSettings,
         wfc_settings: WfcSettings,
+        chunk_settings: ChunkSettings,
         multithreaded: bool,
         deterministic: bool,
         seed: u64,
-        chunk_size: usize,
-        overlap: usize,
     },
 }
 
@@ -94,16 +93,14 @@ fn handle_events(
                 multithreaded,
                 deterministic,
                 seed,
-                chunk_size,
-                overlap,
+                chunk_settings,
             } => {
                 let filled = WaveFunction::filled(tileset.tile_count());
                 let rng = SmallRng::seed_from_u64(seed);
                 let mut new_world = World {
                     world: vec![vec![filled; settings.height]; settings.width],
                     generated_chunks: HashMap::new(),
-                    chunk_size,
-                    overlap,
+                    chunk_settings,
                     tileset: tileset.clone(),
                     rng,
                     outstanding: 0,
@@ -168,8 +165,7 @@ fn handle_events(
                 let new_world = World {
                     world: vec![vec![WaveFunction::empty(); size.y as usize]; size.x as usize],
                     generated_chunks: HashMap::from_iter(vec![(IVec2::ZERO, ChunkState::Done)]),
-                    chunk_size: 0,
-                    overlap: 0,
+                    chunk_settings: ChunkSettings::default(),
                     tileset: tileset.clone(),
                     rng: rng.clone(),
                     outstanding: 0,

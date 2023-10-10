@@ -7,7 +7,7 @@ use grid_wfc::{
     graph_grid::{self, GridGraphSettings},
     mxgmn_tileset::MxgmnTileset,
     single_shot,
-    world::GenerationMode,
+    world::{ChunkSettings, GenerationMode},
 };
 use hierarchical_wfc::{
     wfc_backend::{MultiThreaded, SingleThreaded},
@@ -116,8 +116,11 @@ fn main() {
                                 settings,
                                 seed,
                                 generation_mode,
-                                chunk_size,
-                                4,
+                                ChunkSettings {
+                                    chunk_size,
+                                    overlap: 2,
+                                    ..Default::default()
+                                },
                                 WfcSettings::default(),
                             );
 

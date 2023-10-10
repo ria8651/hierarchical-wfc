@@ -9,8 +9,11 @@ use bevy_inspector_egui::{
     DefaultInspectorConfigPlugin,
 };
 use grid_wfc::{
-    basic_tileset::BasicTileset, carcassonne_tileset::CarcassonneTileset,
-    graph_grid::GridGraphSettings, mxgmn_tileset::MxgmnTileset, world::ChunkState,
+    basic_tileset::BasicTileset,
+    carcassonne_tileset::CarcassonneTileset,
+    graph_grid::GridGraphSettings,
+    mxgmn_tileset::MxgmnTileset,
+    world::{ChunkSettings, ChunkState},
 };
 use hierarchical_wfc::{wfc_task::WfcSettings, TileSet};
 use std::sync::Arc;
@@ -38,8 +41,7 @@ struct UiState {
     grid_graph_settings: GridGraphSettings,
     deterministic: bool,
     multithreaded: bool,
-    chunk_size: usize,
-    overlap: usize,
+    chunk_settings: ChunkSettings,
     wfc_settings: WfcSettings,
     draw_gizmos: bool,
     #[reflect(ignore)]
@@ -86,8 +88,7 @@ impl Default for UiState {
             grid_graph_settings: GridGraphSettings::default(),
             deterministic: false,
             multithreaded: true,
-            chunk_size: 32,
-            overlap: 4,
+            chunk_settings: ChunkSettings::default(),
             wfc_settings: WfcSettings::default(),
             draw_gizmos: true,
             picked_tileset: 3,
@@ -173,11 +174,10 @@ fn ui(
                                 tileset,
                                 settings: ui_state.grid_graph_settings.clone(),
                                 wfc_settings: ui_state.wfc_settings.clone(),
+                                chunk_settings: ui_state.chunk_settings.clone(),
                                 multithreaded: ui_state.multithreaded,
                                 deterministic: ui_state.deterministic,
                                 seed,
-                                chunk_size: ui_state.chunk_size,
-                                overlap: ui_state.overlap,
                             });
 
                             // good for debugging
