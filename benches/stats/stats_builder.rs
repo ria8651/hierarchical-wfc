@@ -38,7 +38,7 @@ impl<K: Eq + Hash + Clone + std::fmt::Debug> SparseDistribution<K> for HashMap<K
 
         let mut count = 0.0;
         let mut avg = 0.0;
-        print!("[");
+        // print!("[");
 
         for k in keys {
             let a = self.get(k).unwrap();
@@ -46,11 +46,11 @@ impl<K: Eq + Hash + Clone + std::fmt::Debug> SparseDistribution<K> for HashMap<K
 
             // println!("{:.2} {:.2}: {:.4}", a.n, b.n, a.t_test(b));
             avg += a.t_test(b).abs();
-            print!("({:?}, {}),", k, a.t_test(b));
+            // print!("({:?}, {}),", k, a.t_test(b));
 
             count += 1.0;
         }
-        print!("]");
+        // print!("]");
 
         std::thread::sleep(Duration::from_secs(1));
 

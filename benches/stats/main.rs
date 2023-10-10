@@ -211,5 +211,6 @@ pub fn main() {
                 ])
                 .unwrap();
         }
+        csv_writer.flush().unwrap();
     }
 }
