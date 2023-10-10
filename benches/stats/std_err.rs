@@ -56,10 +56,11 @@ impl RollingStdErr<f64> {
     pub fn increment(&mut self, v: f64) {
         self.current += v;
     }
-    pub fn insert(&mut self, v: f64) {
-        self.increment(v);
-        self.commit();
-    }
+
+    // pub fn insert(&mut self, v: f64) {
+    //     self.increment(v);
+    //     self.commit();
+    // }
 
     pub fn commit(&mut self) {
         self.s_1 += self.current;

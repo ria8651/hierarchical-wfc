@@ -18,11 +18,11 @@ use stats_builder::RunStatisticsBuilder;
 mod chunked;
 mod single;
 use chunked::{generate_chunked, ChunkedSettings};
-use single::{generate_single, SingleSettings};
+use single::{dispatch_single, SingleSettings};
 
 mod tile_util;
 
-use crate::stats_builder::SparseDistribution;
+use crate::{single::await_single, stats_builder::SparseDistribution};
 
 const THREADS: usize = 8;
 const SAMPLES: usize = 16;
@@ -80,6 +80,7 @@ pub fn main() {
             let backend = threaded_backend.clone();
             RunStatisticsBuilder::new(
                 SAMPLES,
+                Box::new(|_| {}),
                 Box::new(move |seed| {
                     generate_chunked(seed, tileset.clone(), backend.clone(), CHUNKED_SETTINGS)
                 }),
@@ -93,10 +94,15 @@ pub fn main() {
         let mut single_stats = {
             let tileset = tileset.clone();
 
-            RunStatisticsBuilder::new(
-                SAMPLES,
-                Box::new(move |seed| generate_single(seed, tileset.clone(), SINGLE_SETTINGS)),
-            )
+            let backend = threaded_backend.clone();
+            let queue_fn = Box::new(move |seed| {
+                dispatch_single(seed, tileset.clone(), backend.clone(), SINGLE_SETTINGS)
+            });
+
+            let backend = threaded_backend.clone();
+            let await_fn = Box::new(move |seed| await_single(backend.clone(), seed));
+
+            RunStatisticsBuilder::new(SAMPLES, queue_fn, await_fn)
         };
         single_stats.run();
         single_stats.build()
@@ -106,10 +112,15 @@ pub fn main() {
         let mut single_stats = {
             let tileset = tileset.clone();
 
-            RunStatisticsBuilder::new(
-                SAMPLES,
-                Box::new(move |seed| generate_single(seed, tileset.clone(), SINGLE_SETTINGS)),
-            )
+            let backend = threaded_backend.clone();
+            let queue_fn = Box::new(move |seed| {
+                dispatch_single(seed, tileset.clone(), backend.clone(), SINGLE_SETTINGS)
+            });
+
+            let backend = threaded_backend.clone();
+            let await_fn = Box::new(move |seed| await_single(backend.clone(), seed));
+
+            RunStatisticsBuilder::new(SAMPLES, queue_fn, await_fn)
         };
         single_stats.set_seed(172341234);
         single_stats.run();

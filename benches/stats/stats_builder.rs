@@ -59,7 +59,8 @@ pub struct RunStatistics {
 pub struct RunStatisticsBuilder {
     seed: u64,
     samples: usize,
-    generation_fn: Box<dyn Fn(u64) -> Result<Graph<usize>, Error>>,
+    queue_fn: Box<dyn Fn(u64)>,
+    await_fn: Box<dyn Fn(u64) -> Result<Graph<usize>, Error>>,
     distributions_single: HashMap<usize, RollingStdErr<f64>>,
     distributions_pair: HashMap<[usize; 3], RollingStdErr<f64>>,
     distributions_quad: HashMap<[usize; 4], RollingStdErr<f64>>,
@@ -68,11 +69,13 @@ pub struct RunStatisticsBuilder {
 impl RunStatisticsBuilder {
     pub fn new(
         samples: usize,
-        generation_fn: Box<dyn Fn(u64) -> Result<Graph<usize>, Error>>,
+        queue_fn: Box<dyn Fn(u64)>,
+        await_fn: Box<dyn Fn(u64) -> Result<Graph<usize>, Error>>,
     ) -> Self {
         Self {
             samples,
-            generation_fn,
+            queue_fn,
+            await_fn,
             seed: 0u64,
             distributions_single: HashMap::new(),
             distributions_pair: HashMap::new(),
@@ -169,20 +172,29 @@ impl RunStatisticsBuilder {
     }
 
     pub fn run(&mut self) {
-        for _ in 0..self.samples {
-            let result = loop {
-                if let Ok(result) = (self.generation_fn)(self.seed) {
-                    self.seed += 1;
-                    break result;
-                } else {
-                    self.seed += 1;
-                }
-            };
-            self.update_distrubtions(result);
+        let mut required_samples = self.samples;
+        let mut remaning_samples = self.samples;
+        while remaning_samples > 0 {
+            while required_samples > 0 {
+                required_samples -= 1;
+                (self.queue_fn)(self.seed);
+                self.seed += 1;
+            }
+
+            if let Ok(result) = (self.await_fn)(self.seed) {
+                self.update_distrubtions(result);
+                remaning_samples -= 1;
+            } else {
+                required_samples += 1;
+            }
         }
     }
 
     pub fn build(&self) -> RunStatistics {
+        for d in self.distributions_single.values() {
+            assert!(d.n == 16);
+        }
+
         let distributions = RunStatistics {
             single: self
                 .distributions_single
