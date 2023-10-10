@@ -72,69 +72,78 @@ pub fn main() {
     );
 
     // let tileset = Arc::new(CarcassonneTileset::default());
-
     let threaded_backend = Rc::new(RefCell::new(wfc_backend::MultiThreaded::new(THREADS)));
-    let threaded = {
-        let mut threaded_stats = {
-            let tileset = tileset.clone();
-            let backend = threaded_backend.clone();
-            RunStatisticsBuilder::new(
-                SAMPLES,
-                Box::new(ChunkedRunner {
-                    backend,
-                    tileset,
-                    seeds: vec![],
-                    setings: CHUNKED_SETTINGS,
-                }),
-            )
+
+    let mut csv_writer = csv::Writer::from_path(format!("benches/data/quality.csv")).unwrap();
+    csv_writer
+        .write_record(["chunk_size", "average_t"])
+        .unwrap();
+
+    for chunk_size in [8, 16, 32] {
+        let threaded = {
+            let chunked_settings = ChunkedSettings {
+                chunk_settings: ChunkSettings {
+                    chunk_size,
+                    overlap: chunk_size.div_euclid(4),
+                    ..CHUNKED_SETTINGS.chunk_settings
+                },
+                ..CHUNKED_SETTINGS
+            };
+
+            let mut threaded_stats = {
+                let tileset = tileset.clone();
+                let backend = threaded_backend.clone();
+                RunStatisticsBuilder::new(
+                    SAMPLES,
+                    Box::new(ChunkedRunner {
+                        backend,
+                        tileset,
+                        seeds: vec![],
+                        setings: chunked_settings,
+                    }),
+                )
+            };
+            threaded_stats.run();
+            threaded_stats.build()
         };
-        threaded_stats.run();
-        threaded_stats.build()
-    };
 
-    let single = {
-        let mut single_stats = {
-            let tileset = tileset.clone();
+        let single_1 = {
+            let single_settings = SingleSettings { ..SINGLE_SETTINGS };
 
-            let backend = threaded_backend.clone();
+            let mut single_stats = {
+                let tileset = tileset.clone();
 
-            RunStatisticsBuilder::new(
-                SAMPLES,
-                Box::new(SingleRunner {
-                    tileset,
-                    backend,
-                    settings: SINGLE_SETTINGS,
-                }),
-            )
+                let backend = threaded_backend.clone();
+
+                RunStatisticsBuilder::new(
+                    SAMPLES,
+                    Box::new(SingleRunner {
+                        tileset,
+                        backend,
+                        settings: single_settings,
+                    }),
+                )
+            };
+            single_stats.run();
+            single_stats.build()
         };
-        single_stats.run();
-        single_stats.build()
-    };
 
-    let single_2 = {
-        let mut single_stats = {
-            let tileset = tileset.clone();
+        println!("\n[single vs threaded] Chunk size: {}", chunk_size);
+        print!("single ");
+        single_1.single.compare(&threaded.single);
+        print!("pair   ");
+        single_1.pair.compare(&threaded.pair);
+        print!("quad   ");
+        single_1.quad.compare(&threaded.quad);
+    }
 
-            let backend = threaded_backend.clone();
+    // println!("\n[single vs single] ");
+    // single_1.single.compare(&single_2.single);
+    // single_1.pair.compare(&single_2.pair);
+    // single_1.quad.compare(&single_2.quad);
 
-            RunStatisticsBuilder::new(
-                SAMPLES,
-                Box::new(SingleRunner {
-                    tileset,
-                    backend,
-                    settings: SINGLE_SETTINGS,
-                }),
-            )
-        };
-        single_stats.set_seed(172341234);
-        single_stats.run();
-        single_stats.build()
-    };
-
-    print!("[single_1 vs single_2] ");
-    single.single.compare(&single_2.single);
-    print!("[single_1 vs threaded] ");
-    single.single.compare(&threaded.single);
-    print!("[single_2 vs threaded] ");
-    single_2.single.compare(&threaded.single);
+    // println!("\n[single_2 vs threaded] ");
+    // single_2.single.compare(&threaded.single);
+    // single_2.pair.compare(&threaded.pair);
+    // single_2.quad.compare(&threaded.quad);
 }

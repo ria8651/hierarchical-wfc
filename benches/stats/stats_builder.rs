@@ -18,7 +18,7 @@ pub trait SparseDistribution<K> {
 impl<K: Eq + Hash + Clone> SparseDistribution<K> for HashMap<K, StdErr<f64>> {
     fn reasonable_keys(&self) -> HashSet<K> {
         HashSet::from_iter(self.iter().flat_map(|(k, v)| {
-            if v.n == 0.0 {
+            if v.n == 0.0 || v.s == 0.0 {
                 None
             } else {
                 if v.s / v.n < 0.1 {
@@ -40,12 +40,15 @@ impl<K: Eq + Hash + Clone> SparseDistribution<K> for HashMap<K, StdErr<f64>> {
         for k in keys {
             let a = self.get(k).unwrap();
             let b = other.get(k).unwrap();
+
             // println!("{:.2} {:.2}: {:.4}", a.n, b.n, a.t_test(b));
             avg += a.t_test(b).abs();
+
             count += 1.0;
         }
+
         avg /= count;
-        println!("avg: {avg:.4} ({count})");
+        println!("avg t-test: {avg:.4} ({count} features)");
     }
 }
 
@@ -197,10 +200,6 @@ impl RunStatisticsBuilder {
     }
 
     pub fn build(&self) -> RunStatistics {
-        for d in self.distributions_single.values() {
-            assert!(d.n == 16);
-        }
-
         let distributions = RunStatistics {
             single: self
                 .distributions_single
@@ -231,20 +230,20 @@ impl RunStatisticsBuilder {
             distributions.neighbours.values().collect::<Vec<_>>(),
         ];
 
-        for d in dists {
-            let count: usize = d
-                .iter()
-                .map(|s| {
-                    if s.n == 0.0 {
-                        0usize
-                    } else {
-                        (s.s / s.n < 0.1) as usize
-                    }
-                })
-                .sum();
-            let total = d.len();
-            dbg!((count, total));
-        }
+        // for d in dists {
+        //     let count: usize = d
+        //         .iter()
+        //         .map(|s| {
+        //             if s.n == 0.0 {
+        //                 0usize
+        //             } else {
+        //                 (s.s / s.n < 0.1) as usize
+        //             }
+        //         })
+        //         .sum();
+        //     let total = d.len();
+        //     // dbg!((count, total));
+        // }
         distributions
     }
 }
