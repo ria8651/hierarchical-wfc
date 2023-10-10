@@ -1,4 +1,4 @@
-use crate::graph_grid::Direction;
+use crate::grid_graph::Direction;
 use bevy::prelude::*;
 use hierarchical_wfc::{TileSet, WaveFunction};
 use std::sync::Arc;

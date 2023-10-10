@@ -1,4 +1,4 @@
-use grid_wfc::graph_grid::{self, GridGraphSettings};
+use grid_wfc::grid_graph::{self, GridGraphSettings};
 use hierarchical_wfc::{
     wfc_backend::Backend, wfc_task::WfcSettings, Graph, TileSet, WaveFunction, WfcTask,
 };
@@ -21,7 +21,7 @@ pub struct SingleRunner {
 impl StatisticRunner for SingleRunner {
     fn queue(&mut self, seed: u64) {
         let filled = WaveFunction::filled(self.tileset.tile_count());
-        let graph = graph_grid::create(&self.settings.grid_graph_settings, filled);
+        let graph = grid_graph::create(&self.settings.grid_graph_settings, filled);
 
         let task = WfcTask {
             graph,

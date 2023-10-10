@@ -1,5 +1,5 @@
 use grid_wfc::{
-    graph_grid::GridGraphSettings,
+    grid_graph::GridGraphSettings,
     single_shot,
     world::{ChunkSettings, GenerationMode},
 };

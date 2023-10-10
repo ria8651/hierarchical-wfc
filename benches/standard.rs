@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use grid_wfc::{
-    graph_grid::{self, GridGraphSettings},
+    grid_graph::{self, GridGraphSettings},
     mxgmn_tileset::MxgmnTileset,
 };
 use hierarchical_wfc::{
@@ -22,7 +22,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 periodic: false,
             };
             let filled = WaveFunction::filled(tileset.tile_count());
-            let graph = graph_grid::create(&settings, filled);
+            let graph = grid_graph::create(&settings, filled);
             let seed = rng.gen();
 
             let mut task = WfcTask {

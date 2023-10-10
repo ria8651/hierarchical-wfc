@@ -1,5 +1,5 @@
 use crate::{
-    graph_grid::GridGraphSettings,
+    grid_graph::GridGraphSettings,
     world::{ChunkState, ChunkType, GenerationMode, World, ChunkSettings},
 };
 use bevy::{prelude::*, utils::HashMap};

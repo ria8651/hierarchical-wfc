@@ -4,7 +4,7 @@ use csv::Writer;
 use grid_wfc::{
     basic_tileset::BasicTileset,
     carcassonne_tileset::CarcassonneTileset,
-    graph_grid::{self, GridGraphSettings},
+    grid_graph::{self, GridGraphSettings},
     mxgmn_tileset::MxgmnTileset,
     single_shot,
     world::{ChunkSettings, GenerationMode},
@@ -75,7 +75,7 @@ fn main() {
                                 periodic: false,
                             };
                             let filled = WaveFunction::filled(tileset.tile_count());
-                            let graph = graph_grid::create(&settings, filled);
+                            let graph = grid_graph::create(&settings, filled);
 
                             let mut task = WfcTask {
                                 graph,

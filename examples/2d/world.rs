@@ -1,7 +1,7 @@
 use crate::ui::RenderUpdateEvent;
 use bevy::{prelude::*, utils::HashMap};
 use grid_wfc::{
-    graph_grid::{self, GridGraphSettings},
+    grid_graph::{self, GridGraphSettings},
     world::{ChunkSettings, ChunkState, ChunkType, GenerationMode, World},
 };
 use hierarchical_wfc::{
@@ -148,7 +148,7 @@ fn handle_events(
                 seed,
             } => {
                 let graph =
-                    graph_grid::create(&settings, WaveFunction::filled(tileset.tile_count()));
+                    grid_graph::create(&settings, WaveFunction::filled(tileset.tile_count()));
                 let size = IVec2::new(settings.width as i32, settings.height as i32);
                 let task = WfcTask {
                     graph,

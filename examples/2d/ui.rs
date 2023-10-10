@@ -11,7 +11,7 @@ use bevy_inspector_egui::{
 use grid_wfc::{
     basic_tileset::BasicTileset,
     carcassonne_tileset::CarcassonneTileset,
-    graph_grid::GridGraphSettings,
+    grid_graph::GridGraphSettings,
     mxgmn_tileset::MxgmnTileset,
     world::{ChunkSettings, ChunkState},
 };

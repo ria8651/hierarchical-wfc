@@ -1,6 +1,6 @@
 use grid_wfc::{
     carcassonne_tileset::CarcassonneTileset,
-    graph_grid::GridGraphSettings,
+    grid_graph::GridGraphSettings,
     mxgmn_tileset::MxgmnTileset,
     world::{ChunkMerging, ChunkSettings, GenerationMode},
 };

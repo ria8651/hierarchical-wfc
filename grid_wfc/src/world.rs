@@ -1,4 +1,4 @@
-use crate::graph_grid::{self, Direction, GridGraphSettings};
+use crate::grid_graph::{self, Direction, GridGraphSettings};
 use bevy::{prelude::*, utils::HashMap};
 use hierarchical_wfc::{wfc_task::WfcSettings, Graph, Neighbor, TileSet, WaveFunction};
 use rand::{rngs::SmallRng, Rng};
@@ -76,7 +76,7 @@ impl World {
             periodic: false,
         };
         let filled = WaveFunction::filled(self.tileset.tile_count());
-        let mut graph = graph_grid::create(&settings, filled);
+        let mut graph = grid_graph::create(&settings, filled);
 
         let chunk_bottom_left = chunk * self.chunk_settings.chunk_size as i32;
         let chunk_top_right = (chunk + IVec2::ONE) * self.chunk_settings.chunk_size as i32;

@@ -1,4 +1,4 @@
-use crate::graph_grid::Direction;
+use crate::grid_graph::Direction;
 use anyhow::Result;
 use bevy::{prelude::*, utils::HashMap};
 use hierarchical_wfc::{TileSet, WaveFunction};
