@@ -130,14 +130,14 @@ pub fn main() {
         };
 
         println!("\n[single vs threaded]");
-        println!("  Chunk size: {}", chunk_size);
-        println!("  Tileset   : {}", tileset_name);
+        println!("   Chunk size: {}", chunk_size);
+        println!("   Tileset   : {}", tileset_name);
         println!("Results:");
-        print!("    single ");
+        print!("   single ");
         single_1.single.compare(&threaded.single);
-        print!("    pair   ");
+        print!("   pair   ");
         single_1.pair.compare(&threaded.pair);
-        print!("    quad   ");
+        print!("   quad   ");
         single_1.quad.compare(&threaded.quad);
     }
 }
