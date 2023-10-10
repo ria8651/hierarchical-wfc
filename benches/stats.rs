@@ -1,6 +1,5 @@
 use anyhow::Error;
 use bevy::utils::{hashbrown::HashMap, HashSet};
-use bevy_inspector_egui::egui::Key;
 use grid_wfc::{
     carcassonne_tileset::CarcassonneTileset,
     graph_grid::{self, GridGraphSettings},
@@ -10,10 +9,9 @@ use grid_wfc::{
 };
 use hierarchical_wfc::{
     wfc_backend::{self, Backend, SingleThreaded},
-    wfc_task::BacktrackingSettings,
+    wfc_task::{BacktrackingSettings, Entropy, WfcSettings},
     Graph, Neighbor, TileSet, WaveFunction, WfcTask,
 };
-use plotters::backend;
 use std::{cell::RefCell, hash::Hash, path::Path, rc::Rc, sync::Arc};
 
 // https://en.wikipedia.org/wiki/Standard_deviation#Rapid_calculation_methods
@@ -84,14 +82,7 @@ impl RollingStdErr<f64> {
         self.current = 0.0;
         self.n += 1;
     }
-    // fn avg_manual_sample_count(&self, n: usize) -> StdErr<f64> {
-    //     assert!(n > 0);
 
-    //     let avg = self.s_1 / n as f64;
-    //     let sigma = (n as f64 * self.s_2 - self.s_1 * self.s_1).sqrt() / n as f64;
-    //     let std_err = sigma / (n as f64).sqrt();
-    //     StdErr::<f64> { n: avg, s: std_err }
-    // }
     fn avg(&self) -> StdErr<f64> {
         if self.n == 0 {
             return StdErr::<f64> { n: 0.0, s: 0.0 };
@@ -442,7 +433,12 @@ fn generate_single(
         tileset: tileset.clone(),
         seed,
         metadata: None,
-        backtracking: BacktrackingSettings::Enabled { restarts_left: 100 },
+        settings: WfcSettings {
+            backtracking: BacktrackingSettings::Enabled {
+                restarts_left: RESTARTS,
+            },
+            entropy: Entropy::Shannon,
+        },
     };
 
     SingleThreaded::execute(&mut task)?;
@@ -472,8 +468,11 @@ fn generate_chunked(
         generation_mode,
         CHUNK_SIZE,
         OVERLAP,
-        BacktrackingSettings::Enabled {
-            restarts_left: RESTARTS,
+        WfcSettings {
+            backtracking: BacktrackingSettings::Enabled {
+                restarts_left: RESTARTS,
+            },
+            entropy: Entropy::Shannon,
         },
     );
     world.build_world_graph()
