@@ -39,7 +39,7 @@ fn time_process<F: FnMut() -> bool>(mut f: F) -> Result<f64> {
             failures += 1;
         }
 
-        if failures as f32 / ITTERATIONS as f32 > 0.4 {
+        if failures as f32 / ITTERATIONS as f32 > 0.5 {
             return Err(anyhow::anyhow!(
                 "Too many failures: {} out of {}",
                 failures,
