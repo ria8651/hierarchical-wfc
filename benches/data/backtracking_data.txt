@@ -1,0 +1,164 @@
+standard backtracking decision node distribution:
+
+Summer 32x32:
+2: 484
+3: 14
+4: 24
+5: 6
+40: 1
+castle 32x32:
+2: 454
+3: 175
+4: 1
+5: 1
+29: 1
+floorplan 32x32:
+2: 221
+3: 212
+4: 185
+5: 54
+6: 2
+56: 1
+
+castle 64x64:
+2: 1759
+3: 653
+4: 3
+5: 1
+29: 1
+floorplan 64x64:
+2: 928
+3: 843
+4: 780
+5: 113
+56: 1
+
+time to run
+(average for 20 runs)
+
+---------format---------
+standard backtracking:
+degree based backtracking (< 3):
+fixed node backtracking (5 at a time):
+        if collapsed.options.count_bits() == 0 {
+            if collapsed.options.len() > 5 {
+                for _ in 0..5 {
+                    collapsed = history.decision_cells.pop().unwrap();
+                }
+            }
+            while collapsed.options.count_bits() < 1 {
+                if history.decision_cells.is_empty() {
+                    Err("No collapsed cells in history")?;
+                }
+                collapsed = history.decision_cells.pop().unwrap();
+            }
+        }
+proportional exploration backtracking:
+        if collapsed.options.count_bits() == 0 {
+            // backtrack half the history
+            let mut backtrack = history.stack.len() / 2;
+            while backtrack > 0 {
+                if history.decision_cells.is_empty() {
+                    Err("No collapsed cells in history")?;
+                }
+                collapsed = history.decision_cells.pop().unwrap();
+                backtrack -= 1;
+            }
+
+            while collapsed.options.count_bits() < 1 {
+                if history.decision_cells.is_empty() {
+                    Err("No collapsed cells in history")?;
+                }
+                collapsed = history.decision_cells.pop().unwrap();
+            }
+        }
+random restarts:
+------------------------
+
+
+
+castle 32x32
+
+0.011351409999999998
+0.009897475s
+0.009322364999999999s
+0.010380870000000002s
+0.024476104999999998s
+
+floorplan 32x32
+
+0.016704165000000003s
+0.015594384999999999s
+0.015705025000000004s
+0.016720799999999997s
+0.022776255000000002s
+
+summer 32x32
+
+too long
+0.019203205000000004s
+0.2469833s
+0.0194842s
+0.028609144999999996s
+
+
+castle 128x128
+
+too long
+1.0300022400000002s
+0.91773504s
+0.9867857899999999s
+too long
+
+floorplan 128x128
+
+too long
+1.05503605s
+1.0430785799999998s
+1.0903707299999998s
+too long
+
+------------------------------------------------------------------------------------------------------
+
+number of backtracks / restarts
+(average for 20 runs)
+
+castle 32x32
+
+1.75
+1.35
+0.65
+1.35
+2.2
+
+floorplan 32x32
+
+0.8
+0.35
+0.4
+0.55
+0.75
+
+summer 32x32
+
+too long
+4
+261.7
+3.45
+2.2
+
+castle 128x128
+
+too long
+30
+29.6
+27.8
+too long
+
+floorplan 128x128
+
+too long
+19
+16.85
+18.15
+too long

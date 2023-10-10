@@ -58,6 +58,7 @@ impl SingleThreaded {
     }
 
     pub fn execute(task: &mut WfcTask) -> Result<()> {
+        // let mut counter: usize = 0;
         let mut rng = SmallRng::seed_from_u64(task.seed);
         let weights = task.tileset.get_weights();
         let tileset = task.tileset.clone();
@@ -110,6 +111,7 @@ impl SingleThreaded {
                     }
                 }
                 if backtrack_flag {
+                    // counter += 1;
                     let result = Self::backtrack(&mut history, task, &mut rng);
                     if let Ok(continue_from) = result {
                         stack.clear();
@@ -168,6 +170,7 @@ impl SingleThreaded {
                 }
             } else {
                 // all cells collapsed
+                // println!("{} ", counter);
                 return Ok(());
             }
         }

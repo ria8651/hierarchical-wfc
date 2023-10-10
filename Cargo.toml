@@ -24,13 +24,9 @@ criterion = "0.5"
 csv = "1.3"
 
 [[bench]]
-name = "wfc"
-harness = false
-
-[[bench]]
-name = "stats"
-harness = false
-
-[[bench]]
 name = "brian"
+harness = false
+
+[[bench]]
+name = "backtracking"
 harness = false
