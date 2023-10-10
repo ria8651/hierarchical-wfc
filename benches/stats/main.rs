@@ -65,6 +65,7 @@ const CHUNKED_SETTINGS: ChunkedSettings = ChunkedSettings {
 };
 
 pub fn main() {
+    let tileset_name = "Circuit";
     let tileset = Arc::new(
         MxgmnTileset::new(Path::new("assets/mxgmn/Circuit.xml"), None)
             .ok()
@@ -128,22 +129,15 @@ pub fn main() {
             single_stats.build()
         };
 
-        println!("\n[single vs threaded] Chunk size: {}", chunk_size);
-        print!("single ");
+        println!("\n[single vs threaded]");
+        println!("  Chunk size: {}", chunk_size);
+        println!("  Tileset   : {}", tileset_name);
+        println!("Results:");
+        print!("    single ");
         single_1.single.compare(&threaded.single);
-        print!("pair   ");
+        print!("    pair   ");
         single_1.pair.compare(&threaded.pair);
-        print!("quad   ");
+        print!("    quad   ");
         single_1.quad.compare(&threaded.quad);
     }
-
-    // println!("\n[single vs single] ");
-    // single_1.single.compare(&single_2.single);
-    // single_1.pair.compare(&single_2.pair);
-    // single_1.quad.compare(&single_2.quad);
-
-    // println!("\n[single_2 vs threaded] ");
-    // single_2.single.compare(&threaded.single);
-    // single_2.pair.compare(&threaded.pair);
-    // single_2.quad.compare(&threaded.quad);
 }
