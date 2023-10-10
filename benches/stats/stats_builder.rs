@@ -13,7 +13,7 @@ use super::std_err::{RollingStdErr, StdErr};
 
 pub trait SparseDistribution<K> {
     fn reasonable_keys(&self) -> HashSet<K>;
-    fn compare(&self, other: &Self) -> ();
+    fn compare(&self, other: &Self) -> f64;
 }
 
 impl<K: Eq + Hash + Clone + std::fmt::Debug> SparseDistribution<K> for HashMap<K, StdErr<f64>> {
@@ -31,7 +31,7 @@ impl<K: Eq + Hash + Clone + std::fmt::Debug> SparseDistribution<K> for HashMap<K
         }))
     }
 
-    fn compare(&self, other: &Self) {
+    fn compare(&self, other: &Self) -> f64 {
         let a_keys = self.reasonable_keys();
         let b_keys = other.reasonable_keys();
         let keys = a_keys.intersection(&b_keys);
@@ -54,9 +54,9 @@ impl<K: Eq + Hash + Clone + std::fmt::Debug> SparseDistribution<K> for HashMap<K
 
         std::thread::sleep(Duration::from_secs(1));
 
-        panic!();
         avg /= count;
         println!("avg t-test: {avg:.4} ({count} features)");
+        return avg;
     }
 }
 

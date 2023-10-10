@@ -70,7 +70,7 @@ pub fn main() {
 
     let mut csv_writer = csv::Writer::from_path(format!("benches/data/quality.csv")).unwrap();
     csv_writer
-        .write_record(["chunk_size", "average_t"])
+        .write_record(["tileset", "size", "chunk_size", "single", "pair", "quad"])
         .unwrap();
 
     for (tileset, tileset_name, chunk_sizes, size, samples) in [
@@ -195,11 +195,21 @@ pub fn main() {
 
             println!("Results:");
             print!("   single ");
-            single.single.compare(&threaded.single);
+            let t_single = single.single.compare(&threaded.single);
             print!("     pair ");
-            single.pair.compare(&threaded.pair);
+            let t_pair = single.pair.compare(&threaded.pair);
             print!("     quad ");
-            single.quad.compare(&threaded.quad);
+            let t_quad = single.quad.compare(&threaded.quad);
+            csv_writer
+                .write_record([
+                    tileset_name,
+                    &format!("{size}"),
+                    &format!("{chunk_size}"),
+                    &format!("{t_single}"),
+                    &format!("{t_pair}"),
+                    &format!("{t_quad}"),
+                ])
+                .unwrap();
         }
     }
 }
