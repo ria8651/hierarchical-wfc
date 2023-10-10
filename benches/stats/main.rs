@@ -79,7 +79,7 @@ pub fn main() {
             "Carcassonne",
             [2, 4, 8],
             64,
-            32,
+            16,
         ),
         (
             Arc::new(
@@ -90,7 +90,29 @@ pub fn main() {
             "Circuit",
             [16, 16, 32],
             64,
+            32,
+        ),
+        (
+            Arc::new(
+                MxgmnTileset::new(Path::new("assets/mxgmn/Summer.xml"), None)
+                    .ok()
+                    .unwrap(),
+            ) as Arc<dyn TileSet>,
+            "Circuit",
+            [16, 16, 32],
             64,
+            32,
+        ),
+        (
+            Arc::new(
+                MxgmnTileset::new(Path::new("assets/mxgmn/FloorPlan.xml"), None)
+                    .ok()
+                    .unwrap(),
+            ) as Arc<dyn TileSet>,
+            "Circuit",
+            [16, 16, 32],
+            64,
+            32,
         ),
         // (
         //     Arc::new(
