@@ -6,6 +6,8 @@ use grid_wfc::{
 use hierarchical_wfc::{wfc_backend::Backend, wfc_task::WfcSettings, Graph, TileSet};
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
+use crate::stats_builder::StatisticRunner;
+
 pub struct ChunkedSettings {
     pub generation_mode: GenerationMode,
     pub grid_graph_settings: GridGraphSettings,
@@ -13,20 +15,28 @@ pub struct ChunkedSettings {
     pub wfc_settings: WfcSettings,
 }
 
-pub fn generate_chunked(
-    seed: u64,
-    tileset: Arc<dyn TileSet>,
-    backend: Rc<RefCell<dyn Backend>>,
-    setings: ChunkedSettings,
-) -> Result<Graph<usize>, anyhow::Error> {
-    let (world, _) = single_shot::generate_world(
-        tileset.clone(),
-        &mut *backend.borrow_mut(),
-        setings.grid_graph_settings,
-        seed,
-        setings.generation_mode,
-        setings.chunk_settings,
-        setings.wfc_settings,
-    );
-    world.build_world_graph()
+pub struct ChunkedRunner {
+    pub seeds: Vec<u64>,
+    pub tileset: Arc<dyn TileSet>,
+    pub backend: Rc<RefCell<dyn Backend>>,
+    pub setings: ChunkedSettings,
+}
+
+impl StatisticRunner for ChunkedRunner {
+    fn queue(&mut self, seed: u64) {
+        self.seeds.push(seed)
+    }
+
+    fn next_result(&mut self) -> Result<Graph<usize>, anyhow::Error> {
+        let (world, _) = single_shot::generate_world(
+            self.tileset.clone(),
+            &mut *self.backend.borrow_mut(),
+            self.setings.grid_graph_settings.clone(),
+            self.seeds.pop().unwrap(),
+            self.setings.generation_mode.clone(),
+            self.setings.chunk_settings.clone(),
+            self.setings.wfc_settings.clone(),
+        );
+        world.build_world_graph()
+    }
 }

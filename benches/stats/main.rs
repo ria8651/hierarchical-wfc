@@ -17,12 +17,12 @@ use stats_builder::RunStatisticsBuilder;
 
 mod chunked;
 mod single;
-use chunked::{generate_chunked, ChunkedSettings};
-use single::{dispatch_single, SingleSettings};
+use chunked::ChunkedSettings;
+use single::SingleSettings;
 
 mod tile_util;
 
-use crate::{single::await_single, stats_builder::SparseDistribution};
+use crate::{chunked::ChunkedRunner, single::SingleRunner, stats_builder::SparseDistribution};
 
 const THREADS: usize = 8;
 const SAMPLES: usize = 16;
@@ -80,9 +80,11 @@ pub fn main() {
             let backend = threaded_backend.clone();
             RunStatisticsBuilder::new(
                 SAMPLES,
-                Box::new(|_| {}),
-                Box::new(move |seed| {
-                    generate_chunked(seed, tileset.clone(), backend.clone(), CHUNKED_SETTINGS)
+                Box::new(ChunkedRunner {
+                    backend,
+                    tileset,
+                    seeds: vec![],
+                    setings: CHUNKED_SETTINGS,
                 }),
             )
         };
@@ -95,14 +97,15 @@ pub fn main() {
             let tileset = tileset.clone();
 
             let backend = threaded_backend.clone();
-            let queue_fn = Box::new(move |seed| {
-                dispatch_single(seed, tileset.clone(), backend.clone(), SINGLE_SETTINGS)
-            });
 
-            let backend = threaded_backend.clone();
-            let await_fn = Box::new(move |seed| await_single(backend.clone(), seed));
-
-            RunStatisticsBuilder::new(SAMPLES, queue_fn, await_fn)
+            RunStatisticsBuilder::new(
+                SAMPLES,
+                Box::new(SingleRunner {
+                    tileset,
+                    backend,
+                    settings: SINGLE_SETTINGS,
+                }),
+            )
         };
         single_stats.run();
         single_stats.build()
@@ -113,14 +116,15 @@ pub fn main() {
             let tileset = tileset.clone();
 
             let backend = threaded_backend.clone();
-            let queue_fn = Box::new(move |seed| {
-                dispatch_single(seed, tileset.clone(), backend.clone(), SINGLE_SETTINGS)
-            });
 
-            let backend = threaded_backend.clone();
-            let await_fn = Box::new(move |seed| await_single(backend.clone(), seed));
-
-            RunStatisticsBuilder::new(SAMPLES, queue_fn, await_fn)
+            RunStatisticsBuilder::new(
+                SAMPLES,
+                Box::new(SingleRunner {
+                    tileset,
+                    backend,
+                    settings: SINGLE_SETTINGS,
+                }),
+            )
         };
         single_stats.set_seed(172341234);
         single_stats.run();

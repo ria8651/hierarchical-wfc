@@ -56,11 +56,17 @@ pub struct RunStatistics {
     pub neighbours: HashMap<[usize; 5], StdErr<f64>>,
 }
 
+pub trait StatisticRunner {
+    fn queue(&mut self, seed: u64);
+    fn next_result(&mut self) -> Result<Graph<usize>, Error>;
+}
+
 pub struct RunStatisticsBuilder {
     seed: u64,
     samples: usize,
-    queue_fn: Box<dyn Fn(u64)>,
-    await_fn: Box<dyn Fn(u64) -> Result<Graph<usize>, Error>>,
+    runner: Box<dyn StatisticRunner>,
+    // queue_fn: Box<dyn Fn(u64)>,
+    // await_fn: Box<dyn Fn(u64) -> Result<Graph<usize>, Error>>,
     distributions_single: HashMap<usize, RollingStdErr<f64>>,
     distributions_pair: HashMap<[usize; 3], RollingStdErr<f64>>,
     distributions_quad: HashMap<[usize; 4], RollingStdErr<f64>>,
@@ -69,13 +75,13 @@ pub struct RunStatisticsBuilder {
 impl RunStatisticsBuilder {
     pub fn new(
         samples: usize,
-        queue_fn: Box<dyn Fn(u64)>,
-        await_fn: Box<dyn Fn(u64) -> Result<Graph<usize>, Error>>,
+        runner: Box<dyn StatisticRunner>,
+        // queue_fn: Box<dyn Fn(u64)>,
+        // await_fn: Box<dyn Fn(u64) -> Result<Graph<usize>, Error>>,
     ) -> Self {
         Self {
             samples,
-            queue_fn,
-            await_fn,
+            runner,
             seed: 0u64,
             distributions_single: HashMap::new(),
             distributions_pair: HashMap::new(),
@@ -177,11 +183,11 @@ impl RunStatisticsBuilder {
         while remaning_samples > 0 {
             while required_samples > 0 {
                 required_samples -= 1;
-                (self.queue_fn)(self.seed);
+                self.runner.queue(self.seed);
                 self.seed += 1;
             }
 
-            if let Ok(result) = (self.await_fn)(self.seed) {
+            if let Ok(result) = self.runner.next_result() {
                 self.update_distrubtions(result);
                 remaning_samples -= 1;
             } else {
