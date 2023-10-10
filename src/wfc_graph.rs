@@ -39,6 +39,12 @@ pub struct Neighbor {
 pub struct WaveFunction(pub [u32; TILE_U32S]);
 
 impl WaveFunction {
+    pub fn single(tile: usize) -> Self {
+        let mut result = [0; TILE_U32S];
+        result[tile.div_euclid(32)] = 1 << tile.rem_euclid(32);
+        Self(result)
+    }
+
     /// Cell fill with ones up to size
     pub fn filled(size: usize) -> Self {
         let mut result = [0; TILE_U32S];

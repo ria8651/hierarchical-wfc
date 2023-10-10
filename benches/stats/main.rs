@@ -1,3 +1,4 @@
+use bevy_inspector_egui::egui::Grid;
 use grid_wfc::{
     carcassonne_tileset::CarcassonneTileset,
     grid_graph::GridGraphSettings,
@@ -7,6 +8,7 @@ use grid_wfc::{
 use hierarchical_wfc::{
     wfc_backend,
     wfc_task::{BacktrackingSettings, Entropy, WfcSettings},
+    TileSet,
 };
 use std::{cell::RefCell, path::Path, rc::Rc, sync::Arc};
 
@@ -24,10 +26,9 @@ mod tile_util;
 
 use crate::{chunked::ChunkedRunner, single::SingleRunner, stats_builder::SparseDistribution};
 
-const THREADS: usize = 8;
-const SAMPLES: usize = 16;
+const THREADS: usize = 10;
 const SIZE: usize = 64;
-const RESTARTS: usize = 100;
+const RESTARTS: usize = 25;
 
 const GRID_GRAPH_SETTINGS: GridGraphSettings = GridGraphSettings {
     height: SIZE,
@@ -65,13 +66,6 @@ const CHUNKED_SETTINGS: ChunkedSettings = ChunkedSettings {
 };
 
 pub fn main() {
-    let tileset_name = "Circuit";
-    let tileset = Arc::new(
-        MxgmnTileset::new(Path::new("assets/mxgmn/Circuit.xml"), None)
-            .ok()
-            .unwrap(),
-    );
-
     // let tileset = Arc::new(CarcassonneTileset::default());
     let threaded_backend = Rc::new(RefCell::new(wfc_backend::MultiThreaded::new(THREADS)));
 
@@ -80,36 +74,34 @@ pub fn main() {
         .write_record(["chunk_size", "average_t"])
         .unwrap();
 
-    for chunk_size in [8, 16, 32] {
-        let threaded = {
-            let chunked_settings = ChunkedSettings {
-                chunk_settings: ChunkSettings {
-                    chunk_size,
-                    overlap: chunk_size.div_euclid(4),
-                    ..CHUNKED_SETTINGS.chunk_settings
+    for (tileset, tileset_name, scale, samples) in [
+        (
+            Arc::new(CarcassonneTileset::default()) as Arc<dyn TileSet>,
+            "Carcassonne",
+            1,
+            8,
+        ),
+        (
+            Arc::new(
+                MxgmnTileset::new(Path::new("assets/mxgmn/Circuit.xml"), None)
+                    .ok()
+                    .unwrap(),
+            ) as Arc<dyn TileSet>,
+            "Circuit",
+            1,
+            8,
+        ),
+    ] {
+        let single = {
+            let single_settings = SingleSettings {
+                grid_graph_settings: GridGraphSettings {
+                    width: SIZE / scale,
+                    height: SIZE / scale,
+                    ..GRID_GRAPH_SETTINGS
                 },
-                ..CHUNKED_SETTINGS
-            };
 
-            let mut threaded_stats = {
-                let tileset = tileset.clone();
-                let backend = threaded_backend.clone();
-                RunStatisticsBuilder::new(
-                    SAMPLES,
-                    Box::new(ChunkedRunner {
-                        backend,
-                        tileset,
-                        seeds: vec![],
-                        setings: chunked_settings,
-                    }),
-                )
+                ..SINGLE_SETTINGS
             };
-            threaded_stats.run();
-            threaded_stats.build()
-        };
-
-        let single_1 = {
-            let single_settings = SingleSettings { ..SINGLE_SETTINGS };
 
             let mut single_stats = {
                 let tileset = tileset.clone();
@@ -117,7 +109,7 @@ pub fn main() {
                 let backend = threaded_backend.clone();
 
                 RunStatisticsBuilder::new(
-                    SAMPLES,
+                    samples,
                     Box::new(SingleRunner {
                         tileset,
                         backend,
@@ -128,16 +120,50 @@ pub fn main() {
             single_stats.run();
             single_stats.build()
         };
+        for chunk_size in [8, 16, 32] {
+            println!("\nSettings:");
+            println!("   Chunk size: {}", chunk_size / scale);
+            println!("      Tileset: {}", tileset_name);
 
-        println!("\n[single vs threaded]");
-        println!("   Chunk size: {}", chunk_size);
-        println!("   Tileset   : {}", tileset_name);
-        println!("Results:");
-        print!("   single ");
-        single_1.single.compare(&threaded.single);
-        print!("   pair   ");
-        single_1.pair.compare(&threaded.pair);
-        print!("   quad   ");
-        single_1.quad.compare(&threaded.quad);
+            let threaded = {
+                let chunked_settings = ChunkedSettings {
+                    chunk_settings: ChunkSettings {
+                        chunk_size,
+                        overlap: chunk_size.div_euclid(4),
+                        ..CHUNKED_SETTINGS.chunk_settings
+                    },
+                    grid_graph_settings: GridGraphSettings {
+                        width: SIZE / scale,
+                        height: SIZE / scale,
+                        ..GRID_GRAPH_SETTINGS
+                    },
+                    ..CHUNKED_SETTINGS
+                };
+
+                let mut threaded_stats = {
+                    let tileset = tileset.clone();
+                    let backend = threaded_backend.clone();
+                    RunStatisticsBuilder::new(
+                        samples,
+                        Box::new(ChunkedRunner {
+                            backend,
+                            tileset,
+                            seeds: vec![],
+                            setings: chunked_settings,
+                        }),
+                    )
+                };
+                threaded_stats.run();
+                threaded_stats.build()
+            };
+
+            println!("Results:");
+            print!("   single ");
+            single.single.compare(&threaded.single);
+            print!("     pair ");
+            single.pair.compare(&threaded.pair);
+            print!("     quad ");
+            single.quad.compare(&threaded.quad);
+        }
     }
 }
