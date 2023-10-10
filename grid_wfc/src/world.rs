@@ -32,14 +32,16 @@ pub struct World {
 pub struct ChunkSettings {
     pub chunk_size: usize,
     pub overlap: usize,
+    pub discard: usize,
     pub chunk_merging: ChunkMerging,
 }
 
 impl Default for ChunkSettings {
     fn default() -> Self {
         Self {
-            chunk_size: 32,
-            overlap: 4,
+            chunk_size: 16,
+            overlap: 3,
+            discard: 1,
             chunk_merging: ChunkMerging::Mixed,
         }
     }
@@ -62,7 +64,10 @@ pub enum ChunkType {
 
 impl World {
     pub fn extract_chunk(&self, chunk: IVec2) -> Graph<WaveFunction> {
-        let (bottom_left, top_right) = self.chunk_bounds(chunk);
+        let (bottom_left, top_right) = self.chunk_bounds(
+            chunk,
+            self.chunk_settings.overlap + self.chunk_settings.discard,
+        );
         let size = top_right - bottom_left;
 
         let settings = GridGraphSettings {
@@ -104,7 +109,10 @@ impl World {
     }
 
     pub fn merge_chunk(&mut self, chunk: IVec2, graph: Graph<WaveFunction>) {
-        let (bottom_left, top_right) = self.chunk_bounds(chunk);
+        let (bottom_left, top_right) = self.chunk_bounds(
+            chunk,
+            self.chunk_settings.overlap + self.chunk_settings.discard,
+        );
         let size = top_right - bottom_left;
 
         let chunk_bottom_left = chunk * self.chunk_settings.chunk_size as i32;
@@ -114,6 +122,12 @@ impl World {
         for x in 0..size.x {
             for y in 0..size.y {
                 let pos = IVec2::new(bottom_left.x + x, bottom_left.y + y);
+
+                let (discard_bottom_left, discard_top_right) =
+                    self.chunk_bounds(chunk, self.chunk_settings.overlap);
+                if pos.cmplt(discard_bottom_left).any() || pos.cmpge(discard_top_right).any() {
+                    continue;
+                }
 
                 // overwrite tiles inside the chunk while preserving tiles on the border
                 let tile = graph.tiles[x as usize * size.y as usize + y as usize].clone();
@@ -134,13 +148,13 @@ impl World {
         }
     }
 
-    pub fn chunk_bounds(&self, pos: IVec2) -> (IVec2, IVec2) {
+    pub fn chunk_bounds(&self, pos: IVec2, overlap: usize) -> (IVec2, IVec2) {
         let world_size = IVec2::new(self.world.len() as i32, self.world[0].len() as i32);
         let bottom_left = (pos * self.chunk_settings.chunk_size as i32
-            - IVec2::splat(self.chunk_settings.overlap as i32))
+            - IVec2::splat(overlap as i32))
         .max(IVec2::ZERO);
         let top_right = ((pos + IVec2::ONE) * self.chunk_settings.chunk_size as i32
-            + IVec2::splat(self.chunk_settings.overlap as i32))
+            + IVec2::splat(overlap as i32))
         .min(world_size);
         (bottom_left, top_right)
     }

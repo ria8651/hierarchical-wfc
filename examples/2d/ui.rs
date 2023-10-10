@@ -235,7 +235,7 @@ fn debug_gizmos(mut gizmos: Gizmos, world: Res<MaybeWorld>, ui_state: Res<UiStat
                 ChunkState::Failed => Color::rgb(1.0, 0.0, 0.0),
             };
 
-            let (bottom_left, top_right) = world.chunk_bounds(*chunk);
+            let (bottom_left, top_right) = world.chunk_bounds(*chunk, world.chunk_settings.overlap);
             let (bottom_left, top_right) = (
                 bottom_left.as_vec2() / height as f32 - 0.5,
                 top_right.as_vec2() / height as f32 - 0.5,

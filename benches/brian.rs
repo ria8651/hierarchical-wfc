@@ -68,7 +68,7 @@ fn main() {
             for (tileset, tileset_name) in tilesets.iter() {
                 match *generation_type {
                     "standard" => {
-                        let time = time_process(|| -> bool {
+                        let time = match time_process(|| -> bool {
                             let settings = GridGraphSettings {
                                 height: size,
                                 width: size,
@@ -89,22 +89,26 @@ fn main() {
                             seed += 1;
 
                             result.is_ok()
-                        })
-                        .unwrap_or(f64::NAN);
+                        }) {
+                            Ok(time) => time,
+                            Err(e) => {
+                                println!("{}: {}x{} {}", tileset_name, size, size, e);
+                                f64::NAN
+                            }
+                        };
 
                         println!("{}: {}x{} {}s", tileset_name, size, size, time);
                         csv.write_record([tileset_name, &size.to_string(), &time.to_string()])
                             .unwrap();
                     }
                     "non_deterministic" | "deterministic" => {
-                        let time = time_process(|| -> bool {
+                        let time = match time_process(|| -> bool {
                             let settings = GridGraphSettings {
                                 height: size,
                                 width: size,
                                 periodic: false,
                             };
 
-                            let chunk_size = 32;
                             let generation_mode = match *generation_type {
                                 "non_deterministic" => GenerationMode::NonDeterministic,
                                 "deterministic" => GenerationMode::Deterministic,
@@ -116,19 +120,20 @@ fn main() {
                                 settings,
                                 seed,
                                 generation_mode,
-                                ChunkSettings {
-                                    chunk_size,
-                                    overlap: 2,
-                                    ..Default::default()
-                                },
+                                ChunkSettings::default(),
                                 WfcSettings::default(),
                             );
 
                             seed += 1;
 
                             error.is_ok()
-                        })
-                        .unwrap_or(f64::NAN);
+                        }) {
+                            Ok(time) => time,
+                            Err(e) => {
+                                println!("{}: {}x{} {}", tileset_name, size, size, e);
+                                f64::NAN
+                            }
+                        };
 
                         println!("{}: {}x{} {}s", tileset_name, size, size, time);
                         csv.write_record([tileset_name, &size.to_string(), &time.to_string()])
