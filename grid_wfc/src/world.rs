@@ -1,6 +1,6 @@
 use crate::graph_grid::{self, Direction, GridGraphSettings};
 use bevy::{prelude::*, utils::HashMap};
-use hierarchical_wfc::{wfc_task::BacktrackingSettings, Graph, TileSet, WaveFunction};
+use hierarchical_wfc::{wfc_task::WfcSettings, Graph, TileSet, WaveFunction};
 use rand::{rngs::SmallRng, Rng};
 use std::sync::Arc;
 
@@ -26,7 +26,7 @@ pub struct World {
     pub tileset: Arc<dyn TileSet>,
     pub rng: SmallRng,
     pub outstanding: usize,
-    pub backtracking: BacktrackingSettings,
+    pub settings: WfcSettings,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -89,10 +89,11 @@ impl World {
                 let pos = IVec2::new(bottom_left.x + x, bottom_left.y + y);
 
                 // overwrite tiles inside the chunk while preserving tiles on the border
+                let tile = graph.tiles[x as usize * size.y as usize + y as usize].clone();
                 if (pos.cmpge(chunk_bottom_left).all() && pos.cmplt(chunk_top_right).all())
                     || self.world[pos.x as usize][pos.y as usize].count_bits() > 1
+                    || tile.count_bits() == 0
                 {
-                    let tile = graph.tiles[x as usize * size.y as usize + y as usize].clone();
                     self.world[pos.x as usize][pos.y as usize] = tile;
                 }
             }
@@ -250,8 +251,8 @@ impl World {
                     }
                 }
             }
-            _ => {
-                // TODO: Implement
+            ChunkType::Center => {
+                // generation is done
             }
         }
 

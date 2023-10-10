@@ -62,9 +62,8 @@ impl SingleThreaded {
         let weights = task.tileset.get_weights();
         let tileset = task.tileset.clone();
 
-        let mut initial_state: Vec<HistoryCell> = Vec::new();
-
         // store initial state of all cells already constrained
+        let mut initial_state: Vec<HistoryCell> = Vec::new();
         for i in 0..task.graph.tiles.len() {
             if task.graph.tiles[i].count_bits() != tileset.tile_count() {
                 initial_state.push(HistoryCell {
@@ -73,13 +72,13 @@ impl SingleThreaded {
                 });
             }
         }
-
-        let mut stack: Vec<usize> = (0..task.graph.tiles.len()).collect();
         let mut history = History {
             stack: Vec::new(),
             decision_cells: Vec::new(),
         };
+
         let mut initial = true;
+        let mut stack: Vec<usize> = (0..task.graph.tiles.len()).collect();
         loop {
             let mut backtrack_flag = false;
             // propagate changes
@@ -91,7 +90,8 @@ impl SingleThreaded {
                         stack.push(neighbor.index);
 
                         let bits = task.graph.tiles[neighbor.index].count_bits();
-                        if bits == 1 && task.backtracking != BacktrackingSettings::Disabled {
+                        if bits == 1 && task.settings.backtracking != BacktrackingSettings::Disabled
+                        {
                             history.stack.push(neighbor.index);
                         }
                         if bits == 0 {
@@ -99,7 +99,7 @@ impl SingleThreaded {
                                 return Err(anyhow!("Invalid initial state"));
                             }
 
-                            if task.backtracking == BacktrackingSettings::Disabled {
+                            if task.settings.backtracking == BacktrackingSettings::Disabled {
                                 return Err(anyhow!("Contradiction found"));
                             }
 
@@ -115,7 +115,7 @@ impl SingleThreaded {
                         stack.clear();
                         stack.push(continue_from);
                     } else {
-                        let restarts_left = match &mut task.backtracking {
+                        let restarts_left = match &mut task.settings.backtracking {
                             BacktrackingSettings::Disabled => unreachable!(),
                             BacktrackingSettings::Enabled {
                                 restarts_left: max_restarts,
@@ -158,7 +158,7 @@ impl SingleThreaded {
                     .unwrap();
                 stack.push(cell);
 
-                if task.backtracking != BacktrackingSettings::Disabled {
+                if task.settings.backtracking != BacktrackingSettings::Disabled {
                     options = WaveFunction::difference(&options, &task.graph.tiles[cell]);
                     history.stack.push(cell);
                     history.decision_cells.push(HistoryCell {

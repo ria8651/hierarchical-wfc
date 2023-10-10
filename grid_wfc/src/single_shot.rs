@@ -5,7 +5,7 @@ use crate::{
 use bevy::{prelude::*, utils::HashMap};
 use hierarchical_wfc::{
     wfc_backend::Backend,
-    wfc_task::{BacktrackingSettings, Metadata},
+    wfc_task::{Metadata, WfcSettings},
     TileSet, WaveFunction, WfcTask,
 };
 use rand::{rngs::SmallRng, SeedableRng};
@@ -25,7 +25,7 @@ pub fn generate_world(
     generation_mode: GenerationMode,
     chunk_size: usize,
     overlap: usize,
-    backtracking: BacktrackingSettings,
+    wfc_settings: WfcSettings,
 ) -> (World, anyhow::Result<()>) {
     let filled = WaveFunction::filled(tileset.tile_count());
     let rng = SmallRng::seed_from_u64(seed);
@@ -37,7 +37,7 @@ pub fn generate_world(
         tileset,
         rng,
         outstanding: 0,
-        backtracking: backtracking.clone(),
+        settings: wfc_settings.clone(),
     };
 
     let start_chunks = world.start_generation(generation_mode);
@@ -53,7 +53,7 @@ pub fn generate_world(
             tileset,
             seed,
             metadata,
-            backtracking: backtracking.clone(),
+            settings: wfc_settings.clone(),
         };
 
         world.outstanding += 1;
@@ -71,7 +71,7 @@ pub fn generate_world(
 
         let task_metadata = task.metadata.as_ref().unwrap().downcast_ref().unwrap();
         let TaskData { chunk, chunk_type } = *task_metadata;
-        
+
         world.merge_chunk(chunk, task.graph);
         world.generated_chunks.insert(chunk, ChunkState::Done);
 
@@ -95,7 +95,7 @@ pub fn generate_world(
                 tileset: world.tileset.clone(),
                 seed,
                 metadata,
-                backtracking: BacktrackingSettings::default(),
+                settings: WfcSettings::default(),
             };
 
             world.outstanding += 1;

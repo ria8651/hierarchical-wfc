@@ -6,7 +6,7 @@ use grid_wfc::{
 };
 use hierarchical_wfc::{
     wfc_backend::{Backend, MultiThreaded, SingleThreaded},
-    wfc_task::{BacktrackingSettings, Metadata},
+    wfc_task::{Metadata, WfcSettings},
     TileSet, WaveFunction, WfcTask,
 };
 use rand::{rngs::SmallRng, SeedableRng};
@@ -29,13 +29,13 @@ pub enum GenerateEvent {
     Single {
         tileset: Arc<dyn TileSet>,
         settings: GridGraphSettings,
-        backtracking: BacktrackingSettings,
+        wfc_settings: WfcSettings,
         seed: u64,
     },
     Chunked {
         tileset: Arc<dyn TileSet>,
         settings: GridGraphSettings,
-        backtracking: BacktrackingSettings,
+        wfc_settings: WfcSettings,
         multithreaded: bool,
         deterministic: bool,
         seed: u64,
@@ -90,7 +90,7 @@ fn handle_events(
             GenerateEvent::Chunked {
                 tileset,
                 settings,
-                backtracking,
+                wfc_settings,
                 multithreaded,
                 deterministic,
                 seed,
@@ -107,7 +107,7 @@ fn handle_events(
                     tileset: tileset.clone(),
                     rng,
                     outstanding: 0,
-                    backtracking: backtracking.clone(),
+                    settings: wfc_settings.clone(),
                 };
 
                 let generation_mode = match deterministic {
@@ -120,7 +120,7 @@ fn handle_events(
                         .generated_chunks
                         .insert(chunk, ChunkState::Scheduled);
                     let graph = new_world.extract_chunk(chunk);
-                    let seed = seed + chunk.x as u64 * 1000 as u64 + chunk.y as u64;
+                    let seed = seed + chunk.x as u64 * 1000 + chunk.y as u64;
                     let metadata: Metadata =
                         Some(Arc::new(TaskData::Chunked { chunk, chunk_type }));
 
@@ -129,7 +129,7 @@ fn handle_events(
                         tileset: new_world.tileset.clone(),
                         seed,
                         metadata,
-                        backtracking: backtracking.clone(),
+                        settings: wfc_settings.clone(),
                     };
 
                     backends.multithreaded = multithreaded;
@@ -147,7 +147,7 @@ fn handle_events(
             GenerateEvent::Single {
                 tileset,
                 settings,
-                backtracking,
+                wfc_settings,
                 seed,
             } => {
                 let graph =
@@ -158,7 +158,7 @@ fn handle_events(
                     tileset: tileset.clone(),
                     seed,
                     metadata: Some(Arc::new(TaskData::Single { size })),
-                    backtracking: backtracking.clone(),
+                    settings: wfc_settings.clone(),
                 };
 
                 backends.multithreaded = false;
@@ -173,7 +173,7 @@ fn handle_events(
                     tileset: tileset.clone(),
                     rng: rng.clone(),
                     outstanding: 0,
-                    backtracking: backtracking.clone(),
+                    settings: wfc_settings.clone(),
                 };
                 *world = MaybeWorld(Some(new_world));
             }
@@ -200,7 +200,7 @@ fn handle_output(
         if failed.0 {
             continue;
         }
-        
+
         match task.metadata.as_ref().unwrap().downcast_ref().unwrap() {
             TaskData::Chunked { chunk, chunk_type } => {
                 world.merge_chunk(*chunk, task.graph);
@@ -222,7 +222,7 @@ fn handle_output(
                 for (chunk, chunk_type) in ready {
                     world.generated_chunks.insert(chunk, ChunkState::Scheduled);
                     let graph = world.extract_chunk(chunk);
-                    let seed = chunk.x as u64 * 1000 as u64 + chunk.y as u64;
+                    let seed = chunk.x as u64 * 1000 + chunk.y as u64;
                     let metadata: Metadata =
                         Some(Arc::new(TaskData::Chunked { chunk, chunk_type }));
 
@@ -231,7 +231,7 @@ fn handle_output(
                         tileset: world.tileset.clone(),
                         seed,
                         metadata,
-                        backtracking: world.backtracking.clone(),
+                        settings: world.settings.clone(),
                     };
 
                     world.outstanding += 1;

@@ -11,7 +11,7 @@ use grid_wfc::{
 };
 use hierarchical_wfc::{
     wfc_backend::{MultiThreaded, SingleThreaded},
-    wfc_task::BacktrackingSettings,
+    wfc_task::WfcSettings,
     TileSet, WaveFunction, WfcTask,
 };
 use rand::Rng;
@@ -62,7 +62,7 @@ fn main() {
     for generation_type in ["standard", "non_deterministic", "deterministic"].iter() {
         let mut csv =
             Writer::from_path(format!("benches/data/map_size_{}.csv", generation_type)).unwrap();
-        csv.write_record(&["tileset", "size", "time"]).unwrap();
+        csv.write_record(["tileset", "size", "time"]).unwrap();
 
         for size in [64, 128, 256].into_iter() {
             for (tileset, tileset_name) in tilesets.iter() {
@@ -82,7 +82,7 @@ fn main() {
                                 tileset: tileset.clone(),
                                 seed,
                                 metadata: None,
-                                backtracking: BacktrackingSettings::Enabled { restarts_left: 100 },
+                                settings: WfcSettings::default(),
                             };
 
                             let result = SingleThreaded::execute(&mut task);
@@ -93,7 +93,7 @@ fn main() {
                         .unwrap_or(f64::NAN);
 
                         println!("{}: {}x{} {}s", tileset_name, size, size, time);
-                        csv.write_record(&[tileset_name, &size.to_string(), &time.to_string()])
+                        csv.write_record([tileset_name, &size.to_string(), &time.to_string()])
                             .unwrap();
                     }
                     "non_deterministic" | "deterministic" => {
@@ -118,7 +118,7 @@ fn main() {
                                 generation_mode,
                                 chunk_size,
                                 4,
-                                BacktrackingSettings::Enabled { restarts_left: 100 },
+                                WfcSettings::default(),
                             );
 
                             seed += 1;
@@ -128,7 +128,7 @@ fn main() {
                         .unwrap_or(f64::NAN);
 
                         println!("{}: {}x{} {}s", tileset_name, size, size, time);
-                        csv.write_record(&[tileset_name, &size.to_string(), &time.to_string()])
+                        csv.write_record([tileset_name, &size.to_string(), &time.to_string()])
                             .unwrap();
                     }
                     _ => unreachable!(),

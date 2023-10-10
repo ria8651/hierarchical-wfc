@@ -1,5 +1,5 @@
 use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::ScalingMode};
-use bevy_pancam::{PanCamPlugin, PanCam};
+use bevy_pancam::{PanCam, PanCamPlugin};
 use ui::UiPlugin;
 use world::WorldPlugin;
 
@@ -21,7 +21,7 @@ fn main() {
                     ..default()
                 })
                 .set(ImagePlugin::default_nearest()),
-            PanCamPlugin::default(),
+            PanCamPlugin,
             UiPlugin,
             WorldPlugin,
         ))
