@@ -25,8 +25,8 @@ pub fn create<F: Clone>(settings: &OverlappingGraphSettings, fill_with: F) -> Gr
     let size = IVec2::new(settings.width as i32, settings.height as i32);
 
     let mut nodes_pos = Vec::new();
-    for x in 0..settings.width {
-        for y in 0..settings.height {
+    for y in 0..settings.height {
+        for x in 0..settings.width {
             nodes_pos.push(IVec2::new(x as i32, y as i32));
         }
     }
@@ -36,8 +36,8 @@ pub fn create<F: Clone>(settings: &OverlappingGraphSettings, fill_with: F) -> Gr
     let mut neighbors = Vec::new();
     for pos in nodes_pos.iter() {
         let mut node_neighbors = Vec::new();
-        for x in -overlap..=overlap {
-            for y in -overlap..=overlap {
+        for y in -overlap..=overlap {
+            for x in -overlap..=overlap {
                 let mut neighbor_pos = *pos + IVec2::new(x, y);
                 if settings.periodic {
                     neighbor_pos = IVec2::new(
@@ -48,8 +48,8 @@ pub fn create<F: Clone>(settings: &OverlappingGraphSettings, fill_with: F) -> Gr
                     continue;
                 }
 
-                let neighbor_index = (neighbor_pos.x * size.y + neighbor_pos.y) as usize;
-                let direction_index = overlap_width * (x + overlap) + (y + overlap);
+                let neighbor_index = (neighbor_pos.y * size.x + neighbor_pos.x) as usize;
+                let direction_index = overlap_width * (y + overlap) + (x + overlap);
                 node_neighbors.push(Neighbor {
                     direction: direction_index as usize,
                     index: neighbor_index,

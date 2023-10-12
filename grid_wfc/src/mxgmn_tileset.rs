@@ -8,7 +8,7 @@ use std::{
     sync::Arc,
 };
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct MxgmnTileset {
     tile_count: usize,
     constraints: Arc<Vec<Vec<WaveFunction>>>,
