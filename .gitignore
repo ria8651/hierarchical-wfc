@@ -5,3 +5,4 @@ trace-*
 flamegraph.svg
 .vscode*
 .idea*
+callgrind.out.*
