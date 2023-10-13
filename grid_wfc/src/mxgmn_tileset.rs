@@ -1,7 +1,7 @@
-use crate::grid_graph::{self, Direction, GridGraphSettings};
+use crate::grid_graph::Direction;
 use anyhow::Result;
 use bevy::{prelude::*, utils::HashMap};
-use hierarchical_wfc::{Graph, TileRender, TileSet, WaveFunction};
+use hierarchical_wfc::{TileRender, TileSet, WaveFunction};
 use serde::Deserialize;
 use std::{
     any::Any,
@@ -132,8 +132,8 @@ impl MxgmnTileset {
         let tile_count = action.len();
         let mut constraints = vec![vec![WaveFunction::empty(); 4]; tile_count];
         for neighbor in config.neighbors.neighbor.iter() {
-            let mut left = neighbor.left.split(" ");
-            let mut right = neighbor.right.split(" ");
+            let mut left = neighbor.left.split(' ');
+            let mut right = neighbor.right.split(' ');
             let left = (
                 left.next().unwrap(),
                 left.next()
@@ -237,12 +237,7 @@ impl TileSet for MxgmnTileset {
         self.weights = Arc::new(weights);
     }
 
-    fn create_graph(&self, settings: Box<dyn Any>) -> Graph<WaveFunction> {
-        let settings = settings.downcast_ref::<GridGraphSettings>().unwrap();
-        grid_graph::create(settings, WaveFunction::filled(self.tile_count()))
-    }
-
-    fn get_tile_paths(&self) -> Vec<(TileRender, Transform)> {
+    fn get_render_tile_assets(&self) -> Vec<(TileRender, Transform)> {
         self.tile_paths.clone()
     }
 

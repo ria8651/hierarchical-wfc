@@ -1,6 +1,5 @@
-use crate::overlapping_graph::{self, OverlappingGraphSettings};
 use bevy::{prelude::*, utils::HashMap};
-use hierarchical_wfc::{Graph, TileRender, TileSet, WaveFunction};
+use hierarchical_wfc::{TileRender, TileSet, WaveFunction};
 use std::{any::Any, sync::Arc};
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
@@ -63,19 +62,19 @@ impl OverlappingTileset {
                 for oy in -offsets..=offsets {
                     'offsets: for ox in -offsets..=offsets {
                         let direction_index = (oy + offsets) * directions_width + ox + offsets;
-                        for y in 0..pattern_width as i32 {
+                        for y in 0..pattern_width {
                             let sy = y - oy;
-                            if sy < 0 || sy >= pattern_width as i32 {
+                            if sy < 0 || sy >= pattern_width {
                                 continue;
                             }
-                            for x in 0..pattern_width as i32 {
+                            for x in 0..pattern_width {
                                 let sx = x - ox;
-                                if sx < 0 || sx >= pattern_width as i32 {
+                                if sx < 0 || sx >= pattern_width {
                                     continue;
                                 }
 
-                                let tile1 = pattern.tiles[(y * pattern_width as i32 + x) as usize];
-                                let tile2 = other.tiles[(sy * pattern_width as i32 + sx) as usize];
+                                let tile1 = pattern.tiles[(y * pattern_width + x) as usize];
+                                let tile2 = other.tiles[(sy * pattern_width + sx) as usize];
 
                                 if tile1 != tile2 {
                                     constraints[i][direction_index as usize].remove_tile(j);
@@ -198,12 +197,11 @@ impl TileSet for OverlappingTileset {
         self.weights = Arc::new(weights);
     }
 
-    fn create_graph(&self, settings: Box<dyn Any>) -> Graph<WaveFunction> {
-        let settings = settings.downcast_ref::<OverlappingGraphSettings>().unwrap();
-        overlapping_graph::create(settings, WaveFunction::filled(self.tile_count()))
+    fn get_render_tile(&self, pattern: usize) -> usize {
+        self.get_center_tile(pattern).0
     }
 
-    fn get_tile_paths(&self) -> Vec<(TileRender, Transform)> {
+    fn get_render_tile_assets(&self) -> Vec<(TileRender, Transform)> {
         let mut tile_render = Vec::new();
         for tile in 0..self.tile_count {
             let value = tile as f32 / self.tile_count as f32;

@@ -1,4 +1,4 @@
-use crate::{wfc_graph::WaveFunction, Graph};
+use crate::wfc_graph::WaveFunction;
 use bevy::prelude::*;
 use dyn_clone::DynClone;
 use std::{any::Any, sync::Arc};
@@ -12,11 +12,13 @@ pub enum TileRender {
 pub trait TileSet: DynClone + Send + Sync {
     fn tile_count(&self) -> usize;
     fn directions(&self) -> usize;
-    fn create_graph(&self, settings: Box<dyn Any>) -> Graph<WaveFunction>;
     fn get_constraints(&self) -> Arc<Vec<Vec<WaveFunction>>>;
     fn get_weights(&self) -> Arc<Vec<f32>>;
     fn set_weights(&mut self, weights: Vec<f32>);
-    fn get_tile_paths(&self) -> Vec<(TileRender, Transform)>;
+    fn get_render_tile(&self, tile: usize) -> usize {
+        tile
+    }
+    fn get_render_tile_assets(&self) -> Vec<(TileRender, Transform)>;
     fn as_any(&self) -> &dyn Any;
 }
 

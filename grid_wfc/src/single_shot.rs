@@ -42,7 +42,7 @@ pub fn generate_world(
     for (chunk, chunk_type) in start_chunks {
         world.generated_chunks.insert(chunk, ChunkState::Scheduled);
         let graph = world.extract_chunk(chunk);
-        let seed = seed + chunk.x as u64 * 1000 as u64 + chunk.y as u64;
+        let seed = seed + chunk.x as u64 * 1000_u64 + chunk.y as u64;
         let metadata: Metadata = Some(Arc::new(TaskData { chunk, chunk_type }));
         let tileset = world.tileset.clone();
 
@@ -85,7 +85,7 @@ pub fn generate_world(
         for (chunk, chunk_type) in ready {
             world.generated_chunks.insert(chunk, ChunkState::Scheduled);
             let graph = world.extract_chunk(chunk);
-            let seed = chunk.x as u64 * 1000 as u64 + chunk.y as u64;
+            let seed = chunk.x as u64 * 1000_u64 + chunk.y as u64;
             let metadata: Metadata = Some(Arc::new(TaskData { chunk, chunk_type }));
 
             let task = WfcTask {

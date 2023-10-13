@@ -2,7 +2,6 @@ use crate::ui::RenderUpdateEvent;
 use bevy::{prelude::*, utils::HashMap};
 use grid_wfc::{
     grid_graph::GridGraphSettings,
-    overlapping_graph::{self, OverlappingGraphSettings},
     world::{ChunkSettings, ChunkState, ChunkType, GenerationMode, World},
 };
 use hierarchical_wfc::{
@@ -25,30 +24,17 @@ impl Plugin for WorldPlugin {
     }
 }
 
-#[derive(Reflect, Clone)]
-#[reflect(Default)]
-pub enum GraphSettings {
-    Grid(GridGraphSettings),
-    Overlapping(OverlappingGraphSettings),
-}
-
-impl Default for GraphSettings {
-    fn default() -> Self {
-        Self::Grid(GridGraphSettings::default())
-    }
-}
-
 #[derive(Event, Clone)]
 pub enum GenerateEvent {
     Single {
         tileset: Arc<dyn TileSet>,
-        settings: GraphSettings,
+        settings: GridGraphSettings,
         wfc_settings: WfcSettings,
         seed: u64,
     },
     Chunked {
         tileset: Arc<dyn TileSet>,
-        settings: GraphSettings,
+        settings: GridGraphSettings,
         wfc_settings: WfcSettings,
         chunk_settings: ChunkSettings,
         multithreaded: bool,
@@ -109,15 +95,10 @@ fn handle_events(
                 seed,
                 chunk_settings,
             } => {
-                let (height, width) = match settings {
-                    GraphSettings::Grid(settings) => (settings.height, settings.width),
-                    GraphSettings::Overlapping(settings) => (settings.height, settings.width),
-                };
-
                 let filled = WaveFunction::filled(tileset.tile_count());
                 let rng = SmallRng::seed_from_u64(seed);
                 let mut new_world = World {
-                    world: vec![vec![filled; height]; width],
+                    world: vec![vec![filled; settings.height]; settings.width],
                     generated_chunks: HashMap::new(),
                     chunk_settings,
                     tileset: tileset.clone(),
@@ -167,22 +148,8 @@ fn handle_events(
                 seed,
             } => {
                 let filled = WaveFunction::filled(tileset.tile_count());
-                let graph = match &settings {
-                    GraphSettings::Grid(settings) => {
-                        grid_wfc::grid_graph::create(&settings, filled)
-                    }
-                    GraphSettings::Overlapping(settings) => {
-                        overlapping_graph::create(&settings, filled)
-                    }
-                };
-                let size = match &settings {
-                    GraphSettings::Grid(settings) => {
-                        IVec2::new(settings.width as i32, settings.height as i32)
-                    }
-                    GraphSettings::Overlapping(settings) => {
-                        IVec2::new(settings.width as i32, settings.height as i32)
-                    }
-                };
+                let graph = grid_wfc::grid_graph::create(&settings, filled);
+                let size = IVec2::new(settings.width as i32, settings.height as i32);
                 let task = WfcTask {
                     graph,
                     tileset: tileset.clone(),
@@ -196,7 +163,7 @@ fn handle_events(
 
                 let rng = SmallRng::seed_from_u64(seed);
                 let new_world = World {
-                    world: vec![vec![WaveFunction::empty(); size.y as usize]; size.x as usize],
+                    world: vec![vec![WaveFunction::empty(); settings.height]; settings.width],
                     generated_chunks: HashMap::from_iter(vec![(IVec2::ZERO, ChunkState::Done)]),
                     chunk_settings: ChunkSettings::default(),
                     tileset: tileset.clone(),

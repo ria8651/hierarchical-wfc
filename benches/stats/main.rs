@@ -68,7 +68,7 @@ pub fn main() {
     // let tileset = Arc::new(CarcassonneTileset::default());
     let threaded_backend = Rc::new(RefCell::new(wfc_backend::MultiThreaded::new(THREADS)));
 
-    let mut csv_writer = csv::Writer::from_path("benches/data/quality.csv".to_string()).unwrap();
+    let mut csv_writer = csv::Writer::from_path("benches/data/quality.csv").unwrap();
     csv_writer
         .write_record(["tileset", "size", "chunk_size", "single", "pair", "quad"])
         .unwrap();

@@ -12,8 +12,8 @@ pub struct GridGraphSettings {
 impl Default for GridGraphSettings {
     fn default() -> Self {
         Self {
-            width: 256,
-            height: 256,
+            width: 16,
+            height: 16,
             periodic: false,
         }
     }
@@ -23,8 +23,8 @@ pub fn create<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> Graph<F> 
     let size = IVec2::new(settings.width as i32, settings.height as i32);
 
     let mut nodes_pos = Vec::new();
-    for x in 0..settings.width {
-        for y in 0..settings.height {
+    for y in 0..settings.height {
+        for x in 0..settings.width {
             nodes_pos.push(IVec2::new(x as i32, y as i32));
         }
     }

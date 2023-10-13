@@ -1,13 +1,6 @@
 use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::ScalingMode};
 use bevy_pancam::{PanCam, PanCamPlugin};
-use grid_wfc::{
-    overlapping_graph::{self, OverlappingGraphSettings},
-    overlapping_tileset::OverlappingTileset,
-};
-use hierarchical_wfc::{
-    wfc_backend::SingleThreaded, wfc_task::WfcSettings, TileSet, WaveFunction, WfcTask,
-};
-use std::sync::Arc;
+
 use ui::UiPlugin;
 use world::WorldPlugin;
 

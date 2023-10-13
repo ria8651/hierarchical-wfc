@@ -21,6 +21,7 @@ pub enum BacktrackingSettings {
 pub enum Entropy {
     #[default]
     TileCount,
+    Scanline,
     Shannon,
 }
 
@@ -43,6 +44,16 @@ impl WfcTask {
     pub fn lowest_entropy<R: Rng>(&self, rng: &mut R) -> Option<usize> {
         let weights = self.tileset.get_weights();
 
+        if let Entropy::Scanline = self.settings.entropy {
+            for (index, node) in self.graph.tiles.iter().enumerate() {
+                let bits = node.count_bits();
+                if bits > 1 {
+                    return Some(index);
+                }
+            }
+            return None;
+        }
+
         // find next cell to update
         let mut min_entropy = f32::MAX;
         let mut min_index = None;
@@ -60,6 +71,7 @@ impl WfcTask {
                         let bits = node.count_bits() as f32;
                         bits.log2() - log_weight / bits
                     }
+                    Entropy::Scanline => unreachable!(),
                 };
                 if entropy <= min_entropy {
                     if entropy < min_entropy {

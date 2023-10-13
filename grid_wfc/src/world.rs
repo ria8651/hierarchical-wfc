@@ -1,7 +1,4 @@
-use crate::{
-    grid_graph::{self, Direction, GridGraphSettings},
-    overlapping_graph::{self, OverlappingGraphSettings},
-};
+use crate::grid_graph::{self, Direction, GridGraphSettings};
 use bevy::{prelude::*, utils::HashMap};
 use hierarchical_wfc::{wfc_task::WfcSettings, Graph, Neighbor, TileSet, WaveFunction};
 use rand::{rngs::SmallRng, Rng};
@@ -73,14 +70,13 @@ impl World {
         );
         let size = top_right - bottom_left;
 
-        let settings = OverlappingGraphSettings {
+        let settings = GridGraphSettings {
             width: size.x as usize,
             height: size.y as usize,
-            overlap: 2,
             periodic: false,
         };
         let filled = WaveFunction::filled(self.tileset.tile_count());
-        let mut graph = overlapping_graph::create(&settings, filled);
+        let mut graph = grid_graph::create(&settings, filled);
 
         let chunk_bottom_left = chunk * self.chunk_settings.chunk_size as i32;
         let chunk_top_right = (chunk + IVec2::ONE) * self.chunk_settings.chunk_size as i32;
@@ -335,7 +331,7 @@ impl World {
             tiles: self
                 .world
                 .iter()
-                .flat_map(|r| r.iter().map(|t| t.clone()))
+                .flat_map(|r| r.iter().cloned())
                 .collect::<Vec<_>>(),
             neighbors: (0..world_width)
                 .flat_map(|x| (0..world_height).map(move |y| (x, y)))
@@ -344,15 +340,13 @@ impl World {
                         .iter()
                         .enumerate()
                         .flat_map(|(dir_index, dir)| {
-                            if 0 <= dir.x + x as i32 && x as i32 + dir.x < world_width as i32 {
-                                if 0 <= dir.y + y as i32 && y as i32 + dir.y < world_height as i32 {
-                                    let x = (x as i32 + dir.x) as usize;
-                                    let y = (y as i32 + dir.y) as usize;
-                                    return Some(Neighbor {
-                                        index: x * world_height + y,
-                                        direction: dir_index,
-                                    });
-                                }
+                            if 0 <= dir.x + x as i32 && x as i32 + dir.x < world_width as i32 && 0 <= dir.y + y as i32 && y as i32 + dir.y < world_height as i32 {
+                                let x = (x as i32 + dir.x) as usize;
+                                let y = (y as i32 + dir.y) as usize;
+                                return Some(Neighbor {
+                                    index: x * world_height + y,
+                                    direction: dir_index,
+                                });
                             }
 
                             None

@@ -1,6 +1,6 @@
-use crate::grid_graph::{self, Direction, GridGraphSettings};
+use crate::grid_graph::Direction;
 use bevy::prelude::*;
-use hierarchical_wfc::{Graph, TileRender, TileSet, WaveFunction};
+use hierarchical_wfc::{TileRender, TileSet, WaveFunction};
 use std::{any::Any, sync::Arc};
 
 const TILE_COUNT: usize = 17;
@@ -51,7 +51,7 @@ impl Default for BasicTileset {
         let mut allowed_neighbors = Vec::with_capacity(TILE_COUNT);
         for (tile, edges) in tile_edge_types.iter().enumerate() {
             let mut allowed_neighbors_for_tile = Vec::with_capacity(DIRECTIONS);
-            for (edge_index, edge) in edges.into_iter().enumerate() {
+            for (edge_index, edge) in edges.iter().enumerate() {
                 let direction = Direction::from(edge_index);
                 let mut cell = WaveFunction::empty();
 
@@ -109,12 +109,7 @@ impl TileSet for BasicTileset {
         self.weights = Arc::new(weights);
     }
 
-    fn create_graph(&self, settings: Box<dyn Any>) -> Graph<WaveFunction> {
-        let settings = settings.downcast_ref::<GridGraphSettings>().unwrap();
-        grid_graph::create(settings, WaveFunction::filled(self.tile_count()))
-    }
-
-    fn get_tile_paths(&self) -> Vec<(TileRender, Transform)> {
+    fn get_render_tile_assets(&self) -> Vec<(TileRender, Transform)> {
         let mut paths = Vec::new();
         for tile in 0..=16 {
             paths.push((
