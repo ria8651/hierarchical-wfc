@@ -1,9 +1,10 @@
-use crate::grid_graph::Direction;
+use crate::grid_graph::{self, Direction, GridGraphSettings};
 use anyhow::Result;
 use bevy::{prelude::*, utils::HashMap};
-use hierarchical_wfc::{TileSet, WaveFunction};
+use hierarchical_wfc::{Graph, TileRender, TileSet, WaveFunction};
 use serde::Deserialize;
 use std::{
+    any::Any,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -13,7 +14,7 @@ pub struct MxgmnTileset {
     tile_count: usize,
     constraints: Arc<Vec<Vec<WaveFunction>>>,
     weights: Arc<Vec<f32>>,
-    tile_paths: Vec<(String, Transform)>,
+    tile_paths: Vec<(TileRender, Transform)>,
 }
 
 impl MxgmnTileset {
@@ -105,7 +106,10 @@ impl MxgmnTileset {
 
                 if config.unique {
                     let path = image_folder.join(&format!("{} {}.png", tile.name, t));
-                    tile_paths.push((path.to_str().unwrap().to_string(), Transform::IDENTITY));
+                    tile_paths.push((
+                        TileRender::Sprite(path.to_str().unwrap().to_string()),
+                        Transform::IDENTITY,
+                    ));
                 } else {
                     let path = image_folder.join(&format!("{}.png", tile.name));
                     let transform = Transform::from_rotation(Quat::from_rotation_z(
@@ -116,7 +120,10 @@ impl MxgmnTileset {
                         1.0,
                         1.0,
                     ));
-                    tile_paths.push((path.to_str().unwrap().to_string(), transform));
+                    tile_paths.push((
+                        TileRender::Sprite(path.to_str().unwrap().to_string()),
+                        transform,
+                    ));
                 }
                 weights.push(tile.weight);
             }
@@ -230,8 +237,17 @@ impl TileSet for MxgmnTileset {
         self.weights = Arc::new(weights);
     }
 
-    fn get_tile_paths(&self) -> Vec<(String, Transform)> {
+    fn create_graph(&self, settings: Box<dyn Any>) -> Graph<WaveFunction> {
+        let settings = settings.downcast_ref::<GridGraphSettings>().unwrap();
+        grid_graph::create(settings, WaveFunction::filled(self.tile_count()))
+    }
+
+    fn get_tile_paths(&self) -> Vec<(TileRender, Transform)> {
         self.tile_paths.clone()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

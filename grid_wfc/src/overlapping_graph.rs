@@ -15,7 +15,7 @@ impl Default for OverlappingGraphSettings {
         Self {
             width: 16,
             height: 16,
-            overlap: 1,
+            overlap: 2,
             periodic: false,
         }
     }

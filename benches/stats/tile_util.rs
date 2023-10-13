@@ -20,7 +20,7 @@ impl<'a, T: Copy> Tile<'a, T> {
                             neigbhours: graph.neighbors[*index].as_slice(),
                         });
                     } else {
-                        return None;
+                        None
                     }
                 },
             )

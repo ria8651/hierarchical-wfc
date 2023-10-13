@@ -18,59 +18,65 @@ fn main() {
     #[cfg(target_arch = "wasm32")]
     console_error_panic_hook::set_once();
 
-    let sample = vec![
-        vec![0, 0, 0, 0, 0],
-        vec![0, 1, 1, 1, 0],
-        vec![0, 1, 2, 1, 0],
-        vec![0, 1, 1, 1, 0],
-        vec![0, 0, 0, 0, 0],
-    ];
+    // // let sample = vec![
+    // //     vec![0, 0, 0, 0, 0],
+    // //     vec![0, 1, 1, 1, 0],
+    // //     vec![0, 1, 2, 1, 0],
+    // //     vec![0, 1, 1, 1, 0],
+    // //     vec![0, 0, 0, 0, 0],
+    // // ];
 
-    let tileset = Arc::new(OverlappingTileset::new(sample, 1));
-    let settings = OverlappingGraphSettings {
-        width: 16,
-        height: 16,
-        overlap: 2,
-        periodic: false,
-    };
-    let graph = overlapping_graph::create(&settings, WaveFunction::filled(tileset.tile_count()));
-    let mut task = WfcTask {
-        graph,
-        tileset: tileset.clone(),
-        seed: 0,
-        metadata: None,
-        settings: WfcSettings::default(),
-    };
+    // // let tileset = Arc::new(OverlappingTileset::new(sample, 1));
 
-    SingleThreaded::execute(&mut task).unwrap();
+    // let tileset = Arc::new(OverlappingTileset::from_image(
+    //     "assets/samples/flowers.png",
+    //     1,
+    // ));
+
+    // let settings = OverlappingGraphSettings {
+    //     width: 16,
+    //     height: 16,
+    //     overlap: 2,
+    //     periodic: false,
+    // };
+    // let graph = overlapping_graph::create(&settings, WaveFunction::filled(tileset.tile_count()));
+    // let mut task = WfcTask {
+    //     graph,
+    //     tileset: tileset.clone(),
+    //     seed: 0,
+    //     metadata: None,
+    //     settings: WfcSettings::default(),
+    // };
+
+    // SingleThreaded::execute(&mut task).unwrap();
+
+    // // for y in (0..settings.height).rev() {
+    // //     for x in 0..settings.width {
+    // //         print!(
+    // //             "{} ",
+    // //             format!(
+    // //                 "{:?}",
+    // //                 task.graph.tiles[y as usize * settings.width as usize + x as usize]
+    // //             )
+    // //             .as_str()
+    // //             .trim_end_matches("0000")
+    // //         );
+    // //     }
+    // //     println!();
+    // // }
+    // // println!();
 
     // for y in (0..settings.height).rev() {
     //     for x in 0..settings.width {
-    //         print!(
-    //             "{} ",
-    //             format!(
-    //                 "{:?}",
-    //                 task.graph.tiles[y as usize * settings.width as usize + x as usize]
-    //             )
-    //             .as_str()
-    //             .trim_end_matches("0000")
-    //         );
+    //         let pattern = task.graph.tiles[y * settings.height + x]
+    //             .collapse()
+    //             .unwrap();
+    //         let tile = tileset.get_center_tile(pattern);
+    //         print!("{:>3}", tile);
     //     }
     //     println!();
     // }
     // println!();
-
-    for y in (0..settings.height).rev() {
-        for x in 0..settings.width {
-            let pattern = task.graph.tiles[y as usize * settings.height as usize + x as usize]
-                .collapse()
-                .unwrap();
-            let tile = tileset.get_center_tile(pattern);
-            print!("{:>3}", tile);
-        }
-        println!();
-    }
-    println!();
 
     App::new()
         .add_plugins((

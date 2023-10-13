@@ -1,6 +1,7 @@
+use crate::overlapping_graph::{self, OverlappingGraphSettings};
 use bevy::{prelude::*, utils::HashMap};
-use hierarchical_wfc::{TileSet, WaveFunction};
-use std::sync::Arc;
+use hierarchical_wfc::{Graph, TileRender, TileSet, WaveFunction};
+use std::{any::Any, sync::Arc};
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
 struct Pattern {
@@ -14,6 +15,7 @@ pub struct OverlappingTileset {
     patterns: Arc<Vec<Pattern>>,
     constraints: Arc<Vec<Vec<WaveFunction>>>,
     weights: Arc<Vec<f32>>,
+    tile_colors: Vec<Color>,
 }
 
 impl OverlappingTileset {
@@ -111,17 +113,67 @@ impl OverlappingTileset {
         // println!("constraints({}): {:?}", constraints.len(), constraints);
         // println!("weights({}): {:?}", weights.len(), weights);
 
+        let mut tile_colors = Vec::new();
+        for i in 0..tile_count {
+            let value = i as f32 / tile_count as f32;
+            tile_colors.push(Color::rgb(value, value, value));
+        }
+
         Self {
             tile_count,
             overlap: overlap as usize,
             patterns: Arc::new(patterns),
             constraints: Arc::new(constraints),
             weights: Arc::new(weights),
+            tile_colors,
         }
     }
 
-    pub fn get_center_tile(&self, index: usize) -> usize {
-        self.patterns[index].tiles[self.overlap * (self.overlap * 2 + 1) + self.overlap]
+    pub fn get_center_tile(&self, index: usize) -> (usize, Color) {
+        let tile = self.patterns[index].tiles[self.overlap * (self.overlap * 2 + 1) + self.overlap];
+        (tile, self.tile_colors[tile])
+    }
+
+    pub fn from_image(path: &str, overlap: usize) -> Self {
+        let image = image::open(path).unwrap();
+        let image = image.to_rgba8();
+        let size = IVec2::new(image.width() as i32, image.height() as i32);
+
+        let mut tiles = HashMap::new();
+        for y in 0..size.y {
+            for x in 0..size.x {
+                let pixel = image.get_pixel(x as u32, y as u32);
+                let color = Color::rgb(
+                    pixel[0] as f32 / 255.0,
+                    pixel[1] as f32 / 255.0,
+                    pixel[2] as f32 / 255.0,
+                );
+                let tile = (pixel[0] as usize) << 16 | (pixel[1] as usize) << 8 | pixel[2] as usize;
+                tiles.insert(tile, (color, 0));
+            }
+        }
+
+        let mut colors = Vec::new();
+        for (i, (_, (color, tile_index))) in tiles.iter_mut().enumerate() {
+            *tile_index = i;
+            colors.push(*color);
+        }
+
+        let mut sample = Vec::new();
+        for y in (0..size.y).rev() {
+            let mut row = Vec::new();
+            for x in 0..size.x {
+                let pixel = image.get_pixel(x as u32, y as u32);
+                let tile = (pixel[0] as usize) << 16 | (pixel[1] as usize) << 8 | pixel[2] as usize;
+                row.push(tiles.get(&tile).unwrap().1);
+            }
+            sample.push(row);
+        }
+
+        let mut tileset = Self::new(sample, overlap);
+        tileset.tile_colors = colors;
+
+        tileset
     }
 }
 
@@ -146,11 +198,24 @@ impl TileSet for OverlappingTileset {
         self.weights = Arc::new(weights);
     }
 
-    fn get_tile_paths(&self) -> Vec<(String, Transform)> {
-        let mut paths = Vec::new();
-        for tile in 0..=16 {
-            paths.push((format!("tileset/{}.png", tile), Transform::IDENTITY));
+    fn create_graph(&self, settings: Box<dyn Any>) -> Graph<WaveFunction> {
+        let settings = settings.downcast_ref::<OverlappingGraphSettings>().unwrap();
+        overlapping_graph::create(settings, WaveFunction::filled(self.tile_count()))
+    }
+
+    fn get_tile_paths(&self) -> Vec<(TileRender, Transform)> {
+        let mut tile_render = Vec::new();
+        for tile in 0..self.tile_count {
+            let value = tile as f32 / self.tile_count as f32;
+            tile_render.push((
+                TileRender::Color(Color::rgb(value, value, value)),
+                Transform::IDENTITY,
+            ));
         }
-        paths
+        tile_render
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

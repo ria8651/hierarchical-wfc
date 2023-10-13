@@ -21,12 +21,10 @@ impl<K: Eq + Hash + Clone + std::fmt::Debug> SparseDistribution<K> for HashMap<K
         HashSet::from_iter(self.iter().flat_map(|(k, v)| {
             if v.n == 0.0 || v.s == 0.0 {
                 None
+            } else if v.s / v.n < 0.5 {
+                Some(k.clone())
             } else {
-                if v.s / v.n < 0.5 {
-                    Some(k.clone())
-                } else {
-                    None
-                }
+                None
             }
         }))
     }
@@ -56,7 +54,7 @@ impl<K: Eq + Hash + Clone + std::fmt::Debug> SparseDistribution<K> for HashMap<K
 
         avg /= count;
         println!("avg t-test: {avg:.4} ({count} features)");
-        return avg;
+        avg
     }
 }
 
@@ -122,7 +120,7 @@ impl RunStatisticsBuilder {
                     {
                         let key = [
                             tile,
-                            graph.tiles[neighbour.index].clone(),
+                            graph.tiles[neighbour.index],
                             neighbour.direction.div_euclid(2), // Configuration number, 0: horizontal, 1: vertical
                         ];
                         self.distributions_pair
@@ -157,7 +155,7 @@ impl RunStatisticsBuilder {
                     neigbhours: neighbours.as_slice(),
                 };
                 let neigbhours =
-                    [0, 1, 2, 3].map(|d| tile_0.tile_in_dir(&graph, d).and_then(|t| Some(t.value)));
+                    [0, 1, 2, 3].map(|d| tile_0.tile_in_dir(&graph, d).map(|t| t.value));
 
                 if let [Some(t0), Some(t1), Some(t2), Some(t3), Some(t4)] = [
                     Some(tile),
@@ -231,7 +229,7 @@ impl RunStatisticsBuilder {
                 .collect::<HashMap<_, _>>(),
         };
 
-        let dists = [
+        let _dists = [
             distributions.single.values().collect::<Vec<_>>(),
             distributions.pair.values().collect::<Vec<_>>(),
             distributions.quad.values().collect::<Vec<_>>(),

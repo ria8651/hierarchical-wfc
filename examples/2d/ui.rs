@@ -13,12 +13,13 @@ use grid_wfc::{
     carcassonne_tileset::CarcassonneTileset,
     grid_graph::GridGraphSettings,
     mxgmn_tileset::MxgmnTileset,
+    overlapping_tileset::OverlappingTileset,
     world::{ChunkSettings, ChunkState},
 };
-use hierarchical_wfc::{wfc_task::WfcSettings, TileSet};
+use hierarchical_wfc::{wfc_task::WfcSettings, TileRender, TileSet};
 use std::sync::Arc;
 
-use crate::world::{GenerateEvent, MaybeWorld};
+use crate::world::{GenerateEvent, GraphSettings, MaybeWorld};
 
 pub struct UiPlugin;
 
@@ -28,31 +29,46 @@ impl Plugin for UiPlugin {
             .add_plugins(DefaultInspectorConfigPlugin)
             .add_event::<RenderUpdateEvent>()
             .init_resource::<UiState>()
-            .register_type::<UiState>()
+            .init_resource::<UiSettings>()
+            .register_type::<UiSettings>()
             .register_type::<GridGraphSettings>()
             .add_systems(Update, (ui, render_world, debug_gizmos).chain());
     }
 }
 
 #[derive(Resource, Reflect)]
-struct UiState {
+struct UiSettings {
     seed: u64,
     random_seed: bool,
-    grid_graph_settings: GridGraphSettings,
+    graph_settings: GraphSettings,
     deterministic: bool,
     multithreaded: bool,
     chunk_settings: ChunkSettings,
     wfc_settings: WfcSettings,
     draw_gizmos: bool,
-    #[reflect(ignore)]
+}
+
+impl Default for UiSettings {
+    fn default() -> Self {
+        Self {
+            seed: 0,
+            random_seed: true,
+            graph_settings: GraphSettings::Overlapping(Default::default()),
+            deterministic: false,
+            multithreaded: true,
+            chunk_settings: Default::default(),
+            wfc_settings: Default::default(),
+            draw_gizmos: true,
+        }
+    }
+}
+
+#[derive(Resource)]
+struct UiState {
     picked_tileset: usize,
-    #[reflect(ignore)]
     tile_sets: Vec<(Arc<dyn TileSet>, String)>,
-    #[reflect(ignore)]
     weights: Vec<f32>,
-    #[reflect(ignore)]
     image_handles: Vec<(TextureId, Handle<Image>)>,
-    #[reflect(ignore)]
     tile_entities: Vec<Vec<Entity>>,
 }
 
@@ -82,16 +98,21 @@ impl Default for UiState {
             }
         }
 
+        let paths = std::fs::read_dir("assets/samples").unwrap();
+        for path in paths {
+            let path = path.unwrap().path();
+            if let Some(ext) = path.extension() {
+                if ext == "png" {
+                    tile_sets.push((
+                        Arc::new(OverlappingTileset::from_image(path.to_str().unwrap(), 1)),
+                        path.file_stem().unwrap().to_str().unwrap().to_string(),
+                    ));
+                }
+            }
+        }
+
         Self {
-            seed: 0,
-            random_seed: true,
-            grid_graph_settings: GridGraphSettings::default(),
-            deterministic: false,
-            multithreaded: true,
-            chunk_settings: ChunkSettings::default(),
-            wfc_settings: WfcSettings::default(),
-            draw_gizmos: true,
-            picked_tileset: 3,
+            picked_tileset: 21,
             tile_sets,
             weights: Vec::new(),
             image_handles: Vec::new(),
@@ -105,6 +126,7 @@ struct TileSprite;
 
 fn ui(
     mut contexts: EguiContexts,
+    mut ui_settings: ResMut<UiSettings>,
     mut ui_state: ResMut<UiState>,
     type_registry: Res<AppTypeRegistry>,
     asset_server: Res<AssetServer>,
@@ -120,8 +142,11 @@ fn ui(
         for handle in ui_state.image_handles.drain(..) {
             contexts.remove_image(&handle.1);
         }
-        for path in tileset.get_tile_paths() {
-            let bevy_handle = asset_server.load(path.0);
+        for (tile_render, _) in tileset.get_tile_paths() {
+            let bevy_handle = asset_server.load(match tile_render {
+                TileRender::Sprite(path) => path,
+                TileRender::Color(_) => "fail.png".to_string(),
+            });
             let handle = contexts.add_image(bevy_handle.clone_weak());
             ui_state.image_handles.push((handle, bevy_handle));
         }
@@ -153,10 +178,10 @@ fn ui(
                                 }
                             });
 
-                        ui_for_value(ui_state.as_mut(), ui, &type_registry.read());
+                        ui_for_value(ui_settings.as_mut(), ui, &type_registry.read());
 
-                        let seed = if !ui_state.random_seed {
-                            ui_state.seed
+                        let seed = if !ui_settings.random_seed {
+                            ui_settings.seed
                         } else {
                             rand::random()
                         };
@@ -165,18 +190,18 @@ fn ui(
                         if ui.button("Generate Single").clicked() {
                             generate_events.send(GenerateEvent::Single {
                                 tileset,
-                                settings: ui_state.grid_graph_settings.clone(),
-                                wfc_settings: ui_state.wfc_settings.clone(),
+                                settings: ui_settings.graph_settings.clone(),
+                                wfc_settings: ui_settings.wfc_settings.clone(),
                                 seed,
                             });
                         } else if ui.button("Generate Chunked").clicked() {
                             generate_events.send(GenerateEvent::Chunked {
                                 tileset,
-                                settings: ui_state.grid_graph_settings.clone(),
-                                wfc_settings: ui_state.wfc_settings.clone(),
-                                chunk_settings: ui_state.chunk_settings.clone(),
-                                multithreaded: ui_state.multithreaded,
-                                deterministic: ui_state.deterministic,
+                                settings: ui_settings.graph_settings.clone(),
+                                wfc_settings: ui_settings.wfc_settings.clone(),
+                                chunk_settings: ui_settings.chunk_settings,
+                                multithreaded: ui_settings.multithreaded,
+                                deterministic: ui_settings.deterministic,
                                 seed,
                             });
 
@@ -219,8 +244,8 @@ fn ui(
         });
 }
 
-fn debug_gizmos(mut gizmos: Gizmos, world: Res<MaybeWorld>, ui_state: Res<UiState>) {
-    if ui_state.draw_gizmos {
+fn debug_gizmos(mut gizmos: Gizmos, world: Res<MaybeWorld>, ui_settings: Res<UiSettings>) {
+    if ui_settings.draw_gizmos {
         let world = match world.as_ref().as_ref() {
             Some(world) => world,
             None => return,
@@ -250,15 +275,24 @@ fn debug_gizmos(mut gizmos: Gizmos, world: Res<MaybeWorld>, ui_state: Res<UiStat
 #[derive(Event)]
 pub struct RenderUpdateEvent;
 
+pub enum Bleh {
+    Image(Handle<Image>),
+    Color(Color),
+}
+
 /// disgusting
 fn render_world(
     mut commands: Commands,
     mut ui_state: ResMut<UiState>,
     asset_server: Res<AssetServer>,
-    mut tile_entity_query: Query<(&mut Transform, &mut Handle<Image>), With<TileSprite>>,
+    mut tile_entity_query: Query<
+        (&mut Transform, &mut Handle<Image>, &mut Sprite),
+        With<TileSprite>,
+    >,
     world: Res<MaybeWorld>,
     mut render_world_event: EventReader<RenderUpdateEvent>,
     mut current_size: Local<IVec2>,
+    ui_settings: Res<UiSettings>,
 ) {
     let mut do_thing = false;
     for _ in render_world_event.iter() {
@@ -271,9 +305,18 @@ fn render_world(
 
         // tileset
         let bad_tile = asset_server.load("fail.png");
-        let mut tile_handles: Vec<(Handle<Image>, Transform)> = Vec::new();
-        for tile in tileset.get_tile_paths() {
-            tile_handles.push((asset_server.load(tile.0), tile.1));
+        let white_tile = asset_server.load("white.png");
+        let mut tile_handles: Vec<(Bleh, Transform)> = Vec::new();
+        for (tile_render, transform) in tileset.get_tile_paths() {
+            match tile_render {
+                TileRender::Sprite(path) => {
+                    let bevy_handle = asset_server.load(path);
+                    tile_handles.push((Bleh::Image(bevy_handle), transform));
+                }
+                TileRender::Color(color) => {
+                    tile_handles.push((Bleh::Color(color), transform));
+                }
+            }
         }
 
         let world = &world.as_ref().as_ref().unwrap().world;
@@ -291,11 +334,37 @@ fn render_world(
                     let mut transform = Transform::from_translation(
                         ((pos + 0.5) / world_size.y as f32 - 0.5).extend(-0.5),
                     );
+                    let mut color = Color::WHITE;
 
                     if let Some(tile_index) = world[x][y].collapse() {
-                        texture = tile_handles[tile_index].0.clone();
-                        transform.rotation = tile_handles[tile_index].1.rotation;
-                        transform.scale = tile_handles[tile_index].1.scale;
+                        match ui_settings.graph_settings {
+                            GraphSettings::Grid(_) => {
+                                match tile_handles[tile_index].0 {
+                                    Bleh::Color(new_color) => {
+                                        color = new_color;
+                                        texture = white_tile.clone();
+                                    }
+                                    Bleh::Image(ref handle) => {
+                                        texture = handle.clone();
+                                    }
+                                };
+
+                                transform.rotation = tile_handles[tile_index].1.rotation;
+                                transform.scale = tile_handles[tile_index].1.scale;
+                            }
+                            GraphSettings::Overlapping(_) => {
+                                let overlapping_tileset = tileset
+                                    .as_any()
+                                    .downcast_ref::<OverlappingTileset>()
+                                    .unwrap();
+
+                                let (_, actual_color) =
+                                    overlapping_tileset.get_center_tile(tile_index);
+
+                                texture = white_tile.clone();
+                                color = actual_color;
+                            }
+                        }
                     }
                     if world[x][y].count_bits() == 0 {
                         texture = bad_tile.clone();
@@ -308,6 +377,7 @@ fn render_world(
                                     transform,
                                     sprite: Sprite {
                                         custom_size: Some(Vec2::splat(1.0 / world_size.y as f32)),
+                                        color,
                                         ..default()
                                     },
                                     texture,
@@ -328,7 +398,7 @@ fn render_world(
         } else {
             for x in 0..current_size.x as usize {
                 for y in 0..current_size.y as usize {
-                    let (mut transform, mut sprite) = tile_entity_query
+                    let (mut transform, mut image_handle, mut sprite) = tile_entity_query
                         .get_mut(ui_state.tile_entities[x][y])
                         .unwrap();
 
@@ -336,11 +406,38 @@ fn render_world(
                         let new_transform = &tile_handles[tile_index].1;
                         transform.rotation = new_transform.rotation;
                         transform.scale = new_transform.scale;
-                        *sprite = tile_handles[tile_index].0.clone();
+                        match ui_settings.graph_settings {
+                            GraphSettings::Grid(_) => {
+                                match tile_handles[tile_index].0 {
+                                    Bleh::Color(color) => {
+                                        *image_handle = white_tile.clone();
+                                        sprite.color = color;
+                                    }
+                                    Bleh::Image(ref handle) => {
+                                        *image_handle = handle.clone();
+                                        sprite.color = Color::WHITE;
+                                    }
+                                };
+                            }
+                            GraphSettings::Overlapping(_) => {
+                                let overlapping_tileset = tileset
+                                    .as_any()
+                                    .downcast_ref::<OverlappingTileset>()
+                                    .unwrap();
+
+                                let (_, actual_color) =
+                                    overlapping_tileset.get_center_tile(tile_index);
+
+                                *image_handle = white_tile.clone();
+                                sprite.color = actual_color;
+                            }
+                        }
                     } else if world[x][y].count_bits() == 0 {
-                        *sprite = bad_tile.clone();
+                        *image_handle = bad_tile.clone();
+                        sprite.color = Color::WHITE;
                     } else {
-                        *sprite = Default::default();
+                        *image_handle = Default::default();
+                        sprite.color = Color::WHITE;
                     }
                 }
             }

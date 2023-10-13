@@ -11,3 +11,4 @@ rand = { version = "0.8", features = ["small_rng"] }
 serde = "1.0"
 serde-xml-rs = "0.6"
 anyhow = "1.0"
+image = "0.24"

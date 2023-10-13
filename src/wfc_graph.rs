@@ -2,7 +2,7 @@ use anyhow::Result;
 use bevy::prelude::*;
 use rand::{distributions::WeightedIndex, prelude::Distribution, Rng};
 
-pub const TILE_U32S: usize = 4;
+pub const TILE_U32S: usize = 16;
 
 #[derive(Debug, Clone)]
 pub struct Graph<C> {

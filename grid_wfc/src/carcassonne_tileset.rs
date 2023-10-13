@@ -1,7 +1,7 @@
-use crate::grid_graph::Direction;
+use crate::grid_graph::{self, Direction, GridGraphSettings};
 use bevy::prelude::*;
-use hierarchical_wfc::{TileSet, WaveFunction};
-use std::sync::Arc;
+use hierarchical_wfc::{Graph, TileRender, TileSet, WaveFunction};
+use std::{any::Any, sync::Arc};
 
 const TILE_COUNT: usize = 120;
 const DIRECTIONS: usize = 4;
@@ -122,17 +122,29 @@ impl TileSet for CarcassonneTileset {
         self.weights = Arc::new(weights);
     }
 
-    fn get_tile_paths(&self) -> Vec<(String, Transform)> {
+    fn create_graph(&self, settings: Box<dyn Any>) -> Graph<WaveFunction> {
+        let settings = settings.downcast_ref::<GridGraphSettings>().unwrap();
+        grid_graph::create(settings, WaveFunction::filled(self.tile_count()))
+    }
+
+    fn get_tile_paths(&self) -> Vec<(TileRender, Transform)> {
         let mut paths = Vec::new();
         for tile in 0..self.tile_count() {
             let transform = Transform::from_rotation(Quat::from_rotation_z(
                 -std::f32::consts::PI / 2.0 * (4 * tile / self.tile_count()) as f32,
             ));
             paths.push((
-                format!("carcassonne/{}.png", tile % (self.tile_count() / 4)),
+                TileRender::Sprite(format!(
+                    "carcassonne/{}.png",
+                    tile % (self.tile_count() / 4)
+                )),
                 transform,
             ));
         }
         paths
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

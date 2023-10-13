@@ -33,8 +33,8 @@ impl StatisticRunner for ChunkedRunner {
             &mut *self.backend.borrow_mut(),
             self.setings.grid_graph_settings.clone(),
             self.seeds.pop().unwrap(),
-            self.setings.generation_mode.clone(),
-            self.setings.chunk_settings.clone(),
+            self.setings.generation_mode,
+            self.setings.chunk_settings,
             self.setings.wfc_settings.clone(),
         );
         world.build_world_graph()

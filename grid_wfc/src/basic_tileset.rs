@@ -1,7 +1,7 @@
-use crate::grid_graph::Direction;
+use crate::grid_graph::{self, Direction, GridGraphSettings};
 use bevy::prelude::*;
-use hierarchical_wfc::{TileSet, WaveFunction};
-use std::sync::Arc;
+use hierarchical_wfc::{Graph, TileRender, TileSet, WaveFunction};
+use std::{any::Any, sync::Arc};
 
 const TILE_COUNT: usize = 17;
 const DIRECTIONS: usize = 4;
@@ -109,11 +109,23 @@ impl TileSet for BasicTileset {
         self.weights = Arc::new(weights);
     }
 
-    fn get_tile_paths(&self) -> Vec<(String, Transform)> {
+    fn create_graph(&self, settings: Box<dyn Any>) -> Graph<WaveFunction> {
+        let settings = settings.downcast_ref::<GridGraphSettings>().unwrap();
+        grid_graph::create(settings, WaveFunction::filled(self.tile_count()))
+    }
+
+    fn get_tile_paths(&self) -> Vec<(TileRender, Transform)> {
         let mut paths = Vec::new();
         for tile in 0..=16 {
-            paths.push((format!("tileset/{}.png", tile), Transform::IDENTITY));
+            paths.push((
+                TileRender::Sprite(format!("basic/{}.png", tile)),
+                Transform::IDENTITY,
+            ));
         }
         paths
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
