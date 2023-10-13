@@ -54,7 +54,7 @@ pub fn create<F: Clone>(settings: &GridGraphSettings, fill_with: F) -> Graph<F> 
                 );
             }
 
-            let neighbor_index = (neighbor_pos.x * size.y + neighbor_pos.y) as usize;
+            let neighbor_index = (neighbor_pos.y * size.x + neighbor_pos.x) as usize;
             node_neighbors.push(Neighbor {
                 direction: i,
                 index: neighbor_index,

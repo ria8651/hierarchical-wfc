@@ -13,8 +13,8 @@ pub struct OverlappingGraphSettings {
 impl Default for OverlappingGraphSettings {
     fn default() -> Self {
         Self {
-            width: 16,
-            height: 16,
+            width: 256,
+            height: 256,
             overlap: 2,
             periodic: false,
         }
@@ -49,7 +49,7 @@ pub fn create<F: Clone>(settings: &OverlappingGraphSettings, fill_with: F) -> Gr
                 }
 
                 let neighbor_index = (neighbor_pos.y * size.x + neighbor_pos.x) as usize;
-                let direction_index = overlap_width * (y + overlap) + (x + overlap);
+                let direction_index = overlap_width * (x + overlap) + (y + overlap);
                 node_neighbors.push(Neighbor {
                     direction: direction_index as usize,
                     index: neighbor_index,

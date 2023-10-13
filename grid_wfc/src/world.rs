@@ -1,4 +1,7 @@
-use crate::grid_graph::{self, Direction, GridGraphSettings};
+use crate::{
+    grid_graph::{self, Direction, GridGraphSettings},
+    overlapping_graph::{self, OverlappingGraphSettings},
+};
 use bevy::{prelude::*, utils::HashMap};
 use hierarchical_wfc::{wfc_task::WfcSettings, Graph, Neighbor, TileSet, WaveFunction};
 use rand::{rngs::SmallRng, Rng};
@@ -70,18 +73,19 @@ impl World {
         );
         let size = top_right - bottom_left;
 
-        let settings = GridGraphSettings {
+        let settings = OverlappingGraphSettings {
             width: size.x as usize,
             height: size.y as usize,
+            overlap: 2,
             periodic: false,
         };
         let filled = WaveFunction::filled(self.tileset.tile_count());
-        let mut graph = grid_graph::create(&settings, filled);
+        let mut graph = overlapping_graph::create(&settings, filled);
 
         let chunk_bottom_left = chunk * self.chunk_settings.chunk_size as i32;
         let chunk_top_right = (chunk + IVec2::ONE) * self.chunk_settings.chunk_size as i32;
-        for x in 0..size.x {
-            for y in 0..size.y {
+        for y in 0..size.y {
+            for x in 0..size.x {
                 let pos = IVec2::new(bottom_left.x + x, bottom_left.y + y);
                 if pos.cmplt(chunk_bottom_left).any()
                     || pos.cmpge(chunk_top_right).any()
@@ -89,7 +93,7 @@ impl World {
                     || self.chunk_settings.chunk_merging == ChunkMerging::Full
                 {
                     let tile = &self.world[pos.x as usize][pos.y as usize];
-                    graph.tiles[x as usize * size.y as usize + y as usize] = tile.clone();
+                    graph.tiles[y as usize * size.x as usize + x as usize] = tile.clone();
                 }
             }
         }
@@ -130,7 +134,7 @@ impl World {
                 }
 
                 // overwrite tiles inside the chunk while preserving tiles on the border
-                let tile = graph.tiles[x as usize * size.y as usize + y as usize].clone();
+                let tile = graph.tiles[y as usize * size.x as usize + x as usize].clone();
                 let condition = match self.chunk_settings.chunk_merging {
                     ChunkMerging::Mixed => {
                         (pos.cmpge(chunk_bottom_left).all() && pos.cmplt(chunk_top_right).all())
