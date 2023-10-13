@@ -93,10 +93,6 @@ impl TileSet for BasicTileset {
         TILE_COUNT
     }
 
-    fn directions(&self) -> usize {
-        4
-    }
-
     fn get_constraints(&self) -> Arc<Vec<Vec<WaveFunction>>> {
         self.constraints.clone()
     }

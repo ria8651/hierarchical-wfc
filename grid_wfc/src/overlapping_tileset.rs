@@ -51,43 +51,43 @@ impl OverlappingTileset {
 
         let tile_count = patterns.len();
         let pattern_width = overlap * 2 + 1;
-        let offsets = overlap * 2;
-        let directions_width = offsets * 2 + 1;
-        let directions = directions_width * directions_width;
 
-        let mut constraints =
-            vec![vec![WaveFunction::filled(tile_count); directions as usize]; tile_count];
+        let directions = vec![
+            IVec2::new(1, 0),
+            IVec2::new(-1, 0),
+            IVec2::new(0, -1),
+            IVec2::new(0, 1),
+        ];
+
+        let mut constraints = vec![vec![WaveFunction::filled(tile_count); 4]; tile_count];
         for (i, pattern) in patterns.iter().enumerate() {
             for (j, other) in patterns.iter().enumerate() {
-                for oy in -offsets..=offsets {
-                    'offsets: for ox in -offsets..=offsets {
-                        let direction_index = (oy + offsets) * directions_width + ox + offsets;
-                        for y in 0..pattern_width {
-                            let sy = y - oy;
-                            if sy < 0 || sy >= pattern_width {
+                'directions: for (k, direction) in directions.iter().enumerate() {
+                    for y in 0..pattern_width {
+                        let sy = y - direction.y;
+                        if sy < 0 || sy >= pattern_width {
+                            continue;
+                        }
+                        for x in 0..pattern_width {
+                            let sx = x - direction.x;
+                            if sx < 0 || sx >= pattern_width {
                                 continue;
                             }
-                            for x in 0..pattern_width {
-                                let sx = x - ox;
-                                if sx < 0 || sx >= pattern_width {
-                                    continue;
-                                }
 
-                                let tile1 = pattern.tiles[(y * pattern_width + x) as usize];
-                                let tile2 = other.tiles[(sy * pattern_width + sx) as usize];
+                            let tile1 = pattern.tiles[(y * pattern_width + x) as usize];
+                            let tile2 = other.tiles[(sy * pattern_width + sx) as usize];
 
-                                if tile1 != tile2 {
-                                    constraints[i][direction_index as usize].remove_tile(j);
-                                    continue 'offsets;
-                                }
+                            if tile1 != tile2 {
+                                constraints[i][k].remove_tile(j);
+                                continue 'directions;
                             }
                         }
-
-                        // println!(
-                        //     "pattern({}) == pattern({}) with offset ({}, {})",
-                        //     i, j, ox, oy
-                        // );
                     }
+
+                    // println!(
+                    //     "pattern({}) == pattern({}) with offset ({}, {})",
+                    //     i, j, ox, oy
+                    // );
                 }
             }
         }
@@ -181,10 +181,6 @@ impl TileSet for OverlappingTileset {
         self.tile_count
     }
 
-    fn directions(&self) -> usize {
-        (self.overlap * 2 + 1) * (self.overlap * 2 + 1)
-    }
-
     fn get_constraints(&self) -> Arc<Vec<Vec<WaveFunction>>> {
         self.constraints.clone()
     }
@@ -203,12 +199,8 @@ impl TileSet for OverlappingTileset {
 
     fn get_render_tile_assets(&self) -> Vec<(TileRender, Transform)> {
         let mut tile_render = Vec::new();
-        for tile in 0..self.tile_count {
-            let value = tile as f32 / self.tile_count as f32;
-            tile_render.push((
-                TileRender::Color(Color::rgb(value, value, value)),
-                Transform::IDENTITY,
-            ));
+        for color in self.tile_colors.iter() {
+            tile_render.push((TileRender::Color(*color), Transform::IDENTITY));
         }
         tile_render
     }

@@ -364,6 +364,7 @@ fn render_world(
                             }
                             Bleh::Color(new_color) => {
                                 color = *new_color;
+                                texture = white_tile.clone();
                             }
                         }
                     }

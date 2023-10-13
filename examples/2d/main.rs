@@ -1,6 +1,5 @@
 use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::ScalingMode};
 use bevy_pancam::{PanCam, PanCamPlugin};
-
 use ui::UiPlugin;
 use world::WorldPlugin;
 
@@ -10,29 +9,35 @@ mod world;
 fn main() {
     #[cfg(target_arch = "wasm32")]
     console_error_panic_hook::set_once();
+    
+    // use grid_wfc::{
+    //     grid_graph::{self, GridGraphSettings},
+    //     overlapping_tileset::OverlappingTileset,
+    // };
+    // use hierarchical_wfc::{wfc_task::WfcSettings, TileSet, WaveFunction, WfcTask, wfc_backend::SingleThreaded};
+    // use std::sync::Arc;
+    
+    // let sample = vec![
+    //     vec![0, 0, 0, 0, 0, 0],
+    //     vec![0, 1, 1, 1, 1, 0],
+    //     vec![0, 1, 0, 0, 1, 0],
+    //     vec![0, 1, 0, 0, 1, 0],
+    //     vec![0, 1, 1, 1, 1, 0],
+    //     vec![0, 0, 0, 0, 0, 0],
+    // ];
 
-    // // let sample = vec![
-    // //     vec![0, 0, 0, 0, 0],
-    // //     vec![0, 1, 1, 1, 0],
-    // //     vec![0, 1, 2, 1, 0],
-    // //     vec![0, 1, 1, 1, 0],
-    // //     vec![0, 0, 0, 0, 0],
-    // // ];
+    // let tileset = Arc::new(OverlappingTileset::new(sample, 1));
+    // // let tileset = Arc::new(OverlappingTileset::from_image(
+    // //     "assets/samples/flowers.png",
+    // //     1,
+    // // ));
 
-    // // let tileset = Arc::new(OverlappingTileset::new(sample, 1));
-
-    // let tileset = Arc::new(OverlappingTileset::from_image(
-    //     "assets/samples/flowers.png",
-    //     1,
-    // ));
-
-    // let settings = OverlappingGraphSettings {
+    // let settings = GridGraphSettings {
     //     width: 16,
     //     height: 16,
-    //     overlap: 2,
     //     periodic: false,
     // };
-    // let graph = overlapping_graph::create(&settings, WaveFunction::filled(tileset.tile_count()));
+    // let graph = grid_graph::create(&settings, WaveFunction::filled(tileset.tile_count()));
     // let mut task = WfcTask {
     //     graph,
     //     tileset: tileset.clone(),
@@ -65,7 +70,7 @@ fn main() {
     //             .collapse()
     //             .unwrap();
     //         let tile = tileset.get_center_tile(pattern);
-    //         print!("{:>3}", tile);
+    //         print!("{:>3}", tile.0);
     //     }
     //     println!();
     // }

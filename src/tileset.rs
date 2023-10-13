@@ -11,7 +11,6 @@ pub enum TileRender {
 
 pub trait TileSet: DynClone + Send + Sync {
     fn tile_count(&self) -> usize;
-    fn directions(&self) -> usize;
     fn get_constraints(&self) -> Arc<Vec<Vec<WaveFunction>>>;
     fn get_weights(&self) -> Arc<Vec<f32>>;
     fn set_weights(&mut self, weights: Vec<f32>);
