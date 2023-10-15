@@ -34,5 +34,9 @@ name = "brian"
 harness = false
 
 [[bench]]
+name = "failure_rate"
+harness = false
+
+[[bench]]
 name = "standard"
 harness = false

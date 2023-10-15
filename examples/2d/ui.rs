@@ -83,6 +83,11 @@ impl Default for UiState {
             ),
         ];
 
+        tile_sets.push((
+            Arc::new(OverlappingTileset::from_image("assets/dungeon.png", 1)),
+            "Dungeon".to_string(),
+        ));
+
         let paths = std::fs::read_dir("assets/mxgmn").unwrap();
         for path in paths {
             let path = path.unwrap().path();
