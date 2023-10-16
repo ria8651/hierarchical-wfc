@@ -17,7 +17,8 @@ use grid_wfc::{
     world::{ChunkSettings, ChunkState},
 };
 use hierarchical_wfc::{wfc_task::WfcSettings, TileRender, TileSet};
-use std::sync::Arc;
+use serde::Deserialize;
+use std::{path::Path, sync::Arc};
 
 pub struct UiPlugin;
 
@@ -56,7 +57,7 @@ impl Default for UiSettings {
             multithreaded: true,
             chunk_settings: Default::default(),
             wfc_settings: Default::default(),
-            draw_gizmos: true,
+            draw_gizmos: false,
         }
     }
 }
@@ -84,7 +85,7 @@ impl Default for UiState {
         ];
 
         tile_sets.push((
-            Arc::new(OverlappingTileset::from_image("assets/dungeon.png", 1)),
+            Arc::new(OverlappingTileset::from_image("assets/dungeon.png".to_string(), 1, 8)),
             "Dungeon".to_string(),
         ));
 
@@ -101,21 +102,47 @@ impl Default for UiState {
             }
         }
 
-        let paths = std::fs::read_dir("assets/samples").unwrap();
-        for path in paths {
-            let path = path.unwrap().path();
-            if let Some(ext) = path.extension() {
-                if ext == "png" {
-                    tile_sets.push((
-                        Arc::new(OverlappingTileset::from_image(path.to_str().unwrap(), 1)),
-                        path.file_stem().unwrap().to_str().unwrap().to_string(),
-                    ));
-                }
-            }
+        tile_sets.push((
+            Arc::new(
+                MxgmnTileset::new(
+                    Path::new("assets/mxgmn/circuit.xml"),
+                    Some("Turnless".to_string()),
+                )
+                .unwrap(),
+            ),
+            "Circuit 2".to_string(),
+        ));
+
+        // let paths = std::fs::read_dir("assets/samples").unwrap();
+        // for path in paths {
+        //     let path = path.unwrap().path();
+        //     if let Some(ext) = path.extension() {
+        //         if ext == "png" {
+        //             tile_sets.push((
+        //                 Arc::new(OverlappingTileset::from_image(path.to_str().unwrap(), 1)),
+        //                 path.file_stem().unwrap().to_str().unwrap().to_string(),
+        //             ));
+        //         }
+        //     }
+        // }
+
+        let xml = std::fs::read_to_string("assets/samples.xml").unwrap();
+        let samples: Samples = serde_xml_rs::from_str(&xml).unwrap();
+        for sample in samples.overlapping.into_iter() {
+            let overlap = sample.n / 2;
+            println!("overlap: {}", overlap);
+            tile_sets.push((
+                Arc::new(OverlappingTileset::from_image(
+                    format!("assets/samples/{}.png", sample.name),
+                    overlap,
+                    sample.symmetry,
+                )),
+                format!("{} {} {}", sample.name, sample.n, sample.symmetry),
+            ));
         }
 
         Self {
-            picked_tileset: 21,
+            picked_tileset: 4,
             tile_sets,
             weights: Vec::new(),
             tile_render_assets: Vec::new(),
@@ -438,4 +465,19 @@ fn render_world(
             }
         }
     }
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename = "samples")]
+struct Samples {
+    overlapping: Vec<Overlapping>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+struct Overlapping {
+    name: String,
+    #[serde(rename = "N")]
+    n: usize,
+    #[serde(default)]
+    symmetry: usize,
 }

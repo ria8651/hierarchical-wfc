@@ -18,7 +18,8 @@ pub struct OverlappingTileset {
 }
 
 impl OverlappingTileset {
-    pub fn new(sample: Vec<Vec<usize>>, overlap: usize) -> Self {
+    /// overlap is the radius of the overlap, symmetry follows the same rules as mxgmn
+    pub fn new(sample: Vec<Vec<usize>>, overlap: usize, symmetry: usize) -> Self {
         let overlap = overlap as i32;
         let size = IVec2::new(sample.len() as i32, sample[0].len() as i32);
 
@@ -33,11 +34,22 @@ impl OverlappingTileset {
                         tiles.push(sample[sx as usize][sy as usize]);
                     }
                 }
-                let pattern = Pattern { tiles };
-                if let Some(weight) = patterns_hash.get_mut(&pattern) {
-                    *weight += 1.0;
-                } else {
-                    patterns_hash.insert(pattern, 1.0);
+                let mut pattern = Pattern { tiles };
+
+                for i in 0..symmetry {
+                    if i > 0 {
+                        if i % 2 == 1 {
+                            pattern.reflect((overlap * 2 + 1) as usize);
+                        } else {
+                            pattern.rotate((overlap * 2 + 1) as usize);
+                        }
+                    }
+
+                    if let Some(weight) = patterns_hash.get_mut(&pattern) {
+                        *weight += 1.0;
+                    } else {
+                        patterns_hash.insert(pattern.clone(), 1.0);
+                    }
                 }
             }
         }
@@ -53,10 +65,10 @@ impl OverlappingTileset {
         let pattern_width = overlap * 2 + 1;
 
         let directions = vec![
-            IVec2::new(1, 0),
-            IVec2::new(-1, 0),
-            IVec2::new(0, -1),
             IVec2::new(0, 1),
+            IVec2::new(0, -1),
+            IVec2::new(-1, 0),
+            IVec2::new(1, 0),
         ];
 
         let mut constraints = vec![vec![WaveFunction::filled(tile_count); 4]; tile_count];
@@ -133,7 +145,7 @@ impl OverlappingTileset {
         (tile, self.tile_colors[tile])
     }
 
-    pub fn from_image(path: &str, overlap: usize) -> Self {
+    pub fn from_image(path: String, overlap: usize, symmetry: usize) -> Self {
         let image = image::open(path).unwrap();
         let image = image.to_rgba8();
         let size = IVec2::new(image.width() as i32, image.height() as i32);
@@ -159,17 +171,17 @@ impl OverlappingTileset {
         }
 
         let mut sample = Vec::new();
-        for y in (0..size.y).rev() {
-            let mut row = Vec::new();
-            for x in 0..size.x {
+        for x in 0..size.x {
+            let mut column = Vec::new();
+            for y in (0..size.y).rev() {
                 let pixel = image.get_pixel(x as u32, y as u32);
                 let tile = (pixel[0] as usize) << 16 | (pixel[1] as usize) << 8 | pixel[2] as usize;
-                row.push(tiles.get(&tile).unwrap().1);
+                column.push(tiles.get(&tile).unwrap().1);
             }
-            sample.push(row);
+            sample.push(column);
         }
 
-        let mut tileset = Self::new(sample, overlap);
+        let mut tileset = Self::new(sample, overlap, symmetry);
         tileset.tile_colors = colors;
 
         tileset
@@ -207,5 +219,27 @@ impl TileSet for OverlappingTileset {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+}
+
+impl Pattern {
+    fn rotate(&mut self, size: usize) {
+        let mut new_tiles = Vec::new();
+        for y in 0..size {
+            for x in 0..size {
+                new_tiles.push(self.tiles[x * size + (size - 1 - y)]);
+            }
+        }
+        self.tiles = new_tiles;
+    }
+
+    fn reflect(&mut self, size: usize) {
+        let mut new_tiles = Vec::new();
+        for y in 0..size {
+            for x in 0..size {
+                new_tiles.push(self.tiles[y * size + (size - 1 - x)]);
+            }
+        }
+        self.tiles = new_tiles;
     }
 }
