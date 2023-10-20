@@ -13,7 +13,7 @@ The 2D chunking implementation can generate outputs using both standard (`Genera
   <tr> 
     <td><code>Tileset</code></td>  
     <td> 
-      The tileset used, tilesets with names of the format <code><...> x y</code>(IE: <code>Village 3 2`) use the overlapping model and will likely require increasing <code>chunk_settings.size</code>and <code>chunk_settings.discard</code>options to generate.
+      The tileset used, tilesets with names of the format <code><...> x y</code>(IE: <code>Village 3 2</code>) use the overlapping model and will likely require increasing <code>chunk_settings.size</code>and <code>chunk_settings.discard</code>options to generate.
     </td> 
   </tr>
   <tr> 
