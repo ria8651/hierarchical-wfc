@@ -35,10 +35,10 @@ const GRID_GRAPH_SETTINGS: GridGraphSettings = GridGraphSettings {
     periodic: false,
 };
 const CHUNK_SETTINGS: ChunkSettings = ChunkSettings {
-    chunk_size: 32,
+    size: 32,
     overlap: 4,
     discard: 2,
-    chunk_merging: ChunkMerging::Mixed,
+    merging: ChunkMerging::Mixed,
 };
 const WFC_SETTINGS: WfcSettings = WfcSettings {
     backtracking: BacktrackingSettings::Enabled {
@@ -163,7 +163,7 @@ pub fn main() {
             let threaded = {
                 let chunked_settings = ChunkedSettings {
                     chunk_settings: ChunkSettings {
-                        chunk_size,
+                        size: chunk_size,
                         overlap: chunk_size.div_euclid(4),
                         ..CHUNKED_SETTINGS.chunk_settings
                     },

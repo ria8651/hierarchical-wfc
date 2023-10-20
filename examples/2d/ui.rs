@@ -18,7 +18,7 @@ use grid_wfc::{
 };
 use hierarchical_wfc::{wfc_task::WfcSettings, TileRender, TileSet};
 use serde::Deserialize;
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
 pub struct UiPlugin;
 
@@ -106,16 +106,16 @@ impl Default for UiState {
             }
         }
 
-        tile_sets.push((
-            Arc::new(
-                MxgmnTileset::new(
-                    Path::new("assets/mxgmn/Circuit.xml"),
-                    Some("Turnless".to_string()),
-                )
-                .unwrap(),
-            ),
-            "Circuit 2".to_string(),
-        ));
+        // tile_sets.push((
+        //     Arc::new(
+        //         MxgmnTileset::new(
+        //             Path::new("assets/mxgmn/Circuit.xml"),
+        //             Some("Turnless".to_string()),
+        //         )
+        //         .unwrap(),
+        //     ),
+        //     "Circuit 2".to_string(),
+        // ));
 
         // let paths = std::fs::read_dir("assets/samples").unwrap();
         // for path in paths {
@@ -129,7 +129,6 @@ impl Default for UiState {
         //         }
         //     }
         // }
-
         let xml = std::fs::read_to_string("assets/samples.xml").unwrap();
         let samples: Samples = serde_xml_rs::from_str(&xml).unwrap();
         for sample in samples.overlapping.into_iter() {
@@ -220,6 +219,7 @@ fn ui(
                                 }
                             });
 
+                        ui.add_space(10.0);
                         ui_for_value(ui_settings.as_mut(), ui, &type_registry.read());
 
                         let seed = if !ui_settings.random_seed {

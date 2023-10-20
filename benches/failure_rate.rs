@@ -47,7 +47,7 @@ fn main() {
                 periodic: false,
             };
 
-            let chunk_merging = match generation_type {
+            let merging = match generation_type {
                 ChunkingTests::Naive => ChunkMerging::Interior,
                 ChunkingTests::Full => ChunkMerging::Full,
                 ChunkingTests::Mixed | ChunkingTests::MixedDiscard => ChunkMerging::Mixed,
@@ -64,8 +64,8 @@ fn main() {
                 seed,
                 GenerationMode::NonDeterministic,
                 ChunkSettings {
-                    chunk_merging: chunk_merging,
-                    chunk_size: CHUNK_SIZE,
+                    merging: merging,
+                    size: CHUNK_SIZE,
                     overlap: OVERLAP,
                     discard,
                     ..Default::default()
