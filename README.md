@@ -13,25 +13,25 @@ The 2D chunking implementation can generate outputs using both standard (`Genera
   <tr> 
     <td><code>Tileset</code></td>  
     <td> 
-      The tileset used, tilesets with names of the format <code><...> x y</code>(IE: <code>Village 3 2</code>) use the overlapping model and will likely require increasing <code>chunk_settings.size</code>and <code>chunk_settings.discard</code>options to generate.
+      The tileset used, tilesets with names of the format <code><...> x y</code> (IE: <code>Village 3 2</code>) use the overlapping model and will likely require increasing <code>chunk_settings.size</code> and <code>chunk_settings.discard</code> options to generate.
     </td> 
   </tr>
   <tr> 
     <td><code>seed</code></td> 
     <td> 
-      Seed used for generation when <code>random_seed</code>is disabled.
+      Seed used for generation when <code>random_seed</code> is disabled.
     </td> 
   </tr>   
   <tr>
     <td><code>graph_settings</code></td> 
     <td>
-      Controls for output size, <code>perodic</code>option constrains opposite edges to produce a result that can tile.
+      Controls for output size, <code>perodic</code> option constrains opposite edges to produce a result that can tile.
     </td>
   </tr>
   <tr>
     <td><code>deterministic</code></td> 
     <td>
-      Enable variant of the chunking algorZithm that is guaranteed to be deterministic.
+      Enable variant of the chunking algorithm that is guaranteed to be deterministic.
     </td>
   </tr>
   <tr>
@@ -55,7 +55,7 @@ The 2D chunking implementation can generate outputs using both standard (`Genera
   <tr>
     <td><code>chunk_settings.discard</code></td> 
     <td> 
-      Extra padding added after <code>ovelap</code>that is generated but not written to the world, ensures that valid generation exists after the chunk edge.
+      Extra padding added after <code>ovelap</code> that is generated but not written to the world, ensures that valid generation exists after the chunk edge.
     </td>
   </tr>
   <tr>
@@ -67,7 +67,7 @@ The 2D chunking implementation can generate outputs using both standard (`Genera
     <tr>
     <td><code>wfc_settings.backtracking</code></td> 
     <td>
-      Enable backtracking, the algorithm will backtrack and try different options instead of failing. <code>restarts_left</code>sets the maximum number of times the algorithm can backtrack. 
+      Enable backtracking, the algorithm will backtrack and try different options instead of failing. <code>restarts_left</code> sets the maximum number of times the algorithm can backtrack. 
     </td>
   </tr>
   </tr>
