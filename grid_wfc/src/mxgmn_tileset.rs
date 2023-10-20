@@ -26,7 +26,8 @@ impl MxgmnTileset {
         image_folder.remove(0);
         let image_folder: PathBuf = image_folder.iter().collect();
 
-        let xml = std::fs::read_to_string(path).unwrap();
+        let xml =
+            std::fs::read_to_string(path).expect(&format!("File {} not found!", path.display()));
         let config: Config = serde_xml_rs::from_str(&xml).unwrap();
 
         let mut subset: Vec<String> = config.tiles.tile.iter().map(|t| t.name.clone()).collect();

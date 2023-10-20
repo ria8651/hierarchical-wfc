@@ -85,7 +85,11 @@ impl Default for UiState {
         ];
 
         tile_sets.push((
-            Arc::new(OverlappingTileset::from_image("assets/dungeon.png".to_string(), 1, 8)),
+            Arc::new(OverlappingTileset::from_image(
+                "assets/dungeon.png".to_string(),
+                1,
+                8,
+            )),
             "Dungeon".to_string(),
         ));
 
@@ -105,7 +109,7 @@ impl Default for UiState {
         tile_sets.push((
             Arc::new(
                 MxgmnTileset::new(
-                    Path::new("assets/mxgmn/circuit.xml"),
+                    Path::new("assets/mxgmn/Circuit.xml"),
                     Some("Turnless".to_string()),
                 )
                 .unwrap(),
