@@ -133,7 +133,6 @@ impl Default for UiState {
         let samples: Samples = serde_xml_rs::from_str(&xml).unwrap();
         for sample in samples.overlapping.into_iter() {
             let overlap = sample.n / 2;
-            println!("overlap: {}", overlap);
             tile_sets.push((
                 Arc::new(OverlappingTileset::from_image(
                     format!("assets/samples/{}.png", sample.name),
