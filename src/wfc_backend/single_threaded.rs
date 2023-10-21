@@ -34,6 +34,7 @@ struct History {
 struct HistoryCell {
     index: usize,
     options: WaveFunction,
+    unique_index: usize,
 }
 
 impl SingleThreaded {
@@ -58,7 +59,6 @@ impl SingleThreaded {
     }
 
     pub fn execute(task: &mut WfcTask) -> Result<()> {
-        // let mut counter: usize = 0;
         let mut rng = SmallRng::seed_from_u64(task.seed);
         let weights = task.tileset.get_weights();
         let tileset = task.tileset.clone();
@@ -70,6 +70,7 @@ impl SingleThreaded {
                 initial_state.push(HistoryCell {
                     index: i,
                     options: task.graph.tiles[i].clone(),
+                    unique_index: 0,
                 });
             }
         }
@@ -111,7 +112,6 @@ impl SingleThreaded {
                     }
                 }
                 if backtrack_flag {
-                    // counter += 1;
                     let result = Self::backtrack(&mut history, task, &mut rng);
                     if let Ok(continue_from) = result {
                         stack.clear();
@@ -163,14 +163,29 @@ impl SingleThreaded {
                 if task.settings.backtracking != BacktrackingSettings::Disabled {
                     options = WaveFunction::difference(&options, &task.graph.tiles[cell]);
                     history.stack.push(cell);
+                    let unique_index = if history.decision_cells.len() == 0 {
+                        0
+                    } else {
+                        history.decision_cells[history.decision_cells.len() - 1].unique_index + 1
+                    };
                     history.decision_cells.push(HistoryCell {
                         index: history.stack.len() - 1,
                         options,
+                        unique_index,
                     });
+                    let last = history.decision_cells.len() - 1;
+                    let second_last = if last == 0 { 0 } else { last - 1 };
+                    println!(
+                        "{},{},{},{}",
+                        history.decision_cells[last].unique_index,
+                        history.decision_cells[second_last].unique_index,
+                        history.decision_cells[last].index
+                            - history.decision_cells[second_last].index,
+                        history.decision_cells.len() - 1,
+                    );
                 }
             } else {
                 // all cells collapsed
-                // println!("{} ", counter);
                 return Ok(());
             }
         }
@@ -187,6 +202,7 @@ impl SingleThreaded {
         }
 
         let mut collapsed = history.decision_cells.pop().unwrap();
+        let unique_index = collapsed.unique_index;
         // Backtrack further, we skip cells with less than 3 options as this optimization provides great speedup, TODO: make this configurable
         if collapsed.options.count_bits() == 0 {
             while collapsed.options.count_bits() < 3 {
@@ -244,7 +260,17 @@ impl SingleThreaded {
         history.decision_cells.push(HistoryCell {
             index: history.stack.len() - 1,
             options,
+            unique_index: unique_index + 1,
         });
+        let last = history.decision_cells.len() - 1;
+        let second_last = if last == 0 { 0 } else { last - 1 };
+        println!(
+            "{},{},{},{}",
+            history.decision_cells[last].unique_index,
+            history.decision_cells[second_last].unique_index,
+            history.decision_cells[last].index - history.decision_cells[second_last].index,
+            history.decision_cells.len() - 1,
+        );
         Ok(collapsed_index)
     }
 }

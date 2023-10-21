@@ -62,47 +62,44 @@ def plot_time_to_run():
     times = {
         "Castle 32x32": [0.01135141, 0.009897475, 0.009322364999999999, 0.010380870000000002, 0.024476104999999998],
         "Floorplan 32x32": [0.016704165000000003, 0.015594384999999999, 0.015705025000000004, 0.016720799999999997, 0.022776255000000002],
-        "Summer 32x32": [float('inf'), 0.019203205000000004, 0.2469833, 0.0194842, 0.028609144999999996],  # using infinity for "too long"
+        "Summer 32x32": [float('inf'), 0.019203205000000004, float('inf'), 0.0194842, 0.028609144999999996],  # using infinity for "too long"
         "Castle 128x128": [float('inf'), 1.0300022400000002, 0.91773504, 0.9867857899999999, float('inf')],
         "Floorplan 128x128": [float('inf'), 1.05503605, 1.0430785799999998, 1.0903707299999998, float('inf')],
     }
 
-#     for scenario in scenarios:
-#         plt.bar(strategies, times[scenario], label=scenario)
-#         plt.title(f'Time to Run for {scenario}')
-#         plt.xlabel('Strategy')
-#         plt.ylabel('Time (s)')
-#         plt.xticks(rotation=45)
-#         plt.tight_layout()
-#         plt.show()
     # Sizes to consider
     sizes = ["32x32", "128x128"]
 
     # Define width for individual bars
-    bar_width = 0.2
+    bar_width = 0.1
 
     for size in sizes:
         fig, ax = plt.subplots(figsize=(10, 6))
         # Scenarios filtered based on size
         relevant_scenarios = [s for s in scenarios if size in s]
-        
+
         # Position of the main bars (strategies)
-        r = np.arange(len(strategies))
-        
-        for idx, scenario in enumerate(relevant_scenarios):
-            time_data = times[scenario]
-            bars = ax.bar(r + idx * bar_width, time_data, color=plt.cm.Paired.colors[idx], width=bar_width, label=scenario)
+        r = np.arange(len(relevant_scenarios))
+
+        for idx, strategy in enumerate(strategies):
+            # Filter time data for scenarios that have data for the current strategy
+            time_data = [times[scenario][idx] for scenario in relevant_scenarios if scenario in times]
             
+            # If there's no data for this strategy in the current size, skip it
+            if not time_data:
+                continue
+
+            bars = ax.bar(r + idx * bar_width, time_data, color=plt.cm.Paired.colors[idx], width=bar_width, label=strategy)
+
             # Annotate 'Too Long' for 'inf' values
             for bar, value in zip(bars, time_data):
                 if value == float('inf'):
                     offset = (idx - 1) * 0.02
                     ax.text(bar.get_x() + bar.get_width() / 2 + offset, 0.1, 'Too Long', ha='center', va='bottom', rotation=90, color='red')
-                    bar.set_color('gray')  # Dim the color for 'inf' values for better distinction
 
         ax.set_title(size)
-        ax.set_xticks(r + bar_width * (len(relevant_scenarios) / 2))
-        ax.set_xticklabels(strategies, rotation=45, ha="right")
+        ax.set_xticks(r + bar_width * ((len(relevant_scenarios) - 1) / 2))
+        ax.set_xticklabels([scenario for scenario in relevant_scenarios if scenario in times], rotation=45, ha="right")
         ax.legend()
         if size == "32x32":
             ax.set_ylabel('Time (s)')
@@ -146,6 +143,6 @@ def plot_backtracks():
     plt.show()
 
 # Running all the plotting functions:
-plot_decision_nodes_distribution()
+# plot_decision_nodes_distribution()
 plot_time_to_run()
-plot_backtracks()
+# plot_backtracks()
