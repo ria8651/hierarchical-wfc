@@ -95,9 +95,30 @@ The 2D chunking implementation can generate outputs using both standard (`Genera
   </tr>
 </table>
 
-![Alt text](image.png)
+![Screenshot show options in the UI](images/image-1.png)
 
-### 3D Hierarchical
+### 3D Hierarchical Prototypes
+
+Both `multipass` and `chunking` are built using the same components, for 3D navigation:
+
+- Orbit: `Mouse3` or `Alt + Mouse1`
+- Pan: `Shift + Mouse3` or `Shift + Alt + Mouse1`
+  The UI panels on the right are used to expose settings for each prototype.
+
+For `multipass` prototype:
+
+- The `Layout` panel contains controls to start generation and change output size.
+- The `Regenerate Region` panel can select and regenerate a region.
+- The `Replay` panel can be used to view a replay of the generation order. Start by hiding all and expanding and replaying a pass.
+
+For the `chunking` prototype:
+
+- The `Debug Settings` panel controls what parts of the output are generated and shown.
+- When focused, the `Player Placeholder` will show a draggable gizmo that loads and unload chunks in the specified radius. Similar to how a player might load chunks in a real game.
+- The `Load Chunks` can send events to manually load chunks, groups of chunks, or reset the world.
+
+![Screenshot of chunking prototype](images/image-2.png)
+![Screenshot of multipass prototype](images/image-3.png)
 
 ## Compiling and Running
 
