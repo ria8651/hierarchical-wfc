@@ -42,6 +42,7 @@ pub enum GenerateEvent {
         deterministic: bool,
         seed: u64,
     },
+    Reset,
 }
 
 #[derive(Resource)]
@@ -76,6 +77,7 @@ pub struct MaybeWorld(Option<World>);
 struct Failed(bool);
 
 fn handle_events(
+    mut render_world_event: EventWriter<RenderUpdateEvent>,
     mut generate_event: EventReader<GenerateEvent>,
     mut backends: ResMut<Backends>,
     mut world: ResMut<MaybeWorld>,
@@ -181,6 +183,10 @@ fn handle_events(
                     update_channel,
                 };
                 *world = MaybeWorld(Some(new_world));
+            }
+            GenerateEvent::Reset => {
+                *world = MaybeWorld(None);
+                render_world_event.send(RenderUpdateEvent);
             }
         }
     }

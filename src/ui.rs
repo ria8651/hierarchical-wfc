@@ -1,5 +1,5 @@
 use crate::world::{GenerateEvent, MaybeWorld};
-use bevy::{prelude::*, asset::FileAssetIo};
+use bevy::{asset::FileAssetIo, math::ivec2, prelude::*};
 use bevy_inspector_egui::{
     bevy_egui::{EguiContexts, EguiPlugin},
     egui::{
@@ -8,6 +8,7 @@ use bevy_inspector_egui::{
     reflect_inspector::ui_for_value,
     DefaultInspectorConfigPlugin,
 };
+use core_wfc::{wfc_task::WfcSettings, TileRender, TileSet};
 use grid_wfc::{
     basic_tileset::BasicTileset,
     carcassonne_tileset::CarcassonneTileset,
@@ -16,7 +17,6 @@ use grid_wfc::{
     overlapping_tileset::OverlappingTileset,
     world::{ChunkSettings, ChunkState},
 };
-use core_wfc::{wfc_task::WfcSettings, TileRender, TileSet};
 use serde::Deserialize;
 use std::sync::Arc;
 
@@ -238,23 +238,8 @@ fn ui(
                                 deterministic: ui_settings.deterministic,
                                 seed,
                             });
-
-                            // good for debugging
-                            // let (new_world, _) = grid_wfc::single_shot::generate_world(
-                            //     tileset,
-                            //     &mut hierarchical_wfc::wfc_backend::MultiThreaded::new(8),
-                            //     ui_state.grid_graph_settings.clone(),
-                            //     seed,
-                            //     match ui_state.deterministic {
-                            //         true => grid_wfc::world::GenerationMode::Deterministic,
-                            //         false => grid_wfc::world::GenerationMode::NonDeterministic,
-                            //     },
-                            //     ui_state.chunk_size,
-                            //     ui_state.overlap,
-                            //     ui_state.backtracking.clone(),
-                            // );
-                            // world.as_mut().replace(new_world);
-                            // render_world_event.send(RenderUpdateEvent);
+                        } else if ui.button("Clear Output").clicked() {
+                            generate_events.send(GenerateEvent::Reset);
                         }
                     });
 
@@ -340,7 +325,7 @@ fn render_world(
     mut ui_state: ResMut<UiState>,
     asset_server: Res<AssetServer>,
     mut tile_entity_query: Query<
-        (&mut Transform, &mut Handle<Image>, &mut Sprite),
+        (Entity, &mut Transform, &mut Handle<Image>, &mut Sprite),
         With<TileSprite>,
     >,
     world: Res<MaybeWorld>,
@@ -361,7 +346,18 @@ fn render_world(
         let bad_tile = asset_server.load("fail.png");
         let white_tile = asset_server.load("white.png");
 
-        let world = &world.as_ref().as_ref().unwrap().world;
+        let world = &world.as_ref().as_ref();
+        if world.is_none() {
+            for (entity, ..) in tile_entity_query.iter_mut() {
+                commands.entity(entity).despawn();
+            }
+            ui_state.tile_entities.clear();
+            *current_size = ivec2(0, 0);
+            return;
+        }
+
+        let world = &world.unwrap().world;
+
         let world_size = IVec2::new(world.len() as i32, world[0].len() as i32);
         if world_size != *current_size {
             *current_size = world_size;
@@ -428,7 +424,7 @@ fn render_world(
         } else {
             for x in 0..current_size.x as usize {
                 for y in 0..current_size.y as usize {
-                    let (mut transform, mut image_handle, mut sprite) = tile_entity_query
+                    let (_, mut transform, mut image_handle, mut sprite) = tile_entity_query
                         .get_mut(ui_state.tile_entities[x][y])
                         .unwrap();
 
