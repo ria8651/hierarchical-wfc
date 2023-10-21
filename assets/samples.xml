@@ -1,6 +1,7 @@
 <samples>
   <!-- <simpletiled name="Summer" size="128"/> -->
   <!-- <overlapping name="Flowers" N="3" symmetry="2" ground="True" size="256" periodic="True"/> -->
+  <overlapping name="my_dungeon" N="3" symmetry="8" periodic="True"/>
   <overlapping name="Flowers" N="3" symmetry="2" ground="True" periodic="True"/>
   <overlapping name="Chess" N="2" periodic="True"/>
   <overlapping name="Chess" N="2" size="47" periodic="True" screenshots="1"/>
