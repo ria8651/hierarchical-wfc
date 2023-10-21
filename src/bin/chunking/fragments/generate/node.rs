@@ -42,7 +42,7 @@ pub(crate) fn generate_node(
         spacing: wfc_config.fragment_settings.spacing,
     };
 
-    let (data, mut graph) = regular_grid_3d::create_graph(&layout_settings, &|(_, _)| {
+    let (data, mut graph) = regular_grid_3d::create_graph(&layout_settings, &|(_, _, _)| {
         Superposition::filled(wfc_config.tileset.tile_count())
     });
     let seed = node_pos.to_array();

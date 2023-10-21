@@ -21,7 +21,9 @@ use bevy_mod_billboard::prelude::*;
 use bevy_rapier3d::prelude::{Collider, NoUserData, RapierPhysicsPlugin, RigidBody};
 use hierarchical_wfc::{
     camera_plugin::cam_switcher::SwitchingCameraPlugin,
+    ground_plane_plugin::GroundPlanePlugin,
     materials::{debug_arc_material::DebugLineMaterial, tile_pbr_material::TilePbrMaterial},
+    orientation_gizmo_plugin::OrientationGizmoPlugin,
     ui_plugin::{EcsUiPlugin, EcsUiState, EcsUiTab},
     wfc::bevy_passes::{wfc_collapse_system, wfc_ready_system, WfcInvalidatedMarker},
 };
@@ -69,6 +71,8 @@ fn main() {
         DefaultInspectorConfigPlugin,
         MaterialPlugin::<DebugLineMaterial>::default(),
         MaterialPlugin::<TilePbrMaterial>::default(),
+        GroundPlanePlugin,
+        OrientationGizmoPlugin,
         BillboardPlugin,
         bevy_egui::EguiPlugin,
         EcsUiPlugin,

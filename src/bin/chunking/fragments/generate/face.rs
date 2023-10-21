@@ -107,7 +107,7 @@ pub(crate) fn generate_face(
     };
 
     let (face_data, face_graph) =
-        regular_grid_3d::create_graph(&layout_settings, &|(_, _)| fill_with);
+        regular_grid_3d::create_graph(&layout_settings, &|(_, _, _)| fill_with);
     let (mut merged_graph, merged_positions) = graph_merge(
         (&merged_graph, &merged_positions),
         (&face_graph, &face_data.node_positions),
