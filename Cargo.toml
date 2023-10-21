@@ -18,6 +18,7 @@ serde = "1.0"
 serde-xml-rs = "0.6"
 anyhow = "1.0"
 csv = "1.1"
+crossbeam = "0.8"
 
 [[bench]]
 name = "stats"

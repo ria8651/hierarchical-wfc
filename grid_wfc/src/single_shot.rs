@@ -36,6 +36,7 @@ pub fn generate_world(
         rng,
         outstanding: 0,
         settings: wfc_settings.clone(),
+        update_channel: None,
     };
 
     let start_chunks = world.start_generation(generation_mode);
@@ -52,6 +53,7 @@ pub fn generate_world(
             seed,
             metadata,
             settings: wfc_settings.clone(),
+            update_channel: None,
         };
 
         world.outstanding += 1;
@@ -94,6 +96,7 @@ pub fn generate_world(
                 seed,
                 metadata,
                 settings: WfcSettings::default(),
+                update_channel: None,
             };
 
             world.outstanding += 1;

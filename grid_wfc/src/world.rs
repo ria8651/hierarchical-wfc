@@ -1,6 +1,10 @@
 use crate::grid_graph::{self, Direction, GridGraphSettings};
 use bevy::{prelude::*, utils::HashMap};
-use core_wfc::{wfc_task::WfcSettings, Graph, Neighbor, TileSet, WaveFunction};
+use core_wfc::{
+    wfc_task::{Metadata, WfcSettings},
+    Graph, Neighbor, TileSet, WaveFunction,
+};
+use crossbeam::channel::{Receiver, Sender};
 use rand::{rngs::SmallRng, Rng};
 use std::sync::Arc;
 
@@ -26,6 +30,10 @@ pub struct World {
     pub rng: SmallRng,
     pub outstanding: usize,
     pub settings: WfcSettings,
+    pub update_channel: Option<(
+        Sender<(Graph<WaveFunction>, Metadata)>,
+        Receiver<(Graph<WaveFunction>, Metadata)>,
+    )>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Reflect)]

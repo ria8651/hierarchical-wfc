@@ -1,6 +1,7 @@
 use super::Backend;
 use crate::{wfc_task::BacktrackingSettings, WaveFunction, WfcTask};
 use anyhow::{anyhow, Result};
+use bevy::utils::Instant;
 use crossbeam::channel::{self, Receiver, Sender};
 use rand::{rngs::SmallRng, SeedableRng};
 use std::thread;
@@ -61,6 +62,8 @@ impl SingleThreaded {
         let mut rng = SmallRng::seed_from_u64(task.seed);
         let weights = task.tileset.get_weights();
         let tileset = task.tileset.clone();
+
+        let mut time = Instant::now();
 
         // store initial state of all cells already constrained
         let mut initial_state: Vec<HistoryCell> = Vec::new();
@@ -169,6 +172,14 @@ impl SingleThreaded {
             } else {
                 // all cells collapsed
                 return Ok(());
+            }
+
+            if let Some(update_interval) = task.settings.progress_updates {
+                if time.elapsed().as_secs_f64() > update_interval {
+                    time = Instant::now();
+                    let update_channel = task.update_channel.as_ref().expect("No update channel");
+                    update_channel.send((task.graph.clone(), task.metadata.clone())).unwrap();
+                }
             }
         }
     }

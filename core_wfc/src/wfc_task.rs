@@ -1,14 +1,16 @@
 use crate::{tileset::*, wfc_graph::*};
 use bevy::reflect::Reflect;
+use crossbeam::channel::Sender;
 use rand::Rng;
 use std::{any::Any, sync::Arc};
 
 pub type Metadata = Option<Arc<dyn Any + Send + Sync>>;
 
-#[derive(Clone, Debug, PartialEq, Eq, Reflect, Default)]
+#[derive(Clone, Debug, PartialEq, Reflect, Default)]
 pub struct WfcSettings {
     pub backtracking: BacktrackingSettings,
     pub entropy: Entropy,
+    pub progress_updates: Option<f64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Reflect)]
@@ -37,6 +39,7 @@ pub struct WfcTask {
     pub seed: u64,
     pub metadata: Metadata,
     pub settings: WfcSettings,
+    pub update_channel: Option<Sender<(Graph<WaveFunction>, Metadata)>>,
 }
 
 impl WfcTask {

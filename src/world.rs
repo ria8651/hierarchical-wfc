@@ -1,13 +1,14 @@
 use crate::ui::RenderUpdateEvent;
 use bevy::{prelude::*, utils::HashMap};
-use grid_wfc::{
-    grid_graph::GridGraphSettings,
-    world::{ChunkSettings, ChunkState, ChunkType, GenerationMode, World},
-};
 use core_wfc::{
     wfc_backend::{Backend, MultiThreaded, SingleThreaded},
     wfc_task::{Metadata, WfcSettings},
     TileSet, WaveFunction, WfcTask,
+};
+use crossbeam::channel;
+use grid_wfc::{
+    grid_graph::GridGraphSettings,
+    world::{ChunkSettings, ChunkState, ChunkType, GenerationMode, World},
 };
 use rand::{rngs::SmallRng, SeedableRng};
 use std::sync::Arc;
@@ -97,6 +98,7 @@ fn handle_events(
             } => {
                 let filled = WaveFunction::filled(tileset.tile_count());
                 let rng = SmallRng::seed_from_u64(seed);
+                let update_channel = wfc_settings.progress_updates.map(|_| channel::unbounded());
                 let mut new_world = World {
                     world: vec![vec![filled; settings.height]; settings.width],
                     generated_chunks: HashMap::new(),
@@ -105,6 +107,7 @@ fn handle_events(
                     rng,
                     outstanding: 0,
                     settings: wfc_settings.clone(),
+                    update_channel,
                 };
 
                 let generation_mode = match deterministic {
@@ -112,6 +115,7 @@ fn handle_events(
                     false => GenerationMode::NonDeterministic,
                 };
                 let start_chunks = new_world.start_generation(generation_mode);
+                let update_channel = new_world.update_channel.as_ref().map(|c| c.0.clone());
                 for (chunk, chunk_type) in start_chunks {
                     new_world
                         .generated_chunks
@@ -127,6 +131,7 @@ fn handle_events(
                         seed,
                         metadata,
                         settings: wfc_settings.clone(),
+                        update_channel: update_channel.clone(),
                     };
 
                     backends.multithreaded = multithreaded;
@@ -150,12 +155,15 @@ fn handle_events(
                 let filled = WaveFunction::filled(tileset.tile_count());
                 let graph = grid_wfc::grid_graph::create(&settings, filled);
                 let size = IVec2::new(settings.width as i32, settings.height as i32);
+                let update_channel = wfc_settings.progress_updates.map(|_| channel::unbounded());
+                let sender = update_channel.as_ref().map(|c| c.0.clone());
                 let task = WfcTask {
                     graph,
                     tileset: tileset.clone(),
                     seed,
                     metadata: Some(Arc::new(TaskData::Single { size })),
                     settings: wfc_settings.clone(),
+                    update_channel: sender,
                 };
 
                 backends.multithreaded = false;
@@ -170,6 +178,7 @@ fn handle_events(
                     rng: rng.clone(),
                     outstanding: 0,
                     settings: wfc_settings.clone(),
+                    update_channel,
                 };
                 *world = MaybeWorld(Some(new_world));
             }
@@ -188,6 +197,33 @@ fn handle_output(
     } else {
         &mut backends.single_threaded
     };
+
+    if let Some(world) = world.as_mut().as_mut() {
+        if let Some((_, update_receiver)) = world.update_channel.clone() {
+            while let Ok((graph, metadata)) = update_receiver.try_recv() {
+                match metadata.unwrap().downcast_ref().unwrap() {
+                    TaskData::Chunked { chunk, .. } => {
+                        world.merge_chunk(*chunk, graph);
+                    }
+                    TaskData::Single { size } => {
+                        // Note: Assumes that the graph is a grid graph with a standard ordering
+                        let mut new_world =
+                            vec![vec![WaveFunction::empty(); size.y as usize]; size.x as usize];
+                        for x in 0..size.x {
+                            for y in 0..size.y {
+                                new_world[x as usize][y as usize] =
+                                    graph.tiles[y as usize * size.x as usize + x as usize].clone();
+                            }
+                        }
+
+                        world.world = new_world;
+                    }
+                }
+
+                render_world_event.send(RenderUpdateEvent);
+            }
+        }
+    }
 
     while let Some((task, error)) = backend.get_output() {
         let world = world.as_mut().as_mut().unwrap();
@@ -222,12 +258,14 @@ fn handle_output(
                     let metadata: Metadata =
                         Some(Arc::new(TaskData::Chunked { chunk, chunk_type }));
 
+                    let update_channel = world.update_channel.as_ref().map(|c| c.0.clone());
                     let task = WfcTask {
                         graph,
                         tileset: world.tileset.clone(),
                         seed,
                         metadata,
                         settings: world.settings.clone(),
+                        update_channel,
                     };
 
                     world.outstanding += 1;

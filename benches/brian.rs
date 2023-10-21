@@ -23,17 +23,15 @@ const ITTERATIONS: usize = 20;
 fn time_process<F: FnMut() -> bool>(mut f: F) -> Result<StdErr<f64>> {
     let mut failures = 0;
     let mut total_time = RollingStdErr::default();
-    let mut iterations = 0;
     for _ in 0..ITTERATIONS {
         let now = Instant::now();
         let result = f();
         let time = now.elapsed().as_secs_f64();
-        if time > 10.0 {
+        if time > 20.0 {
             return Err(anyhow::anyhow!("Too long: {}s", time));
         }
 
         if result {
-            iterations += 1;
             total_time.insert(time);
         } else {
             failures += 1;

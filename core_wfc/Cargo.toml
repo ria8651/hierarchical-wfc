@@ -8,7 +8,6 @@ bevy = "0.11"
 rand = { version = "0.8", features = ["small_rng"] }
 anyhow = "1.0"
 console_error_panic_hook = "0.1"
-web-time = "0.2"
 crossbeam = "0.8"
 dyn-clone = "1.0"
 priority-queue = "1.3.2"
