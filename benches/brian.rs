@@ -65,7 +65,7 @@ fn main() {
         csv.write_record(["tileset", "size", "time", "std_err"])
             .unwrap();
 
-        for size in [64, 128, 256].into_iter() {
+        for size in (32..=256).step_by(32).into_iter() {
             for (tileset, tileset_name) in tilesets.iter() {
                 match *generation_type {
                     "standard" => {
