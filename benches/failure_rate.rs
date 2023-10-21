@@ -4,7 +4,7 @@ use grid_wfc::{
     single_shot,
     world::{ChunkMerging, ChunkSettings, GenerationMode},
 };
-use hierarchical_wfc::{wfc_backend::MultiThreaded, wfc_task::WfcSettings, TileSet};
+use core_wfc::{wfc_backend::MultiThreaded, wfc_task::WfcSettings, TileSet};
 use rand::Rng;
 use std::{path::Path, sync::Arc};
 

@@ -4,7 +4,7 @@ use grid_wfc::{
     grid_graph::GridGraphSettings,
     world::{ChunkSettings, ChunkState, ChunkType, GenerationMode, World},
 };
-use hierarchical_wfc::{
+use core_wfc::{
     wfc_backend::{Backend, MultiThreaded, SingleThreaded},
     wfc_task::{Metadata, WfcSettings},
     TileSet, WaveFunction, WfcTask,

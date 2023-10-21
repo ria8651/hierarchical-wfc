@@ -1,6 +1,6 @@
 use crate::grid_graph::Direction;
 use bevy::prelude::*;
-use hierarchical_wfc::{TileRender, TileSet, WaveFunction};
+use core_wfc::{TileRender, TileSet, WaveFunction};
 use std::{any::Any, sync::Arc};
 
 const TILE_COUNT: usize = 120;

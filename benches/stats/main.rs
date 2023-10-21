@@ -4,7 +4,7 @@ use grid_wfc::{
     mxgmn_tileset::MxgmnTileset,
     world::{ChunkMerging, ChunkSettings, GenerationMode},
 };
-use hierarchical_wfc::{
+use core_wfc::{
     wfc_backend,
     wfc_task::{BacktrackingSettings, Entropy, WfcSettings},
     TileSet,

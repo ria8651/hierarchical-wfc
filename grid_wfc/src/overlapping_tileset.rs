@@ -1,5 +1,5 @@
 use bevy::{prelude::*, utils::HashMap};
-use hierarchical_wfc::{TileRender, TileSet, WaveFunction};
+use core_wfc::{TileRender, TileSet, WaveFunction};
 use std::{any::Any, sync::Arc, path::Path};
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]

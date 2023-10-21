@@ -3,7 +3,7 @@ use grid_wfc::{
     single_shot,
     world::{ChunkSettings, GenerationMode},
 };
-use hierarchical_wfc::{wfc_backend::Backend, wfc_task::WfcSettings, Graph, TileSet};
+use core_wfc::{wfc_backend::Backend, wfc_task::WfcSettings, Graph, TileSet};
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use crate::stats_builder::StatisticRunner;

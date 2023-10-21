@@ -14,7 +14,7 @@ fn main() {
     //     grid_graph::{self, GridGraphSettings},
     //     overlapping_tileset::OverlappingTileset,
     // };
-    // use hierarchical_wfc::{wfc_task::WfcSettings, TileSet, WaveFunction, WfcTask, wfc_backend::SingleThreaded};
+    // use core_wfc::{wfc_task::WfcSettings, TileSet, WaveFunction, WfcTask, wfc_backend::SingleThreaded};
     // use std::sync::Arc;
     
     // let sample = vec![

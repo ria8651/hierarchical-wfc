@@ -1,5 +1,5 @@
 use grid_wfc::grid_graph::{self, GridGraphSettings};
-use hierarchical_wfc::{
+use core_wfc::{
     wfc_backend::Backend, wfc_task::WfcSettings, Graph, TileSet, WaveFunction, WfcTask,
 };
 use std::{cell::RefCell, rc::Rc, sync::Arc};

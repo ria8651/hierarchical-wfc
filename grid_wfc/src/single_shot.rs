@@ -3,7 +3,7 @@ use crate::{
     world::{ChunkState, ChunkType, GenerationMode, World, ChunkSettings},
 };
 use bevy::{prelude::*, utils::HashMap};
-use hierarchical_wfc::{
+use core_wfc::{
     wfc_backend::Backend,
     wfc_task::{Metadata, WfcSettings},
     TileSet, WaveFunction, WfcTask,

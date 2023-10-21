@@ -1,6 +1,6 @@
 use crate::grid_graph::{self, Direction, GridGraphSettings};
 use bevy::{prelude::*, utils::HashMap};
-use hierarchical_wfc::{wfc_task::WfcSettings, Graph, Neighbor, TileSet, WaveFunction};
+use core_wfc::{wfc_task::WfcSettings, Graph, Neighbor, TileSet, WaveFunction};
 use rand::{rngs::SmallRng, Rng};
 use std::sync::Arc;
 

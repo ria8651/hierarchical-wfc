@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use hierarchical_wfc::{Graph, Neighbor};
+use core_wfc::{Graph, Neighbor};
 
 #[derive(Reflect, Clone)]
 #[reflect(Default)]

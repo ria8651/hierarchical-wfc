@@ -16,7 +16,7 @@ use grid_wfc::{
     overlapping_tileset::OverlappingTileset,
     world::{ChunkSettings, ChunkState},
 };
-use hierarchical_wfc::{wfc_task::WfcSettings, TileRender, TileSet};
+use core_wfc::{wfc_task::WfcSettings, TileRender, TileSet};
 use serde::Deserialize;
 use std::sync::Arc;
 

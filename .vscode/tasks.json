@@ -4,9 +4,9 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Rust: cargo run 2d example",
+            "label": "Rust: cargo run",
             "type": "shell",
-            "command": "sh -c 'cd chunking; cargo run --release'",
+            "command": "cargo run --release",
             "problemMatcher": [
                 "$rustc"
             ],

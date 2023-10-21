@@ -1,20 +1,21 @@
 [package]
-name = "hierarchical-wfc"
+name = "chunking"
+description = "Implementation of the Wave Function collapse algorithm using novel approaches to chunking, with additional preliminary research into combined Hierarchical and Semantic extensions"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
-bevy = "0.11"
-rand = { version = "0.8", features = ["small_rng"] }
-anyhow = "1.0"
-console_error_panic_hook = "0.1"
-web-time = "0.2"
-crossbeam = "0.8"
-dyn-clone = "1.0"
-priority-queue = "1.3.2"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[profile.release]
-debug = true
+[dependencies]
+core_wfc = { path = "./core_wfc" }
+grid_wfc = { path = "./grid_wfc" }
+bevy = "0.11"
+bevy-inspector-egui = "0.19"
+bevy_pancam = { version = "0.9", features = ["bevy_egui"] }
+rand = { version = "0.8", features = ["small_rng"] }
+dyn-clone = "1.0"
+serde = "1.0"
+serde-xml-rs = "0.6"
 
 [[bench]]
 name = "stats"
@@ -31,3 +32,5 @@ harness = false
 [[bench]]
 name = "standard"
 harness = false
+
+[package.metadata.bundle]

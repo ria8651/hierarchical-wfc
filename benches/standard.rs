@@ -4,7 +4,7 @@ use grid_wfc::{
     grid_graph::{self, GridGraphSettings},
     mxgmn_tileset::MxgmnTileset,
 };
-use hierarchical_wfc::{
+use core_wfc::{
     wfc_backend::SingleThreaded, wfc_task::WfcSettings, TileSet, WaveFunction, WfcTask,
 };
 use rand::Rng;

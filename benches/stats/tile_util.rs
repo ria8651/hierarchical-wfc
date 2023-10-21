@@ -1,4 +1,4 @@
-use hierarchical_wfc::{Graph, Neighbor};
+use core_wfc::{Graph, Neighbor};
 
 pub struct Tile<'a, T: Copy> {
     pub value: T,

@@ -1,7 +1,7 @@
 use crate::grid_graph::Direction;
 use anyhow::Result;
 use bevy::{prelude::*, utils::HashMap};
-use hierarchical_wfc::{TileRender, TileSet, WaveFunction};
+use core_wfc::{TileRender, TileSet, WaveFunction};
 use serde::Deserialize;
 use std::{any::Any, path::Path, sync::Arc};
 

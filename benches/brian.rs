@@ -9,7 +9,7 @@ use grid_wfc::{
     single_shot,
     world::{ChunkSettings, GenerationMode},
 };
-use hierarchical_wfc::{
+use core_wfc::{
     wfc_backend::{MultiThreaded, SingleThreaded},
     wfc_task::WfcSettings,
     TileSet, WaveFunction, WfcTask,

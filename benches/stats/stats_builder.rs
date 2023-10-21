@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Error;
-use hierarchical_wfc::Graph;
+use core_wfc::Graph;
 use web_time::Duration;
 
 use crate::tile_util::Tile;
