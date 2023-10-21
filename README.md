@@ -4,6 +4,8 @@ Implementation of the Wave Function collapse algorithm using novel approaches to
 
 ## Usage
 
+### 2D Chunking
+
 The 2D chunking implementation can generate outputs using both standard (`Generate Single`) and chunked generation (`Generate Chunked`) as well as options for configuring generation:
 
 <table >
@@ -43,7 +45,7 @@ The 2D chunking implementation can generate outputs using both standard (`Genera
   <tr>
     <td><code>chunk_settings.size</code></td> 
     <td> 
-      Size of chunks
+      Size of chunks.
     </td>
   </tr>
   <tr>
@@ -87,6 +89,8 @@ The 2D chunking implementation can generate outputs using both standard (`Genera
 </table>
 
 ![Alt text](image.png)
+
+### 3D Hierarchical
 
 ## Compiling and Running
 
