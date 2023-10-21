@@ -3,11 +3,7 @@ use anyhow::Result;
 use bevy::{prelude::*, utils::HashMap};
 use hierarchical_wfc::{TileRender, TileSet, WaveFunction};
 use serde::Deserialize;
-use std::{
-    any::Any,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{any::Any, path::Path, sync::Arc};
 
 #[derive(Debug, Clone)]
 pub struct MxgmnTileset {
@@ -21,10 +17,7 @@ impl MxgmnTileset {
     // based off https://github.com/mxgmn/WaveFunctionCollapse/blob/master/SimpleTiledModel.cs
     pub fn new(path: &Path, subset_name: Option<String>) -> Result<Self> {
         let name = path.file_stem().unwrap().to_str().unwrap();
-        let binding = path.parent().unwrap().join(name);
-        let mut image_folder: Vec<_> = binding.components().collect();
-        image_folder.remove(0);
-        let image_folder: PathBuf = image_folder.iter().collect();
+        let image_folder = path.parent().unwrap().join(name);
 
         let xml =
             std::fs::read_to_string(path).expect(&format!("File {} not found!", path.display()));

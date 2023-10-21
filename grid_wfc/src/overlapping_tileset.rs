@@ -1,6 +1,6 @@
 use bevy::{prelude::*, utils::HashMap};
 use hierarchical_wfc::{TileRender, TileSet, WaveFunction};
-use std::{any::Any, sync::Arc};
+use std::{any::Any, sync::Arc, path::Path};
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
 struct Pattern {
@@ -145,7 +145,7 @@ impl OverlappingTileset {
         (tile, self.tile_colors[tile])
     }
 
-    pub fn from_image(path: String, overlap: usize, symmetry: usize) -> Self {
+    pub fn from_image(path: &Path, overlap: usize, symmetry: usize) -> Self {
         let image = image::open(path).unwrap();
         let image = image.to_rgba8();
         let size = IVec2::new(image.width() as i32, image.height() as i32);

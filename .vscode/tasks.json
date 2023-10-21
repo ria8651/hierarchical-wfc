@@ -6,7 +6,7 @@
         {
             "label": "Rust: cargo run 2d example",
             "type": "shell",
-            "command": "cargo run --release --example 2d",
+            "command": "sh -c 'cd chunking; cargo run --release'",
             "problemMatcher": [
                 "$rustc"
             ],

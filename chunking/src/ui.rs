@@ -84,7 +84,9 @@ impl Default for UiState {
             ),
         ];
 
-        let paths = std::fs::read_dir("assets/mxgmn").unwrap();
+        let base_path = std::env::current_exe().expect("Failed to get current exe path");
+        let base_path = base_path.parent().unwrap();
+        let paths = std::fs::read_dir(base_path.join("assets/mxgmn")).unwrap();
         for path in paths {
             let path = path.unwrap().path();
             if let Some(ext) = path.extension() {
@@ -97,16 +99,16 @@ impl Default for UiState {
             }
         }
 
-        // tile_sets.push((
-        //     Arc::new(
-        //         MxgmnTileset::new(
-        //             Path::new("assets/mxgmn/Circuit.xml"),
-        //             Some("Turnless".to_string()),
-        //         )
-        //         .unwrap(),
-        //     ),
-        //     "Circuit 2".to_string(),
-        // ));
+        tile_sets.push((
+            Arc::new(
+                MxgmnTileset::new(
+                    &base_path.join("assets/mxgmn/Circuit.xml"),
+                    Some("Turnless".to_string()),
+                )
+                .unwrap(),
+            ),
+            "Circuit 2".to_string(),
+        ));
 
         // let paths = std::fs::read_dir("assets/samples").unwrap();
         // for path in paths {
@@ -120,13 +122,14 @@ impl Default for UiState {
         //         }
         //     }
         // }
-        let xml = std::fs::read_to_string("assets/samples.xml").unwrap();
+        // let xml = std::fs::read_to_string("assets/samples.xml").unwrap();
+        let xml = std::fs::read_to_string(base_path.join("assets/samples.xml")).unwrap();
         let samples: Samples = serde_xml_rs::from_str(&xml).unwrap();
         for sample in samples.overlapping.into_iter() {
             let overlap = sample.n / 2;
             tile_sets.push((
                 Arc::new(OverlappingTileset::from_image(
-                    format!("assets/samples/{}.png", sample.name),
+                    &base_path.join(format!("assets/samples/{}.png", sample.name)),
                     overlap,
                     sample.symmetry,
                 )),
@@ -135,7 +138,7 @@ impl Default for UiState {
         }
 
         Self {
-            picked_tileset: 4,
+            picked_tileset: 0,
             tile_sets,
             weights: Vec::new(),
             tile_render_assets: Vec::new(),
