@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bevy::{math::vec3, prelude::*, utils::HashMap};
+use bevy::{prelude::*, utils::HashMap};
 use hierarchical_wfc::{castle::LayoutTileset, graphs::regular_grid_3d, wfc::WfcGraph};
 
 use crate::debug::{LoadedChunks, LoadedFragments};

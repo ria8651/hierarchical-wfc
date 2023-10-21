@@ -7,10 +7,7 @@ use bevy::{
 use bevy_egui::EguiContexts;
 use hierarchical_wfc::ui_plugin::{EcsTab, EcsUiTab};
 
-use crate::{
-    constants::EGUI_X_COLOR,
-    fragments::{generate::FragmentSettings, plugin::ChunkLoadEvent},
-};
+use crate::fragments::{generate::FragmentSettings, plugin::ChunkLoadEvent};
 use egui_gizmo::Gizmo;
 
 pub struct PlayerData {

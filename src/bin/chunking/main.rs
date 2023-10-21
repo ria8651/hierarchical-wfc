@@ -218,5 +218,3 @@ fn setup(
     ambient_light.color = Color::rgb(0.5, 0.75, 1.0);
     ambient_light.brightness = 0.6;
 }
-
-mod constants;
