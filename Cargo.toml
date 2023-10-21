@@ -10,7 +10,7 @@ edition = "2021"
 core_wfc = { path = "./core_wfc" }
 grid_wfc = { path = "./grid_wfc" }
 bevy = "0.11"
-bevy-inspector-egui = "0.19"
+bevy-inspector-egui = "0.20"
 bevy_pancam = { version = "0.9", features = ["bevy_egui"] }
 rand = { version = "0.8", features = ["small_rng"] }
 dyn-clone = "1.0"
