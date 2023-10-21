@@ -1,0 +1,82 @@
+
+What needs to be avalible to user: 
+ - Graph generation 
+ - Constraints 
+ - Tilesets 
+ - Graph transformations 
+
+
+
+What is a tile?
+id (usize)
+
+What is a graph? 
+ - Stores superpositons 
+ - Stores connections 
+ - Stores metadata for edges and nodes 
+ - We only need to be able to query graph and mutate nodes, some data could be produced by functions? 
+ - Must store edges in some way if grid is irregular, information is still somewhere. 
+
+What is a constraint? 
+  - Restricts tile superpositon based on state of graph
+  - Shouldn't depend on id directly? (IE if u == v+1 bad, but array[u]==array[v] good )
+  
+  - Neighbour constraints:
+     - Restricts tile based on its neighbours in the graph
+     - Depends on arc/edge metadata IE UP/DOWN/LEFT/RIGHT: We want good support for edge metadata 
+     - Are digraphs needed? 
+
+  
+  - Global constraints: 
+     - Other wfc makes good use of these (maybe we need them too)
+     - IE total number of some tile 
+     - Graph implementation can store additional data for users to optimise (IE storing counts for each tile) 
+     - Now updating a tile potentially changes every node (BAD!)
+     - Not parallel, doesn't work well with chunking 
+    
+    
+  - So constraints should be user implemented function in trait that takes node id? Bad for performance, hottest function in the program  NOPE!
+  - Constraints should be user implemented functions of node metadata, edge metadata, and superpositions at each end. 
+
+
+
+
+What is a transformation? 
+ - Function that converts between different graph types 
+ - Different classes with different levels of performance?
+    - Simple: Iterate over current graph and build a new graph 
+       - Could do simplification, subdivsion, changing topology
+    - Advanced: 
+       - Might need to query input based on spatial information? IE what state is (x,y,z) in? 
+
+What is the hierachy: 
+ - Passes must be indenpendent, two different areas with dependence on each other could be implemented VIA node metadata and constraint function 
+ - 
+
+How could we still use chunking? 
+ - Irregular graphs can't be divided like in infinite WFC 
+ - Push to user?? (With implementations for built in graphs like grid/hex)
+ - We care about if the current graph will affect the output at a specific spatial position (should chunk loading depend on output)
+ - Graph bounds/"claiming output"
+ - Idealy chucking should be "transparent", add between passes without completely changing generation
+
+
+LOD: 
+ - If we have LODing then final output can occur at different depths 
+ - Pass could implement a LOD trait, generation checks a query before generating children, if it fails, trait contains a generator
+
+ World: 
+ - Output ends up embeded in some space 
+ - Multiple spatial outputs could be useful? 
+ 
+ Multithreading:
+ - Output will change asyncly 
+ - Stream of load/unload events that can be processed by engine?
+
+
+Can model synthesis concepts make our life easier?
+
+Performance: 
+ - Locality, neighbours are accesed from a node, maybe data should belong with node to avoid cache miss? 
+
+Spec: 

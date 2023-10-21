@@ -1649,6 +1649,7 @@ dependencies = [
 [[package]]
 name = "egui-gizmo"
 version = "0.11.0"
+source = "git+https://github.com/KiwiRobbie/egui-gizmo-bevy-fix.git?branch=main#dc06d07449c72df114169a05fab1c69f446ab9cb"
 dependencies = [
  "egui",
  "glam",

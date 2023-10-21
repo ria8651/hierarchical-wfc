@@ -173,14 +173,10 @@ fn orientation_gizmo_system(
 ) {
     let (camera, camera_transform) = q_camera.get_single().unwrap();
 
-    let viewport = if let Some(viewport) = &camera.viewport {
+    let viewport = if let Some(viewport) = &camera.logical_viewport_rect() {
         Some(egui::Rect {
-            min: egui::Pos2::from(viewport.physical_position.as_vec2().to_array()),
-            max: egui::Pos2::from(
-                (viewport.physical_position + viewport.physical_size)
-                    .as_vec2()
-                    .to_array(),
-            ),
+            min: egui::Pos2::from(viewport.min.to_array()),
+            max: egui::Pos2::from(viewport.max.to_array()),
         })
     } else {
         None
@@ -200,9 +196,6 @@ fn orientation_gizmo_system(
                 let padding =
                     egui::vec2(16.0, 16.0 + egui_dock::style::TabBarStyle::default().height);
                 let radius = 24.0f32;
-                // let center =
-                //     (0.5 * viewport.min.to_vec2() + 0.5 * viewport.max.to_vec2()).to_pos2();
-
                 let center = egui::pos2(
                     viewport.max.x - radius - padding.x,
                     viewport.min.y + radius + padding.y,
@@ -286,9 +279,9 @@ fn orientation_gizmo_system(
                     }
 
                     let mut hovered = false;
-                    if let (Some(pos), clicked) = ui
-                        .input(|input| (input.pointer.hover_pos(), input.pointer.primary_clicked()))
-                    {
+                    if let (Some(pos), clicked) = ui.input(|input| {
+                        (input.pointer.hover_pos(), input.pointer.primary_released())
+                    }) {
                         if (screen_space_axis - pos).length_sq() < 6.0 * 6.0 {
                             if clicked {
                                 ev_align_view.send(AlignViewEvent(-axis));
