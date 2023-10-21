@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.11.2", features = ["dynamic_linking", "wayland"] }
+bevy = { version = "0.11.2", features = [ "wayland"] }
 bevy-inspector-egui = "0.19"
 rand = "0.8"
 anyhow = "1.0"
@@ -61,6 +61,15 @@ debug-assertions = false
 overflow-checks = false
 incremental = false
 codegen-units = 16
+
+
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
+rustflags = [
+    "-Lnative=/home/kiwi/.xwin/crt/lib/x86_64",
+    "-Lnative=/home/kiwi/.xwin/sdk/lib/um/x86_64",
+    "-Lnative=/home/kiwi/.xwin/sdk/lib/ucrt/x86_64",
+]
 
 
 [patch.crates-io]
