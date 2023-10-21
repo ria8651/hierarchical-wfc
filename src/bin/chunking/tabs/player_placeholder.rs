@@ -65,19 +65,16 @@ impl EcsTab for EcsUiPlayerPlaceholder {
             self.system_state.get_mut(world);
 
         let (camera, camera_transform) = q_camera.get_single().unwrap();
-        let viewport = if let Some(viewport) = &camera.logical_viewport_rect() {
-            Some(egui::Rect {
-                min: egui::Pos2::from(viewport.min.to_array()),
-                max: egui::Pos2::from(viewport.max.to_array()),
-            })
-        } else {
-            None
-        };
-        let viewport = if let Some(viewport) = viewport {
-            viewport
-        } else {
+        let viewport = camera.logical_viewport_rect().map(|viewport| egui::Rect {
+            min: egui::Pos2::from(viewport.min.to_array()),
+            max: egui::Pos2::from(viewport.max.to_array()),
+        });
+
+        if viewport.is_none() {
             return;
-        };
+        }
+        let viewport = viewport.unwrap();
+
         player_data.chunk = chunk_from_position(player_data.position, &fragment_settings);
 
         ui.horizontal(|ui| {
@@ -122,7 +119,7 @@ impl EcsTab for EcsUiPlayerPlaceholder {
 
         egui::Area::new("Viewport")
             .fixed_pos((0.0, 0.0))
-            .show(&contexts.ctx_mut(), |ui| {
+            .show(contexts.ctx_mut(), |ui| {
                 ui.with_layer_id(egui::LayerId::background(), |ui| {
                     if active {
                         if let Some(response) = transform_gizmo.interact(ui) {

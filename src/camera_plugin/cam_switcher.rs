@@ -1,8 +1,5 @@
 use bevy::{
-    core_pipeline::{
-        contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings,
-        fxaa::{Fxaa, FxaaPlugin},
-    },
+    core_pipeline::{contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings, fxaa::Fxaa},
     pbr::{
         ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionQualityLevel,
         ScreenSpaceAmbientOcclusionSettings,

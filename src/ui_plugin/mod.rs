@@ -82,7 +82,7 @@ impl EcsUiState {
             active: self
                 .tree
                 .find_active_focused()
-                .and_then(|(_, tab)| Some(format!("{tab:?}"))),
+                .map(|(_, tab)| format!("{tab:?}")),
             // selected_entities: &mut self.selected_entities,
             // selection: &mut self.selection,
             // gizmo_mode: self.gizmo_mode,

@@ -1,16 +1,7 @@
-use bevy::{
-    math::{vec3, vec4},
-    prelude::*,
-};
-use bevy_render::{
-    mesh::{Indices, MeshVertexAttribute},
-    render_resource::VertexFormat,
-    view::NoFrustumCulling,
-};
+use bevy::{math::vec3, prelude::*};
+use bevy_render::{mesh::Indices, view::NoFrustumCulling};
 
-use crate::materials::{
-    debug_arc_material::DebugLineMaterial, ground_plane_material::GroundPlaneMaterial,
-};
+use crate::materials::ground_plane_material::GroundPlaneMaterial;
 pub struct GroundPlanePlugin;
 impl Plugin for GroundPlanePlugin {
     fn build(&self, app: &mut App) {
@@ -23,7 +14,6 @@ fn ground_plane_init_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<GroundPlaneMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
     let mut edges = Mesh::new(bevy::render::render_resource::PrimitiveTopology::TriangleList);
     edges.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![vec3(0.0, 0.0, 0.0); 3]);

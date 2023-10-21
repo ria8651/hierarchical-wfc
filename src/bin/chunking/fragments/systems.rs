@@ -266,7 +266,7 @@ pub async fn tokio_transform_chunk_loads(
                 let mut chunk_table = chunk_table.write().await;
                 let mut fragment_table = fragment_table.write().await;
 
-                if let Some(..) = chunk_table.loaded.get(&chunk_pos) {
+                if chunk_table.loaded.get(&chunk_pos).is_some() {
                     continue;
                 }
 

@@ -23,7 +23,6 @@ pub enum NodeFragmentStatus {
 #[derive(Debug)]
 pub enum EdgeFragmentStatus {
     Waiting(HashSet<IVec3>),
-    Generating,
     Generated(
         regular_grid_3d::GraphSettings,
         regular_grid_3d::GraphData,
@@ -34,7 +33,6 @@ pub enum EdgeFragmentStatus {
 #[derive(Debug)]
 pub enum FaceFragmentStatus {
     Waiting(HashSet<IVec3>),
-    Generating,
     Generated(
         regular_grid_3d::GraphSettings,
         regular_grid_3d::GraphData,

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use bevy::{prelude::*, utils::HashMap};
 use hierarchical_wfc::{castle::LayoutTileset, graphs::regular_grid_3d, wfc::WfcGraph};
 
-use crate::debug::{LoadedChunks, LoadedFragments};
+use crate::debug::LoadedFragments;
 
 use super::{
     generate::{FragmentLocation, FragmentSettings},
@@ -78,13 +78,6 @@ impl Default for GenerationDebugSettings {
 #[derive(Component)]
 pub struct ChunkMarker;
 
-#[derive(Component)]
-pub enum FragmentMarker {
-    Node,
-    Edge,
-    Face,
-}
-
 pub struct GenerationPlugin;
 impl Plugin for GenerationPlugin {
     fn build(&self, app: &mut App) {
@@ -92,7 +85,6 @@ impl Plugin for GenerationPlugin {
             .init_resource::<FragmentSettings>()
             .init_resource::<GenerationDebugSettings>()
             .init_resource::<AsyncWorld>()
-            .init_resource::<LoadedChunks>()
             .init_resource::<LoadedFragments>()
             .add_event::<ChunkLoadEvent>()
             .add_event::<ChunkGenerateEvent>();

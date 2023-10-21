@@ -101,11 +101,6 @@ pub struct LoadedFragments {
     loaded: HashMap<FragmentLocation, Entity>,
 }
 
-#[derive(Default, Resource)]
-pub struct LoadedChunks {
-    fragments: HashMap<IVec3, Vec<FragmentLocation>>,
-}
-
 pub fn fragment_debug_instantiation_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -184,9 +179,10 @@ pub fn fragment_debug_instantiation_system(
             });
             mesh_commands.set_parent(entity);
         }
-        if let Some(old) = loaded_fragments
+        if loaded_fragments
             .loaded
             .insert(event.fragment_location, entity)
+            .is_some()
         {
             // Old chunk wasn't despawned yet !!! WON"T WORK!
             // commands.entity(old).despawn_recursive();

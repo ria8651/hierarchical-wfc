@@ -153,16 +153,12 @@ impl HouseTileset {
             .semantic_nodes
             .iter()
             .map(|node| SemanticNode {
-                sockets: if let Some(sockets) = node.sockets.as_ref() {
-                    Some(
-                        directions
-                            .iter()
-                            .map(|dir| sockets.get(dir).cloned())
-                            .collect::<Box<[Option<String>]>>(),
-                    )
-                } else {
-                    None
-                },
+                sockets: node.sockets.as_ref().map(|sockets| {
+                    directions
+                        .iter()
+                        .map(|dir| sockets.get(dir).cloned())
+                        .collect::<Box<[Option<String>]>>()
+                }),
                 symmetries: node
                     .symmetries
                     .iter()
@@ -237,7 +233,7 @@ impl HouseTileset {
         // Build constraints for all DAG nodes
         let mut constraints: Vec<((usize, Option<String>), (usize, Option<String>))> = Vec::new();
 
-        for (index, [u, v]) in model.constraints.into_iter().enumerate() {
+        for [u, v] in model.constraints.into_iter() {
             let constraint = (
                 match u {
                     ConstraintNodeModel::Node(node) => {
@@ -538,15 +534,11 @@ impl HouseTileset {
         let mut socket_configurations: HashSet<Option<Box<[Option<String>]>>> = HashSet::new();
         socket_configurations.extend(existing_socket_configurations.iter().map(|v| v.1.clone()));
         for sym in node_symmetries.iter() {
-            let sockets = if let Some(sockets) = semantic_node.sockets.as_ref() {
-                Some(
-                    sym.iter()
-                        .map(|i| sockets[*i].clone())
-                        .collect::<Box<[Option<String>]>>(),
-                )
-            } else {
-                None
-            };
+            let sockets = semantic_node.sockets.as_ref().map(|sockets| {
+                sym.iter()
+                    .map(|i| sockets[*i].clone())
+                    .collect::<Box<[Option<String>]>>()
+            });
             let required = sym
                 .iter()
                 .map(|i| ((!semantic_node.optional[*i]) as usize) << *i)

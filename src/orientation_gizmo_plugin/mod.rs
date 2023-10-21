@@ -24,18 +24,14 @@ fn orientation_gizmo_system(
 ) {
     let (camera, camera_transform) = q_camera.get_single().unwrap();
 
-    let viewport = if let Some(viewport) = &camera.viewport {
-        Some(egui::Rect {
-            min: egui::Pos2::from(viewport.physical_position.as_vec2().to_array()),
-            max: egui::Pos2::from(
-                (viewport.physical_position + viewport.physical_size)
-                    .as_vec2()
-                    .to_array(),
-            ),
-        })
-    } else {
-        None
-    };
+    let viewport = camera.viewport.as_ref().map(|viewport| egui::Rect {
+        min: egui::Pos2::from(viewport.physical_position.as_vec2().to_array()),
+        max: egui::Pos2::from(
+            (viewport.physical_position + viewport.physical_size)
+                .as_vec2()
+                .to_array(),
+        ),
+    });
     let viewport = if let Some(viewport) = viewport {
         viewport
     } else {
@@ -44,7 +40,7 @@ fn orientation_gizmo_system(
 
     egui::Area::new("Viewport")
         .fixed_pos((0.0, 0.0))
-        .show(&contexts.ctx_mut(), |ui| {
+        .show(contexts.ctx_mut(), |ui| {
             ui.with_layer_id(egui::LayerId::background(), |ui| {
                 let painter = ui.painter();
 
