@@ -1,5 +1,5 @@
 use crate::world::{GenerateEvent, MaybeWorld};
-use bevy::prelude::*;
+use bevy::{prelude::*, asset::FileAssetIo};
 use bevy_inspector_egui::{
     bevy_egui::{EguiContexts, EguiPlugin},
     egui::{
@@ -84,8 +84,7 @@ impl Default for UiState {
             ),
         ];
 
-        let base_path = std::env::current_exe().expect("Failed to get current exe path");
-        let base_path = base_path.parent().unwrap();
+        let base_path = FileAssetIo::get_base_path();
         let paths = std::fs::read_dir(base_path.join("assets/mxgmn")).unwrap();
         for path in paths {
             let path = path.unwrap().path();
