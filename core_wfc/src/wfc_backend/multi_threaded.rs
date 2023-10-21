@@ -8,6 +8,7 @@ use crossbeam::{
 use std::{sync::Arc, thread};
 
 pub struct MultiThreaded {
+    num_threads: usize,
     queue: Arc<SegQueue<WfcTask>>,
     update_channel: Sender<()>,
     output: Receiver<(WfcTask, Result<()>)>,
@@ -28,6 +29,10 @@ impl Backend for MultiThreaded {
     fn wait_for_output(&mut self) -> (WfcTask, Result<()>) {
         self.output.recv().unwrap()
     }
+
+    fn clear(&mut self) {
+        *self = Self::new(self.num_threads);
+    }
 }
 
 impl MultiThreaded {
@@ -47,7 +52,10 @@ impl MultiThreaded {
                     while let Ok(()) = rx.recv() {
                         if let Some(mut task) = queue.pop() {
                             let task_result = SingleThreaded::execute(&mut task);
-                            output_tx.send((task, task_result)).unwrap();
+                            if let Err(_) = output_tx.send((task, task_result)) {
+                                // channel is closed, stop execution
+                                return;
+                            }
                         }
                     }
                 })
@@ -55,6 +63,7 @@ impl MultiThreaded {
         }
 
         Self {
+            num_threads,
             queue,
             update_channel: tx,
             output: output_rx,

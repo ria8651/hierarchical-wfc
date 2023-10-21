@@ -14,11 +14,12 @@ bevy-inspector-egui = "0.20"
 bevy_pancam = { version = "0.9", features = ["bevy_egui"] }
 rand = { version = "0.8", features = ["small_rng"] }
 dyn-clone = "1.0"
+anyhow = "1.0"
+crossbeam = "0.8"
+criterion = "0.5"
 serde = "1.0"
 serde-xml-rs = "0.6"
-anyhow = "1.0"
 csv = "1.1"
-crossbeam = "0.8"
 
 [[bench]]
 name = "stats"

@@ -142,6 +142,9 @@ fn handle_events(
                     } else {
                         &mut backends.single_threaded
                     };
+
+                    backend.clear();
+
                     new_world.outstanding += 1;
                     backend.queue_task(task).unwrap();
                 }
@@ -167,6 +170,8 @@ fn handle_events(
                     settings: wfc_settings.clone(),
                     update_channel: sender,
                 };
+
+                backends.single_threaded.clear();
 
                 backends.multithreaded = false;
                 backends.single_threaded.queue_task(task).unwrap();

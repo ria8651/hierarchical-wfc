@@ -29,6 +29,7 @@ impl StatisticRunner for SingleRunner {
             seed,
             metadata: Some(Arc::new(SingleRunnerTag)),
             settings: self.settings.wfc_settings.clone(),
+            update_channel: None,
         };
         self.backend.borrow_mut().queue_task(task).unwrap();
     }

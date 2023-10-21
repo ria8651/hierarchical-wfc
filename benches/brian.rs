@@ -82,6 +82,7 @@ fn main() {
                                 seed,
                                 metadata: None,
                                 settings: WfcSettings::default(),
+                                update_channel: None,
                             };
 
                             let result = SingleThreaded::execute(&mut task);

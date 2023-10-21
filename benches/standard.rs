@@ -32,6 +32,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 seed,
                 metadata: None,
                 settings: WfcSettings::default(),
+                update_channel: None,
             };
 
             let result = SingleThreaded::execute(&mut task);
@@ -62,6 +63,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 seed,
                 metadata: None,
                 settings: WfcSettings::default(),
+                update_channel: None,
             };
 
             let result = SingleThreaded::execute(&mut task);

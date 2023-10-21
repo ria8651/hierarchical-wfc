@@ -45,6 +45,7 @@ const WFC_SETTINGS: WfcSettings = WfcSettings {
         restarts_left: RESTARTS,
     },
     entropy: Entropy::Shannon,
+    progress_updates: None,
 };
 
 const SINGLE_SETTINGS: SingleSettings = SingleSettings {

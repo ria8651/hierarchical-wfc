@@ -25,6 +25,10 @@ impl Backend for SingleThreaded {
     fn wait_for_output(&mut self) -> (WfcTask, Result<()>) {
         self.output.recv().unwrap()
     }
+
+    fn clear(&mut self) {
+        *self = Self::new();
+    }
 }
 
 struct History {
@@ -47,7 +51,10 @@ impl SingleThreaded {
             .spawn(move || {
                 while let Ok(mut task) = rx.recv() {
                     let task_result = Self::execute(&mut task);
-                    output_tx.send((task, task_result)).unwrap();
+                    if let Err(_) = output_tx.send((task, task_result)) {
+                        // channel is closed, stop execution
+                        return;
+                    }
                 }
             })
             .unwrap();
@@ -178,7 +185,11 @@ impl SingleThreaded {
                 if time.elapsed().as_secs_f64() > update_interval {
                     time = Instant::now();
                     let update_channel = task.update_channel.as_ref().expect("No update channel");
-                    update_channel.send((task.graph.clone(), task.metadata.clone())).unwrap();
+                    if let Err(e) = update_channel.send((task.graph.clone(), task.metadata.clone()))
+                    {
+                        // channel is closed, stop execution
+                        return Err(anyhow!("Update channel closed: {}", e));
+                    }
                 }
             }
         }

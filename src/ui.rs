@@ -137,7 +137,7 @@ impl Default for UiState {
         }
 
         Self {
-            picked_tileset: 0,
+            picked_tileset: 3,
             tile_sets,
             weights: Vec::new(),
             tile_render_assets: Vec::new(),
@@ -214,14 +214,15 @@ fn ui(
                         ui.add_space(10.0);
                         ui_for_value(ui_settings.as_mut(), ui, &type_registry.read());
 
-                        let seed = if !ui_settings.random_seed {
-                            ui_settings.seed
-                        } else {
-                            rand::random()
-                        };
-
                         dyn_clone::arc_make_mut(&mut tileset).set_weights(ui_state.weights.clone());
                         if ui.button("Generate Single").clicked() {
+                            let seed = if !ui_settings.random_seed {
+                                ui_settings.seed
+                            } else {
+                                ui_settings.seed = rand::random();
+                                ui_settings.seed
+                            };
+
                             generate_events.send(GenerateEvent::Single {
                                 tileset,
                                 settings: ui_settings.graph_settings.clone(),
@@ -229,6 +230,13 @@ fn ui(
                                 seed,
                             });
                         } else if ui.button("Generate Chunked").clicked() {
+                            let seed = if !ui_settings.random_seed {
+                                ui_settings.seed
+                            } else {
+                                ui_settings.seed = rand::random();
+                                ui_settings.seed
+                            };
+
                             generate_events.send(GenerateEvent::Chunked {
                                 tileset,
                                 settings: ui_settings.graph_settings.clone(),

@@ -11,4 +11,5 @@ pub trait Backend {
     fn queue_task(&mut self, task: WfcTask) -> Result<()>;
     fn get_output(&mut self) -> Option<(WfcTask, Result<()>)>;
     fn wait_for_output(&mut self) -> (WfcTask, Result<()>);
+    fn clear(&mut self);
 }
