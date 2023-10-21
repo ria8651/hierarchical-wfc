@@ -1,15 +1,12 @@
+use super::std_err::{RollingStdErr, StdErr};
+use crate::tile_util::Tile;
+use anyhow::Error;
+use core_wfc::Graph;
 use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
+    time::Duration,
 };
-
-use anyhow::Error;
-use core_wfc::Graph;
-use web_time::Duration;
-
-use crate::tile_util::Tile;
-
-use super::std_err::{RollingStdErr, StdErr};
 
 pub trait SparseDistribution<K> {
     fn reasonable_keys(&self) -> HashSet<K>;
