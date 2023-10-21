@@ -61,7 +61,7 @@ The 2D chunking implementation can generate outputs using both standard (`Genera
   <tr>
     <td><code>chunk_settings.merging</code></td> 
     <td>
-      ???
+      Approach used when extracting and merging chunks, <code>Mixed</code> is optimal, other options for debugging purposes. 
     </td>
   </tr>
     <tr>
