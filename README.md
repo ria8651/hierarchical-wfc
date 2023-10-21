@@ -81,6 +81,13 @@ The 2D chunking implementation can generate outputs using both standard (`Genera
   </tr>
   </tr>
     <tr>
+    <td><code>wfc_settings.progress_updates</code></td> 
+    <td>
+      Set to <code>Some</code> with a timeout (such as <code>0.05</code> seconds) to show the generation progress live. Useful for visulising backtracking.
+  </td>
+  </tr>
+  </tr>
+    <tr>
     <td><code>draw_gizmos</code></td> 
     <td>
       Show debbuging gizmos such as chunk boundaries. 
@@ -97,7 +104,14 @@ The 2D chunking implementation can generate outputs using both standard (`Genera
 The 2D implementation of WFC with our chunking approaches can be built and run with:
 
 ```bash
-$ cargo run --example 2d --release
+$ cargo run --release
+```
+
+The 3D prototypes located on the `3d` branch can be built and run with:
+
+```bash
+$ cargo run --bin multipass --release
+$ cargo run --bin chunking --release
 ```
 
 Development was done on the nightly channel and tested with `rustc 1.75.0-nightly (bf9a1c8a1 2023-10-08)`
