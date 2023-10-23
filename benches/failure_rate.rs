@@ -25,17 +25,17 @@ fn main() {
 
     #[derive(Debug, Clone, Copy)]
     enum ChunkingTests {
-        Naive,
-        Full,
-        Mixed,
-        MixedDiscard,
+        Interior,
+        Exterior,
+        Ours,
+        OursDiscard,
     }
 
     for generation_type in [
-        ChunkingTests::Naive,
-        ChunkingTests::Full,
-        ChunkingTests::Mixed,
-        ChunkingTests::MixedDiscard,
+        ChunkingTests::Interior,
+        ChunkingTests::Exterior,
+        ChunkingTests::Ours,
+        ChunkingTests::OursDiscard,
     ]
     .into_iter()
     {
@@ -48,12 +48,12 @@ fn main() {
             };
 
             let merging = match generation_type {
-                ChunkingTests::Naive => ChunkMerging::Interior,
-                ChunkingTests::Full => ChunkMerging::Full,
-                ChunkingTests::Mixed | ChunkingTests::MixedDiscard => ChunkMerging::Mixed,
+                ChunkingTests::Interior => ChunkMerging::Interior,
+                ChunkingTests::Exterior => ChunkMerging::Full,
+                ChunkingTests::Ours | ChunkingTests::OursDiscard => ChunkMerging::Mixed,
             };
             let discard = match generation_type {
-                ChunkingTests::MixedDiscard => DISCARD,
+                ChunkingTests::OursDiscard => DISCARD,
                 _ => 0,
             };
 
