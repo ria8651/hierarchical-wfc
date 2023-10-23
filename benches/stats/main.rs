@@ -93,18 +93,18 @@ pub fn main() {
         ),
         (
             Arc::new(
-                MxgmnTileset::new(Path::new("assets/mxgmn/Circuit.xml"), None)
+                MxgmnTileset::new(Path::new("assets/mxgmn/Summer.xml"), None)
                     .ok()
                     .unwrap(),
             ) as Arc<dyn TileSet>,
-            "Circuit",
+            "Summer",
             [8, 16, 32],
             64,
             32,
         ),
         (
             Arc::new(
-                MxgmnTileset::new(Path::new("assets/mxgmn/Summer.xml"), None)
+                MxgmnTileset::new(Path::new("assets/mxgmn/Circuit.xml"), None)
                     .ok()
                     .unwrap(),
             ) as Arc<dyn TileSet>,
@@ -119,22 +119,11 @@ pub fn main() {
                     .ok()
                     .unwrap(),
             ) as Arc<dyn TileSet>,
-            "Circuit",
+            "FloorPlan",
             [8, 16, 32],
             64,
             32,
         ),
-        // (
-        //     Arc::new(
-        //         MxgmnTileset::new(Path::new("assets/mxgmn/Summer.xml"), None)
-        //             .ok()
-        //             .unwrap(),
-        //     ) as Arc<dyn TileSet>,
-        //     "Summer",
-        //     [8, 16, 32],
-        //     128,
-        //     32,
-        // ),
     ] {
         let single = {
             let single_settings = SingleSettings {
@@ -165,8 +154,11 @@ pub fn main() {
             single_stats.run();
             single_stats.build()
         };
-        for (overlap, discard) in [(3, 1), (5, 2)] {
+        for (overlap, discard) in [(1, 0), (3, 2), (7, 4)] {
             for chunk_size in chunk_sizes {
+                if 2 * overlap >= chunk_size {
+                    continue;
+                }
                 println!("\nSettings:");
                 println!("   Chunk size: {}", chunk_size);
                 println!("      overlap: {}", overlap);
