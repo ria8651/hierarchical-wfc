@@ -1,13 +1,13 @@
+use core_wfc::{
+    wfc_backend,
+    wfc_task::{BacktrackingSettings, Entropy, WfcSettings},
+    TileSet,
+};
 use grid_wfc::{
     carcassonne_tileset::CarcassonneTileset,
     grid_graph::GridGraphSettings,
     mxgmn_tileset::MxgmnTileset,
     world::{ChunkMerging, ChunkSettings, GenerationMode},
-};
-use core_wfc::{
-    wfc_backend,
-    wfc_task::{BacktrackingSettings, Entropy, WfcSettings},
-    TileSet,
 };
 use std::{cell::RefCell, path::Path, rc::Rc, sync::Arc};
 
@@ -71,7 +71,16 @@ pub fn main() {
 
     let mut csv_writer = csv::Writer::from_path("benches/data/quality.csv").unwrap();
     csv_writer
-        .write_record(["tileset", "size", "chunk_size", "single", "pair", "quad"])
+        .write_record([
+            "tileset",
+            "size",
+            "chunk_size",
+            "overlap",
+            "discard",
+            "single",
+            "pair",
+            "quad",
+        ])
         .unwrap();
 
     for (tileset, tileset_name, chunk_sizes, size, samples) in [
@@ -89,7 +98,7 @@ pub fn main() {
                     .unwrap(),
             ) as Arc<dyn TileSet>,
             "Circuit",
-            [16, 16, 32],
+            [8, 16, 32],
             64,
             32,
         ),
@@ -100,7 +109,7 @@ pub fn main() {
                     .unwrap(),
             ) as Arc<dyn TileSet>,
             "Circuit",
-            [16, 16, 32],
+            [8, 16, 32],
             64,
             32,
         ),
@@ -111,7 +120,7 @@ pub fn main() {
                     .unwrap(),
             ) as Arc<dyn TileSet>,
             "Circuit",
-            [16, 16, 32],
+            [8, 16, 32],
             64,
             32,
         ),
@@ -156,62 +165,69 @@ pub fn main() {
             single_stats.run();
             single_stats.build()
         };
-        for chunk_size in chunk_sizes {
-            println!("\nSettings:");
-            println!("   Chunk size: {}", chunk_size);
-            println!("      Tileset: {}", tileset_name);
+        for (overlap, discard) in [(3, 1), (5, 2)] {
+            for chunk_size in chunk_sizes {
+                println!("\nSettings:");
+                println!("   Chunk size: {}", chunk_size);
+                println!("      overlap: {}", overlap);
+                println!("      discard: {}", discard);
+                println!("      Tileset: {}", tileset_name);
 
-            let threaded = {
-                let chunked_settings = ChunkedSettings {
-                    chunk_settings: ChunkSettings {
-                        size: chunk_size,
-                        overlap: chunk_size.div_euclid(4),
-                        ..CHUNKED_SETTINGS.chunk_settings
-                    },
-                    grid_graph_settings: GridGraphSettings {
-                        width: size,
-                        height: size,
-                        ..GRID_GRAPH_SETTINGS
-                    },
-                    ..CHUNKED_SETTINGS
+                let threaded = {
+                    let chunked_settings = ChunkedSettings {
+                        chunk_settings: ChunkSettings {
+                            size: chunk_size,
+                            discard: discard,
+                            overlap: overlap,
+                            ..CHUNKED_SETTINGS.chunk_settings
+                        },
+                        grid_graph_settings: GridGraphSettings {
+                            width: size,
+                            height: size,
+                            ..GRID_GRAPH_SETTINGS
+                        },
+                        ..CHUNKED_SETTINGS
+                    };
+
+                    let mut threaded_stats = {
+                        let tileset = tileset.clone();
+                        let backend = threaded_backend.clone();
+                        RunStatisticsBuilder::new(
+                            samples,
+                            Box::new(ChunkedRunner {
+                                backend,
+                                tileset,
+                                seeds: vec![],
+                                setings: chunked_settings,
+                            }),
+                        )
+                    };
+                    threaded_stats.set_seed(0);
+                    threaded_stats.run();
+                    threaded_stats.build()
                 };
 
-                let mut threaded_stats = {
-                    let tileset = tileset.clone();
-                    let backend = threaded_backend.clone();
-                    RunStatisticsBuilder::new(
-                        samples,
-                        Box::new(ChunkedRunner {
-                            backend,
-                            tileset,
-                            seeds: vec![],
-                            setings: chunked_settings,
-                        }),
-                    )
-                };
-                threaded_stats.set_seed(0);
-                threaded_stats.run();
-                threaded_stats.build()
-            };
-
-            println!("Results:");
-            print!("   single ");
-            let t_single = single.single.compare(&threaded.single);
-            print!("     pair ");
-            let t_pair = single.pair.compare(&threaded.pair);
-            print!("     quad ");
-            let t_quad = single.quad.compare(&threaded.quad);
-            csv_writer
-                .write_record([
-                    tileset_name,
-                    &format!("{size}"),
-                    &format!("{chunk_size}"),
-                    &format!("{t_single}"),
-                    &format!("{t_pair}"),
-                    &format!("{t_quad}"),
-                ])
-                .unwrap();
+                println!("Results:");
+                print!("   single ");
+                let t_single = single.single.compare(&threaded.single);
+                print!("     pair ");
+                let t_pair = single.pair.compare(&threaded.pair);
+                print!("     quad ");
+                let t_quad = single.quad.compare(&threaded.quad);
+                csv_writer
+                    .write_record([
+                        tileset_name,
+                        &format!("{size}"),
+                        &format!("{chunk_size}"),
+                        &format!("{overlap}"),
+                        &format!("{discard}"),
+                        &format!("{t_single}"),
+                        &format!("{t_pair}"),
+                        &format!("{t_quad}"),
+                    ])
+                    .unwrap();
+            }
+            csv_writer.flush().unwrap();
         }
-        csv_writer.flush().unwrap();
     }
 }
