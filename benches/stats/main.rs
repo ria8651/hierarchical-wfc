@@ -1,6 +1,6 @@
 use core_wfc::{
     wfc_backend,
-    wfc_task::{BacktrackingSettings, Entropy, WfcSettings},
+    wfc_task::{BacktrackingHeuristic, BacktrackingSettings, Entropy, WfcSettings},
     TileSet,
 };
 use grid_wfc::{
@@ -43,6 +43,7 @@ const CHUNK_SETTINGS: ChunkSettings = ChunkSettings {
 const WFC_SETTINGS: WfcSettings = WfcSettings {
     backtracking: BacktrackingSettings::Enabled {
         restarts_left: RESTARTS,
+        heuristic: BacktrackingHeuristic::Proportional { proportion: 0.7 },
     },
     entropy: Entropy::Shannon,
     progress_updates: None,
@@ -169,8 +170,8 @@ pub fn main() {
                     let chunked_settings = ChunkedSettings {
                         chunk_settings: ChunkSettings {
                             size: chunk_size,
-                            discard: discard,
-                            overlap: overlap,
+                            discard,
+                            overlap,
                             ..CHUNKED_SETTINGS.chunk_settings
                         },
                         grid_graph_settings: GridGraphSettings {

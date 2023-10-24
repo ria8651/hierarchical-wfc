@@ -1,9 +1,9 @@
+use core_wfc::{wfc_backend::Backend, wfc_task::WfcSettings, Graph, TileSet};
 use grid_wfc::{
     grid_graph::GridGraphSettings,
     single_shot,
     world::{ChunkSettings, GenerationMode},
 };
-use core_wfc::{wfc_backend::Backend, wfc_task::WfcSettings, Graph, TileSet};
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use crate::stats_builder::StatisticRunner;

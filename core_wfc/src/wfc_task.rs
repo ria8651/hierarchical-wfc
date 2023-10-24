@@ -1,5 +1,5 @@
 use crate::{tileset::*, wfc_graph::*};
-use bevy::reflect::Reflect;
+use bevy::prelude::*;
 use crossbeam::channel::Sender;
 use rand::Rng;
 use std::{any::Any, sync::Arc};
@@ -7,16 +7,45 @@ use std::{any::Any, sync::Arc};
 pub type Metadata = Option<Arc<dyn Any + Send + Sync>>;
 
 #[derive(Clone, Debug, PartialEq, Reflect, Default)]
+#[reflect(Default)]
 pub struct WfcSettings {
     pub backtracking: BacktrackingSettings,
     pub entropy: Entropy,
     pub progress_updates: Option<f64>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Reflect)]
+#[derive(Clone, Debug, PartialEq, Reflect)]
+#[reflect(Default)]
+pub enum BacktrackingHeuristic {
+    Standard,
+    Fixed { distance: usize },
+    Degree { degree: usize },
+    Proportional { proportion: f32 },
+}
+
+impl Default for BacktrackingHeuristic {
+    fn default() -> Self {
+        BacktrackingHeuristic::Degree { degree: 3 }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Reflect)]
+#[reflect(Default)]
 pub enum BacktrackingSettings {
     Disabled,
-    Enabled { restarts_left: usize },
+    Enabled {
+        restarts_left: usize,
+        heuristic: BacktrackingHeuristic,
+    },
+}
+
+impl Default for BacktrackingSettings {
+    fn default() -> Self {
+        BacktrackingSettings::Enabled {
+            restarts_left: 100,
+            heuristic: Default::default(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Reflect, Default)]
@@ -25,12 +54,6 @@ pub enum Entropy {
     TileCount,
     Scanline,
     Shannon,
-}
-
-impl Default for BacktrackingSettings {
-    fn default() -> Self {
-        BacktrackingSettings::Enabled { restarts_left: 100 }
-    }
 }
 
 pub struct WfcTask {

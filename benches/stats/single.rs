@@ -1,7 +1,7 @@
-use grid_wfc::grid_graph::{self, GridGraphSettings};
 use core_wfc::{
     wfc_backend::Backend, wfc_task::WfcSettings, Graph, TileSet, WaveFunction, WfcTask,
 };
+use grid_wfc::grid_graph::{self, GridGraphSettings};
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use crate::stats_builder::StatisticRunner;

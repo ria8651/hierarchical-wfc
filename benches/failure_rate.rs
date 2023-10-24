@@ -1,10 +1,10 @@
+use core_wfc::{wfc_backend::MultiThreaded, wfc_task::WfcSettings, TileSet};
 use grid_wfc::{
     grid_graph::GridGraphSettings,
     mxgmn_tileset::MxgmnTileset,
     single_shot,
     world::{ChunkMerging, ChunkSettings, GenerationMode},
 };
-use core_wfc::{wfc_backend::MultiThreaded, wfc_task::WfcSettings, TileSet};
 use rand::Rng;
 use std::{path::Path, sync::Arc};
 
@@ -64,7 +64,7 @@ fn main() {
                 seed,
                 GenerationMode::NonDeterministic,
                 ChunkSettings {
-                    merging: merging,
+                    merging,
                     size: CHUNK_SIZE,
                     overlap: OVERLAP,
                     discard,

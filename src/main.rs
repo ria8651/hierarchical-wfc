@@ -9,14 +9,14 @@ mod world;
 fn main() {
     #[cfg(target_arch = "wasm32")]
     console_error_panic_hook::set_once();
-    
+
     // use grid_wfc::{
     //     grid_graph::{self, GridGraphSettings},
     //     overlapping_tileset::OverlappingTileset,
     // };
     // use core_wfc::{wfc_task::WfcSettings, TileSet, WaveFunction, WfcTask, wfc_backend::SingleThreaded};
     // use std::sync::Arc;
-    
+
     // let sample = vec![
     //     vec![0, 0, 0, 0, 0, 0],
     //     vec![0, 1, 1, 1, 1, 0],

@@ -1,5 +1,8 @@
 use super::Backend;
-use crate::{wfc_task::BacktrackingSettings, WaveFunction, WfcTask};
+use crate::{
+    wfc_task::{BacktrackingHeuristic, BacktrackingSettings},
+    WaveFunction, WfcTask,
+};
 use anyhow::{anyhow, Result};
 use bevy::utils::Instant;
 use crossbeam::channel::{self, Receiver, Sender};
@@ -31,16 +34,6 @@ impl Backend for SingleThreaded {
     }
 }
 
-struct History {
-    stack: Vec<usize>,
-    decision_cells: Vec<HistoryCell>,
-}
-
-struct HistoryCell {
-    index: usize,
-    options: WaveFunction,
-}
-
 impl SingleThreaded {
     pub fn new() -> Self {
         let (tx, rx) = channel::unbounded();
@@ -68,29 +61,15 @@ impl SingleThreaded {
     pub fn execute(task: &mut WfcTask) -> Result<()> {
         let mut rng = SmallRng::seed_from_u64(task.seed);
         let weights = task.tileset.get_weights();
-        let tileset = task.tileset.clone();
 
         let mut time = Instant::now();
 
         // store initial state of all cells already constrained
-        let mut initial_state: Vec<HistoryCell> = Vec::new();
-        for i in 0..task.graph.tiles.len() {
-            if task.graph.tiles[i].count_bits() != tileset.tile_count() {
-                initial_state.push(HistoryCell {
-                    index: i,
-                    options: task.graph.tiles[i].clone(),
-                });
-            }
-        }
-        let mut history = History {
-            stack: Vec::new(),
-            decision_cells: Vec::new(),
-        };
+        let mut history = Vec::new();
 
         let mut initial = true;
         let mut stack: Vec<usize> = (0..task.graph.tiles.len()).collect();
         loop {
-            let mut backtrack_flag = false;
             // propagate changes
             while let Some(index) = stack.pop() {
                 for i in 0..task.graph.neighbors[index].len() {
@@ -102,7 +81,7 @@ impl SingleThreaded {
                         let bits = task.graph.tiles[neighbor.index].count_bits();
                         if bits == 1 && task.settings.backtracking != BacktrackingSettings::Disabled
                         {
-                            history.stack.push(neighbor.index);
+                            history.push((neighbor.index, WaveFunction::empty()));
                         }
                         if bits == 0 {
                             if initial {
@@ -114,46 +93,10 @@ impl SingleThreaded {
                             }
 
                             // contradiction found
-                            backtrack_flag = true;
+                            stack = Self::backtrack(&mut history, task).unwrap();
                             break;
                         }
                     }
-                }
-                if backtrack_flag {
-                    let result = Self::backtrack(&mut history, task, &mut rng);
-                    if let Ok(continue_from) = result {
-                        stack.clear();
-                        stack.push(continue_from);
-                    } else {
-                        let restarts_left = match &mut task.settings.backtracking {
-                            BacktrackingSettings::Disabled => unreachable!(),
-                            BacktrackingSettings::Enabled {
-                                restarts_left: max_restarts,
-                            } => max_restarts,
-                        };
-
-                        // If there's no collapsed cell in the history,
-                        // there's an unsolvable configuration.
-                        // Perform a random restart.
-                        *restarts_left -= 1;
-                        if *restarts_left == 0 {
-                            let seed = task.seed;
-                            return Err(anyhow!(
-                                "Ran out of backtracking attempts on seed {seed:x}"
-                            ));
-                        }
-                        task.clear();
-                        for cell in initial_state.iter() {
-                            task.graph.tiles[cell.index] = cell.options.clone();
-                        }
-                        history = History {
-                            stack: Vec::new(),
-                            decision_cells: Vec::new(),
-                        };
-                        stack = (0..task.graph.tiles.len()).collect();
-                    }
-                    backtrack_flag = false;
-                    continue;
                 }
             }
 
@@ -168,13 +111,10 @@ impl SingleThreaded {
                     .unwrap();
                 stack.push(cell);
 
+                // if we backtrack to this cell the option we just selected will be removed
+                options = WaveFunction::difference(&options, &task.graph.tiles[cell]);
                 if task.settings.backtracking != BacktrackingSettings::Disabled {
-                    options = WaveFunction::difference(&options, &task.graph.tiles[cell]);
-                    history.stack.push(cell);
-                    history.decision_cells.push(HistoryCell {
-                        index: history.stack.len() - 1,
-                        options,
-                    });
+                    history.push((cell, options));
                 }
             } else {
                 // all cells collapsed
@@ -196,74 +136,77 @@ impl SingleThreaded {
     }
 
     fn backtrack(
-        history: &mut History,
+        history: &mut Vec<(usize, WaveFunction)>,
         task: &mut WfcTask,
-        mut rng: &mut SmallRng,
-    ) -> Result<usize, String> {
-        // Backtrack to most recent collapsed cell
-        if history.decision_cells.is_empty() {
-            Err("No collapsed cells in history")?;
+    ) -> Result<Vec<usize>> {
+        if history.is_empty() {
+            return Err(anyhow!("No history found when backtracking"));
         }
 
-        let mut collapsed = history.decision_cells.pop().unwrap();
-        // Backtrack further, we skip cells with less than 3 options as this optimization provides great speedup, TODO: make this configurable
-        if collapsed.options.count_bits() == 0 {
-            while collapsed.options.count_bits() < 3 {
-                if history.decision_cells.is_empty() {
-                    Err("No collapsed cells in history")?;
-                }
-                collapsed = history.decision_cells.pop().unwrap();
-            }
-        }
-
-        // Restore state until the most recent collapsed cell
-        let tileset = task.tileset.clone();
-        let filled = WaveFunction::filled(tileset.tile_count());
-        while history.stack.len() > collapsed.index + 1 {
-            let index = history.stack.pop().unwrap();
-            task.graph.tiles[index] = filled.clone();
-        }
-        let collapsed_index = history.stack.pop().unwrap();
-        task.graph.tiles[collapsed_index] = filled.clone();
-
-        // Unconstrain all tiles which are not fully collapsed
+        // unconstrain all tiles which are not fully collapsed
+        let filled = WaveFunction::filled(task.tileset.tile_count());
         for i in 0..task.graph.tiles.len() {
             if task.graph.tiles[i].count_bits() != 1 {
                 task.graph.tiles[i] = filled.clone();
             }
         }
 
-        // Reconstrain tiles
-        let mut stack: Vec<usize> = (0..task.graph.tiles.len()).collect();
-        while let Some(index) = stack.pop() {
-            for i in 0..task.graph.neighbors[index].len() {
-                // propagate changes
-                let neighbor = task.graph.neighbors[index][i];
-                if task.propagate(index, neighbor) {
-                    stack.push(neighbor.index);
-                    if task.graph.tiles[neighbor.index].count_bits() == 0 {
-                        panic!(
-                            "Contradiction found while backtracking, this should never happen{}",
-                            collapsed_index
-                        );
+        let heuristic = match &task.settings.backtracking {
+            BacktrackingSettings::Disabled => return Err(anyhow!("Backtracking disabled")),
+            BacktrackingSettings::Enabled { heuristic, .. } => heuristic,
+        };
+
+        // decide how many steps to backtrack based on the heuristic
+        let mut steps = match heuristic {
+            BacktrackingHeuristic::Standard => 0,
+            BacktrackingHeuristic::Fixed { distance } => *distance,
+            BacktrackingHeuristic::Proportional { proportion } => {
+                (history.len() as f32 * proportion) as usize
+            }
+            BacktrackingHeuristic::Degree { degree } => {
+                let mut steps = history.len();
+                for (index, (_, options)) in history.iter().rev().enumerate() {
+                    if options.count_bits() >= *degree {
+                        steps = index;
+                        break;
                     }
                 }
+                steps
+            }
+        };
+
+        // step back till we find a cell with more than one option
+        loop {
+            let (index, options) = history
+                .pop()
+                .ok_or(anyhow!("Ran out of options when backtracking"))?;
+
+            // clear cell
+            task.graph.tiles[index] = filled.clone();
+
+            if history.is_empty() {
+                // we have backtracked to the initial state, this is a random restart
+                break;
+            }
+
+            // if we have more than one option we can stop backtracking
+            if options.count_bits() > 0 && steps == 0 {
+                // this is to allow the cell to be backtracked past again
+                if options.count_bits() == 1 {
+                    history.push((index, WaveFunction::empty()));
+                }
+                task.graph.tiles[index] = options;
+                break;
+            }
+
+            if steps > 0 {
+                steps -= 1;
             }
         }
 
-        // Restore state of the most recent collapsed cell
-        task.graph.tiles[collapsed_index] = collapsed.options.clone();
-        let mut options = collapsed.options.clone();
-        // collapse cell
-        task.graph.tiles[collapsed_index]
-            .select_random(&mut rng, &tileset.get_weights())
-            .unwrap();
-        options = WaveFunction::difference(&options, &task.graph.tiles[collapsed_index]);
-        history.stack.push(collapsed_index);
-        history.decision_cells.push(HistoryCell {
-            index: history.stack.len() - 1,
-            options,
-        });
-        Ok(collapsed_index)
+        // re-propagate changes
+        return Ok((0..task.graph.tiles.len())
+            .filter(|i| task.graph.tiles[*i].count_bits() < task.tileset.tile_count())
+            .collect());
     }
 }
