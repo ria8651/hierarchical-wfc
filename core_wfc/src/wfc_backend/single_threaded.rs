@@ -62,7 +62,8 @@ impl SingleThreaded {
         let mut rng = SmallRng::seed_from_u64(task.seed);
         let weights = task.tileset.get_weights();
 
-        let mut time = Instant::now();
+        let start_time = Instant::now();
+        let mut last_update = Instant::now();
 
         // store initial state of all cells already constrained
         let mut history = Vec::new();
@@ -93,7 +94,7 @@ impl SingleThreaded {
                             }
 
                             // contradiction found
-                            stack = Self::backtrack(&mut history, task).unwrap();
+                            stack = Self::backtrack(&mut history, task)?;
                             break;
                         }
                     }
@@ -121,9 +122,15 @@ impl SingleThreaded {
                 return Ok(());
             }
 
+            if let Some(timeout) = task.settings.timeout {
+                if start_time.elapsed() >= timeout {
+                    return Err(anyhow!("Timeout"));
+                }
+            }
+
             if let Some(update_interval) = task.settings.progress_updates {
-                if time.elapsed().as_secs_f64() > update_interval {
-                    time = Instant::now();
+                if last_update.elapsed().as_secs_f64() > update_interval {
+                    last_update = Instant::now();
                     let update_channel = task.update_channel.as_ref().expect("No update channel");
                     if let Err(e) = update_channel.send((task.graph.clone(), task.metadata.clone()))
                     {
@@ -139,6 +146,19 @@ impl SingleThreaded {
         history: &mut Vec<(usize, WaveFunction)>,
         task: &mut WfcTask,
     ) -> Result<Vec<usize>> {
+        let (heuristic, restarts_left) = match &mut task.settings.backtracking {
+            BacktrackingSettings::Disabled => return Err(anyhow!("Backtracking disabled")),
+            BacktrackingSettings::Enabled {
+                heuristic,
+                restarts_left,
+            } => (heuristic, restarts_left),
+        };
+        if *restarts_left > 0 {
+            *restarts_left -= 1;
+        } else {
+            return Err(anyhow!("Ran out of restarts"));
+        }
+
         if history.is_empty() {
             return Err(anyhow!("No history found when backtracking"));
         }
@@ -151,17 +171,13 @@ impl SingleThreaded {
             }
         }
 
-        let heuristic = match &task.settings.backtracking {
-            BacktrackingSettings::Disabled => return Err(anyhow!("Backtracking disabled")),
-            BacktrackingSettings::Enabled { heuristic, .. } => heuristic,
-        };
-
         // decide how many steps to backtrack based on the heuristic
         let mut steps = match heuristic {
+            BacktrackingHeuristic::Restart => history.len(),
             BacktrackingHeuristic::Standard => 0,
             BacktrackingHeuristic::Fixed { distance } => *distance,
             BacktrackingHeuristic::Proportional { proportion } => {
-                (history.len() as f32 * proportion) as usize
+                (history.len() as f32 * *proportion) as usize
             }
             BacktrackingHeuristic::Degree { degree } => {
                 let mut steps = history.len();

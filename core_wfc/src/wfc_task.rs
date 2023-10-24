@@ -2,7 +2,7 @@ use crate::{tileset::*, wfc_graph::*};
 use bevy::prelude::*;
 use crossbeam::channel::Sender;
 use rand::Rng;
-use std::{any::Any, sync::Arc};
+use std::{any::Any, sync::Arc, time::Duration};
 
 pub type Metadata = Option<Arc<dyn Any + Send + Sync>>;
 
@@ -12,11 +12,13 @@ pub struct WfcSettings {
     pub backtracking: BacktrackingSettings,
     pub entropy: Entropy,
     pub progress_updates: Option<f64>,
+    pub timeout: Option<Duration>,
 }
 
 #[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(Default)]
 pub enum BacktrackingHeuristic {
+    Restart,
     Standard,
     Fixed { distance: usize },
     Degree { degree: usize },

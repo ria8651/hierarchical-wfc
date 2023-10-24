@@ -33,6 +33,7 @@ impl std::fmt::Debug for StdErr<f64> {
     }
 }
 
+#[allow(dead_code)]
 impl StdErr<f64> {
     /// T-Test formula for two samples:
     /// t = X_1 - X_2/S
@@ -52,7 +53,13 @@ pub struct RollingStdErr<T> {
     pub n: usize,
 }
 
+#[allow(dead_code)]
 impl RollingStdErr<f64> {
+    pub fn insert(&mut self, v: f64) {
+        self.increment(v);
+        self.commit();
+    }
+
     pub fn increment(&mut self, v: f64) {
         self.current += v;
     }

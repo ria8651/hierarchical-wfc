@@ -1,6 +1,6 @@
 use core_wfc::{
     wfc_backend,
-    wfc_task::{BacktrackingHeuristic, BacktrackingSettings, Entropy, WfcSettings},
+    wfc_task::{BacktrackingSettings, Entropy, WfcSettings},
     TileSet,
 };
 use grid_wfc::{
@@ -27,7 +27,6 @@ use crate::{chunked::ChunkedRunner, single::SingleRunner, stats_builder::SparseD
 
 const THREADS: usize = 10;
 const SIZE: usize = 64;
-const RESTARTS: usize = 25;
 
 const GRID_GRAPH_SETTINGS: GridGraphSettings = GridGraphSettings {
     height: SIZE,
@@ -41,10 +40,7 @@ const CHUNK_SETTINGS: ChunkSettings = ChunkSettings {
     merging: ChunkMerging::Mixed,
 };
 const WFC_SETTINGS: WfcSettings = WfcSettings {
-    backtracking: BacktrackingSettings::Enabled {
-        restarts_left: RESTARTS,
-        heuristic: BacktrackingHeuristic::Proportional { proportion: 0.7 },
-    },
+    backtracking: BacktrackingSettings::default(),
     entropy: Entropy::Shannon,
     progress_updates: None,
 };

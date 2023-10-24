@@ -34,6 +34,10 @@ name = "failure_rate"
 harness = false
 
 [[bench]]
+name = "backtracking"
+harness = false
+
+[[bench]]
 name = "standard"
 harness = false
 

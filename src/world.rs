@@ -211,7 +211,12 @@ fn handle_output(
 
     if let Some(world) = world.as_mut().as_mut() {
         if let Some((_, update_receiver)) = world.update_channel.clone() {
-            while let Ok((graph, metadata)) = update_receiver.try_recv() {
+            let mut update = None;
+            while let Ok(yep) = update_receiver.try_recv() {
+                update = Some(yep);
+            }
+
+            if let Some((graph, metadata)) = update {
                 match metadata.unwrap().downcast_ref().unwrap() {
                     TaskData::Chunked { chunk, .. } => {
                         world.merge_chunk(*chunk, graph);
@@ -286,6 +291,10 @@ fn handle_output(
                 render_world_event.send(RenderUpdateEvent);
             }
             TaskData::Single { size } => {
+                if error.is_err() {
+                    error!("Error while generating world: {:?}", error);
+                }
+
                 // Note: Assumes that the graph is a grid graph with a standard ordering
                 let graph = task.graph;
                 let mut new_world =
