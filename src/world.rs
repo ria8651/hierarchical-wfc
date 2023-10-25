@@ -116,6 +116,16 @@ fn handle_events(
                     true => GenerationMode::Deterministic,
                     false => GenerationMode::NonDeterministic,
                 };
+
+                backends.multithreaded = multithreaded;
+                let backend: &mut dyn Backend = if multithreaded {
+                    &mut backends.multi_threaded
+                } else {
+                    &mut backends.single_threaded
+                };
+
+                backend.clear();
+
                 let start_chunks = new_world.start_generation(generation_mode);
                 let update_channel = new_world.update_channel.as_ref().map(|c| c.0.clone());
                 for (chunk, chunk_type) in start_chunks {
@@ -135,15 +145,6 @@ fn handle_events(
                         settings: wfc_settings.clone(),
                         update_channel: update_channel.clone(),
                     };
-
-                    backends.multithreaded = multithreaded;
-                    let backend: &mut dyn Backend = if multithreaded {
-                        &mut backends.multi_threaded
-                    } else {
-                        &mut backends.single_threaded
-                    };
-
-                    backend.clear();
 
                     new_world.outstanding += 1;
                     backend.queue_task(task).unwrap();
