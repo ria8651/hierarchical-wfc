@@ -8,9 +8,15 @@ use std::{
     time::Duration,
 };
 
+pub struct CompareResult {
+    pub std_dev: f64,
+    pub abs_avg: f64,
+    pub count: f64,
+}
+
 pub trait SparseDistribution<K> {
     fn reasonable_keys(&self) -> HashSet<K>;
-    fn compare(&self, other: &Self) -> f64;
+    fn compare(&self, other: &Self) -> CompareResult;
 }
 
 impl<K: Eq + Hash + Clone + std::fmt::Debug> SparseDistribution<K> for HashMap<K, StdErr<f64>> {
@@ -26,13 +32,15 @@ impl<K: Eq + Hash + Clone + std::fmt::Debug> SparseDistribution<K> for HashMap<K
         }))
     }
 
-    fn compare(&self, other: &Self) -> f64 {
+    fn compare(&self, other: &Self) -> CompareResult {
         let a_keys = self.reasonable_keys();
         let b_keys = other.reasonable_keys();
         let keys = a_keys.intersection(&b_keys);
 
-        let mut count = 0.0;
-        let mut avg = 0.0;
+        let count = keys.clone().count() as f64;
+        let sqrt_count = count.sqrt();
+        let mut std_dev = 0.0;
+        let mut abs_avg = 0.0;
         // print!("[");
 
         for k in keys {
@@ -40,18 +48,21 @@ impl<K: Eq + Hash + Clone + std::fmt::Debug> SparseDistribution<K> for HashMap<K
             let b = other.get(k).unwrap();
 
             // println!("{:.2} {:.2}: {:.4}", a.n, b.n, a.t_test(b));
-            avg += a.t_test(b).abs();
-            // print!("({:?}, {}),", k, a.t_test(b));
-
-            count += 1.0;
+            let t = a.t_test(b);
+            std_dev += t / sqrt_count;
+            abs_avg += t.abs() / count;
         }
         // print!("]");
 
         std::thread::sleep(Duration::from_secs(1));
 
-        avg /= count;
-        println!("avg t-test: {avg:.4} ({count} features)");
-        avg
+        let abs_avg = abs_avg;
+        println!("avg t = {abs_avg:.3}, d = {std_dev:.3} ({count} features)");
+        CompareResult {
+            std_dev,
+            abs_avg,
+            count,
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 use core_wfc::{
     wfc_backend,
-    wfc_task::{BacktrackingSettings, Entropy, WfcSettings},
+    wfc_task::{BacktrackingHeuristic, BacktrackingSettings, Entropy, WfcSettings},
     TileSet,
 };
 use grid_wfc::{
@@ -40,9 +40,13 @@ const CHUNK_SETTINGS: ChunkSettings = ChunkSettings {
     merging: ChunkMerging::Mixed,
 };
 const WFC_SETTINGS: WfcSettings = WfcSettings {
-    backtracking: BacktrackingSettings::default(),
+    backtracking: BacktrackingSettings::Enabled {
+        restarts_left: 100,
+        heuristic: BacktrackingHeuristic::Degree { degree: 3 },
+    },
     entropy: Entropy::Shannon,
     progress_updates: None,
+    timeout: None,
 };
 
 const SINGLE_SETTINGS: SingleSettings = SingleSettings {
@@ -77,6 +81,12 @@ pub fn main() {
             "single",
             "pair",
             "quad",
+            "single_std_dev",
+            "pair_std_dev",
+            "quad_std_dev",
+            "single_count",
+            "pair_count",
+            "quad_count",
         ])
         .unwrap();
 
@@ -210,9 +220,15 @@ pub fn main() {
                         &format!("{chunk_size}"),
                         &format!("{overlap}"),
                         &format!("{discard}"),
-                        &format!("{t_single}"),
-                        &format!("{t_pair}"),
-                        &format!("{t_quad}"),
+                        &format!("{}", t_single.abs_avg),
+                        &format!("{}", t_pair.abs_avg),
+                        &format!("{}", t_quad.abs_avg),
+                        &format!("{}", t_single.std_dev),
+                        &format!("{}", t_pair.std_dev),
+                        &format!("{}", t_quad.std_dev),
+                        &format!("{}", t_single.count),
+                        &format!("{}", t_pair.count),
+                        &format!("{}", t_quad.count),
                     ])
                     .unwrap();
             }
