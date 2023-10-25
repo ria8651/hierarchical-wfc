@@ -1,3 +1,4 @@
+use bevy::utils::Instant;
 use core_wfc::{
     wfc_backend::SingleThreaded,
     wfc_task::{BacktrackingHeuristic, BacktrackingSettings, WfcSettings},
@@ -14,8 +15,6 @@ use std::{path::Path, sync::Arc, time::Duration};
 mod stats;
 mod utils;
 
-const ITTERATIONS: usize = 20;
-
 fn main() {
     let tileset: Arc<dyn TileSet> =
         Arc::new(MxgmnTileset::new(Path::new("assets/mxgmn/Summer.xml"), None).unwrap());
@@ -24,10 +23,10 @@ fn main() {
     let mut seed: u64 = rng.gen();
 
     let mut csv = Writer::from_path("benches/data/backtracking.csv").unwrap();
-    csv.write_record(["tileset", "size", "heuristic", "time", "std_err"])
+    csv.write_record(["tileset", "size", "heuristic", "time"])
         .unwrap();
 
-    for size in [32, 64, 96] {
+    for (size, itterations, timeout) in [(32, 20, 1.0), (64, 10, 20.0), (96, 5, 30.0)] {
         for heuristic in [
             BacktrackingHeuristic::Restart,
             BacktrackingHeuristic::Standard,
@@ -35,7 +34,8 @@ fn main() {
             BacktrackingHeuristic::Proportional { proportion: 0.2 },
             BacktrackingHeuristic::Fixed { distance: 500 },
         ] {
-            let time: (f64, f64) = match utils::time_process(ITTERATIONS, || -> bool {
+            for _ in 0..itterations {
+                let time = Instant::now();
                 let settings = GridGraphSettings {
                     height: size,
                     width: size,
@@ -51,10 +51,10 @@ fn main() {
                     metadata: None,
                     settings: WfcSettings {
                         backtracking: BacktrackingSettings::Enabled {
-                            restarts_left: 1000,
+                            restarts_left: 100000,
                             heuristic: heuristic.clone(),
                         },
-                        timeout: Some(Duration::from_secs_f32(20.0)),
+                        timeout: Some(Duration::from_secs_f32(timeout)),
                         ..Default::default()
                     },
                     update_channel: None,
@@ -63,31 +63,22 @@ fn main() {
                 let result = SingleThreaded::execute(&mut task);
                 seed += 1;
 
-                let output = result.is_ok();
                 if let Err(e) = result {
                     println!("Error during test: {:?}", e);
                 }
+                let time = time.elapsed().as_secs_f64();
 
-                output
-            }) {
-                Ok(time) => (time.n, time.s),
-                Err(e) => {
-                    println!("Error {:?}", e);
-                    (f64::NAN, f64::NAN)
-                }
-            };
+                println!("{:?}: {}", heuristic, time);
 
-            println!("{:?}: {} ± {}", heuristic, time.0, time.1);
-
-            csv.write_record(&[
-                "Summer",
-                &format!("{}", size),
-                &format!("{:?}", heuristic).split(" ").next().unwrap(),
-                &format!("{}", time.0),
-                &format!("{}", time.1),
-            ])
-            .unwrap();
-            csv.flush().unwrap();
+                csv.write_record(&[
+                    "Summer",
+                    &format!("{}", size),
+                    &format!("{:?}", heuristic).split(" ").next().unwrap(),
+                    &format!("{}", time),
+                ])
+                .unwrap();
+                csv.flush().unwrap();
+            }
         }
     }
 }
