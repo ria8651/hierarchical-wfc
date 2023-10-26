@@ -17,7 +17,7 @@ const DISCARD: usize = 1;
 
 fn main() {
     let tileset: Arc<dyn TileSet> =
-        Arc::new(MxgmnTileset::new(Path::new("assets/mxgmn/summer.xml"), None).unwrap());
+        Arc::new(MxgmnTileset::new(Path::new("assets/mxgmn/Summer.xml"), None).unwrap());
     let mut backend = MultiThreaded::new(THREADS);
 
     let mut rng = rand::thread_rng();
@@ -29,6 +29,7 @@ fn main() {
         Exterior,
         Ours,
         OursDiscard,
+        OursDeterministic,
     }
 
     for generation_type in [
@@ -36,6 +37,7 @@ fn main() {
         ChunkingTests::Exterior,
         ChunkingTests::Ours,
         ChunkingTests::OursDiscard,
+        ChunkingTests::OursDeterministic,
     ]
     .into_iter()
     {
@@ -50,11 +52,17 @@ fn main() {
             let merging = match generation_type {
                 ChunkingTests::Interior => ChunkMerging::Interior,
                 ChunkingTests::Exterior => ChunkMerging::Full,
-                ChunkingTests::Ours | ChunkingTests::OursDiscard => ChunkMerging::Mixed,
+                ChunkingTests::Ours
+                | ChunkingTests::OursDiscard
+                | ChunkingTests::OursDeterministic => ChunkMerging::Mixed,
             };
             let discard = match generation_type {
-                ChunkingTests::OursDiscard => DISCARD,
+                ChunkingTests::OursDiscard | ChunkingTests::OursDeterministic => DISCARD,
                 _ => 0,
+            };
+            let generation_mode = match generation_type {
+                ChunkingTests::OursDeterministic => GenerationMode::Deterministic,
+                _ => GenerationMode::NonDeterministic,
             };
 
             let (_, err) = single_shot::generate_world(
@@ -62,7 +70,7 @@ fn main() {
                 &mut backend,
                 settings,
                 seed,
-                GenerationMode::NonDeterministic,
+                generation_mode,
                 ChunkSettings {
                     merging,
                     size: CHUNK_SIZE,
@@ -70,7 +78,9 @@ fn main() {
                     discard,
                     ..Default::default()
                 },
-                WfcSettings::default(),
+                WfcSettings {
+                    ..Default::default()
+                },
             );
 
             failures += err.is_err() as usize;
