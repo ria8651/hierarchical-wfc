@@ -66,28 +66,31 @@ The 2D chunking implementation can generate outputs using both standard (`Genera
       Approach used when extracting and merging chunks, <code>Mixed</code> is optimal, other options for debugging purposes. 
     </td>
   </tr>
-    <tr>
+  <tr>
     <td><code>wfc_settings.backtracking</code></td> 
     <td>
-      Enable backtracking, the algorithm will backtrack and try different options instead of failing. <code>restarts_left</code> sets the maximum number of times the algorithm can backtrack. 
+      Enable backtracking, the algorithm will backtrack and try different options instead of failing. <code>restarts_left</code> sets the maximum number of times the algorithm can backtrack. Change which heuristic is used when backtracking with the <code>heuristics</code> field.
     </td>
   </tr>
-  </tr>
-    <tr>
+  <tr>
     <td><code>wfc_settings.entropy</code></td> 
     <td>
       Method used to calculate tile entropy when choosing which cell to collapse. When using tilesets with weights <code>Shannon</code> should be prefered, <code>TileCount</code> is fastest.
     </td>
   </tr>
-  </tr>
-    <tr>
+  <tr>
     <td><code>wfc_settings.progress_updates</code></td> 
     <td>
       Set to <code>Some</code> with a timeout (such as <code>0.05</code> seconds) to show the generation progress live. Useful for visulising backtracking.
-  </td>
+    </td>
   </tr>
+  <tr>
+    <td><code>wfc_settings.timeout</code></td> 
+    <td>
+      Optional timeout, generation fails after this time is elapsed.
+    </td>
   </tr>
-    <tr>
+  <tr>
     <td><code>draw_gizmos</code></td> 
     <td>
       Show debbuging gizmos such as chunk boundaries. 
@@ -122,6 +125,8 @@ For the `chunking` prototype:
 
 ## Compiling and Running
 
+To compile and run first install [rust](https://www.rust-lang.org/tools/install).
+
 The 2D implementation of WFC with our chunking approaches can be built and run with:
 
 ```bash
@@ -142,3 +147,21 @@ To switch rust to the nightly toolchain use:
 ```bash
 $ rustup default nightly
 ```
+
+## Benchmarks
+
+The `main` branch of the repo contains benchmarks located in the `benches` folder, python data processing code, raw data (`benches/data`), and figures (`benches/output`). To run the benchmarks, first install [rust](https://www.rust-lang.org/tools/install), then the benchmarks can be run from the root directory of the project with:
+
+```bash
+cargo bench --bench stats
+cargo bench --bench chunking
+cargo bench --bench failure_rate
+cargo bench --bench backtracking
+```
+
+| Benchmark      | Description                                                   |
+| -------------- | ------------------------------------------------------------- |
+| `stats`        | Test for biases when using chunking.                          |
+| `chunking`     | Performance of chunking vs standard WFC.                      |
+| `failure_rate` | Tests the failure rate of different chunking methods.         |
+| `backtracking` | Evaluates the performance of various backtracking heuristics. |
